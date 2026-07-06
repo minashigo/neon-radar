@@ -1,0 +1,208 @@
+###############################################################################
+# NEON RADAR — ЕТАП 5A: ПІДСУМКИ
+# "Decoupling + Explain + Walk-forward Backtester"
+###############################################################################
+
+## Мета етапу
+
+Перевірити архітектурні гіпотези (factor crowding, Score/Confidence
+coupling) ЗАМІСТЬ того, щоб робити рефакторинг на основі теорії.
+Етап 5A = вимірювання на поточній системі. Refactor на фактори —
+окремий етап, що почнеться з аналізу метрик.
+
+## Що реалізовано
+
+### 1. Decoupling Score і Confidence (aggregator.py)
+
+**Було:**
+```
+contribution = value × confidence × weight
+```
+Confidence змішувалась у формулі напрямку.
+
+**Стало:**
+```
+value = sum(signal.weight × signal.value) / total_weight
+confidence = sum(signal.weight × signal.confidence) / total_weight
+```
+
+Плюс новий параметр `min_confidence`:
+- Сигнали з confidence < min_confidence виключаються з обчислення Score
+- Запобігає ситуації "value=1.0, confidence=0.2" → впевнений Long,
+  який може бути хибним
+
+**Результат:**
+- Score: чистий напрямок + сила
+- Confidence: окрема вісь довіри
+- Користувач бачить "bullish but low confidence" vs
+  "weak bullish but high agreement" як різні ситуації
+
+### 2. FactorBreakdown + breakdown() method
+
+Кожен `AnalysisResult` тепер має метод `breakdown()` що повертає
+per-signal пояснення:
+
+```python
+@dataclass(frozen=True)
+class FactorBreakdown:
+    factor: str          # "ema_trend"
+    contribution: float  # value × weight (signed)
+    weight: float        # 0.30
+    value: float         # 0.90
+    confidence: float    # 0.80
+    description: str     # "EMA20 above EMA50"
+```
+
+### 3. CLI `--explain` режим
+
+```
+$ neon-radar scan --explain
+SYMBOL      SCORE  CONF  BIAS
+BTCUSDT     +0.45  0.72  BULLISH
+    ├─ ema_trend          contrib +0.27  value +0.90  weight 0.30  conf 0.80
+    ├─ rsi_momentum       contrib +0.10  value +0.40  weight 0.25  conf 0.70
+    ├─ volume_confirmation contrib +0.17  value +0.50  weight 0.25  conf 0.60
+    └─ volatility_filter   contrib  0.00  value  0.00  weight 0.20  conf 0.85
+```
+
+### 4. WalkForwardBacktester
+
+Архітектурно:
+- `domain/scoring/backtest.py` — value objects (BacktestResult,
+  EvaluationResult, CorrelationMatrix, ConfidenceCalibration, ...)
+- `application/services/backtester.py` — orchestrator
+
+Алгоритм walk-forward (без data leakage):
+```
+For each day T in [start, end]:
+    1. Slice klines до T (history)
+    2. Compute Score (як scan робить сьогодні)
+    3. Record signal + confidence
+    4. Знайти реальну ціну через T + horizon (1d, 3d, 7d)
+    5. Hit = (direction сигналу == direction ціни)
+```
+
+Метрики, які збираються:
+- **Hit rate** per horizon (1d, 3d, 7d)
+- **Avg return** when Long/Short signal
+- **Per-rule hit rate** (коли правило голосувало, чи було right)
+- **Rule correlation** (Pearson — для factor crowding detection)
+- **Confidence calibration** (bucket → hit rate)
+- **Recommendations** (heuristics: "EMA+RSI correlate 0.78, combine")
+
+### 5. CLI `backtest` subcommand
+
+```
+$ neon-radar backtest --start 2024-01-01 --end 2024-12-31 \
+                       --symbols BTCUSDT,ETHUSDT --timeframe 1d
+
+Walk-forward backtest: 2024-01-01 → 2024-12-31 (N evaluations)
+Timeframe: 1d  |  Horizons: (1, 3, 7)
+
+=== Overall hit rate ===
+horizon       hit%
+1d            54.3%
+3d            58.7%
+7d            62.1%
+
+=== Avg return when Long vs Short (1d horizon) ===
+  Long:   +0.21%  (n=287)
+  Short:  -0.15%  (n=89)
+
+=== Per-rule hit rate (1d horizon, when rule voted) ===
+rule                       n_votes    hit_rate   avg|val|
+ema_trend                     287       61.0%      0.42
+rsi_momentum                  234       55.0%      0.28
+volume_confirmation            89       57.0%      0.35
+
+=== Rule correlation (Pearson of daily signal values) ===
+                 ema_trend  rsi_momentum  volume_confirmation
+ema_trend          1.00        0.78           0.32
+rsi_momentum       0.78        1.00           0.41
+volume_confirmation 0.32       0.41           1.00
+
+=== Recommendations ===
+1. ema_trend and rsi_momentum correlate at 0.78 — 
+   consider combining into a single factor.
+2. Confidence is calibrated: 48% hit rate at low conf 
+   vs 64% at high conf.
+```
+
+Також `--output json` для подальшого аналізу.
+
+## Метрики
+
+| Метрика | Значення |
+|---------|----------|
+| Тестів | 299 (+27 нових) |
+| Файлів створено | 4 (backtest.py, backtester.py, 2 тести) |
+| Файлів змінено | 5 (aggregator, value_objects, scoring_models, cli, engine) |
+| Ruff | чисто ✓ |
+| Циркулярні імпорти | виправлені (lazy imports) |
+
+## Архітектурні рішення цього етапу
+
+### 1. Lazy imports для indicator_spec у правилах
+
+Правила використовують `IndicatorSpec` в `required_indicators()`, але
+імпорт з `application.services.indicator_pipeline` створював
+circular import. Вирішення — lazy import всередині методу.
+
+### 2. WalkForwardBacktester вимагає явно переданих rules
+
+```python
+backtester = WalkForwardBacktester(
+    exchange=client,
+    scoring_config=cfg,
+    rules=(EMATrendRule(...), RSIMomentumRule(...), ...),  # обов'язково
+)
+```
+
+Це зроблено для:
+- Зручності тестування (передаємо mock rules)
+- Явності (rules не "магічні" — завжди видно, що використовується)
+
+CLI об'єднує: читає scoring_rules.json через `load_rules()`, передає
+в backtester.
+
+### 3. Backtester pre-fetches дані
+
+Для кожного символу робиться ОДИН запит `get_klines` з великим
+`limit=1500`. Далі все відбувається in-memory. Це запобігає N+1 API
+запитам.
+
+### 4. Heuristic recommendations
+
+Backtester не приймає рішення — він видає метрики + кілька евристичних
+рекомендацій. Фінальне рішення про refactor — за людиною, яка бачить
+метрики.
+
+## Що НЕ зроблено (свідомо)
+
+- ❌ Refactor на фактори (відкладено — залежить від метрик)
+- ❌ Додаткові правила (DerivativesFactor, StructureFactor)
+- ❌ Multi-timeframe scoring
+- ❌ WebSocket streaming
+- ❌ Persistent scoring history
+
+## Що далі
+
+Користувач запускає `neon-radar backtest` на реальних даних. Отримує
+метрики. На основі метрик вирішує:
+
+**Якщо factor crowding підтверджується** (correlation > 0.7):
+- Окремий етап: refactor на фактори
+
+**Якщо factor crowding непідтверджується** (correlation < 0.5):
+- Можна тюнинг ваг без зміни архітектури
+- Можна додавати нові правила (orthogonal до існуючих)
+
+**Якщо hit rate < 52%**:
+- Проблема не в архітектурі, а в якості самих rules
+- Потрібно переглянути правила (або замінити на інші)
+
+**Якщо confidence calibration погана**:
+- Confidence — не інформативна вісь
+- Треба переглянути, як правила обчислюють confidence
+
+Все це вирішується на основі даних, не теорії.

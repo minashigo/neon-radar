@@ -1,0 +1,49 @@
+{
+  "$schema": "./docs/config.schema.json",
+
+  "_comment": "Neon Radar configuration. Copy this file to config.json and edit.",
+
+  "symbols": [
+    { "symbol": "BTCUSDT", "enabled": true, "note": "Majors" },
+    { "symbol": "ETHUSDT", "enabled": true },
+    { "symbol": "SOLUSDT", "enabled": true },
+    { "symbol": "BNBUSDT", "enabled": true },
+    { "symbol": "XRPUSDT", "enabled": true },
+    { "symbol": "ADAUSDT", "enabled": false, "note": "Disabled for testing" }
+  ],
+
+  "timeframes": ["1d", "4h"],
+
+  "refresh": {
+    "interval_seconds": 60,
+    "auto_refresh": true
+  },
+
+  "api": {
+    "base_url": "https://fapi.binance.com",
+    "timeout_seconds": 10.0,
+    "max_retries": 3,
+    "retry_backoff_seconds": 1.5,
+    "rate_limit_per_minute": 1200
+  },
+
+  "cache": {
+    "enabled": true,
+    "directory": "~/.neon_radar/cache",
+    "ttl_seconds": 300
+  },
+
+  "ui": {
+    "theme": "neon_dark",
+    "default_timeframe": "1d",
+    "window_size": [1600, 1000],
+    "show_volume_pane": true,
+    "default_candles": 200
+  },
+
+  "logging": {
+    "level": "INFO",
+    "file": null,
+    "json_format": false
+  }
+}

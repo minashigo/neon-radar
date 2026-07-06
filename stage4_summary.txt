@@ -1,0 +1,308 @@
+###############################################################################
+# NEON RADAR — ЕТАП 4: ПІДСУМКИ
+# "Scoring MVP + CLI — перший реально корисний інструмент"
+###############################################################################
+
+## 1. Передумови та зміна пріоритизації
+
+Перед Етапом 4 ви поставили правильне питання:
+"Чому Scoring System винесений аж на Етап 7, а не реалізується відразу
+після шару даних та індикаторів?"
+
+Моя відповідь: це був антипаттерн "bottom-up". Я будував фундамент
+(domain → indicators → UI → features), забувши, що цінність Neon Radar —
+саме в scoring. Без scoring UI — це TradingView, нічого особливого.
+
+**Переглянутий порядок:**
+- Етап 1-3: фундамент (✅ зроблено)
+- Етап 4: Scoring MVP + CLI ← ВИ ТУТ (✅ зроблено)
+- Етап 5: Scoring refinement (більше правил, тюнінг ваг)
+- Етап 6: UI skeleton (MainWindow, chart)
+- Етап 7: UI + scoring integration (Score panel у UI)
+- Етап 8: Polishing (тема, шорткати, help)
+
+Перший реально корисний MVP = CLI з таблицею оцінок. Готовий зараз.
+
+## 2. Що реалізовано
+
+### 2.1 Scoring engine (domain/scoring/)
+
+Пакет domain/scoring/ замінив старий domain/scoring.py:
+
+**Value objects** (value_objects.py):
+- `EvidenceItem(key, value)` — пара для UI
+- `Signal(name, weight, value, confidence, description, evidence)`
+- `Score(value, confidence, long_score, short_score, contributing_signals)`
+- `AnalysisResult(score, signals, summary, computed_at, market_state=None)`
+
+**Абстракції** (factor_rule.py, registry.py):
+- `FactorRule` ABC — кожне правило має name, weight, evaluate(state)
+- `RuleDescription(name, display_name, summary, default_params)`
+- `RuleRegistry` — Open/Closed registry для правил
+
+**Glue** (engine.py, aggregator.py):
+- `ScoringEngine` ABC
+- `RuleBasedEngine(rules)` — concrete, evaluates rules, aggregates
+- `aggregate(signals)` — pure функція, обчислює Score
+
+**Формула агрегації:**
+```
+contribution_i = signal.value * signal.confidence * signal.weight
+long_score   = sum(contribution_i for value > 0) / total_weight
+short_score  = sum(|contribution_i| for value < 0) / total_weight
+value        = long_score - short_score              # [-1, +1]
+confidence   = sum(weight * confidence) / total_weight  # [0, 1]
+```
+
+### 2.2 Чотири вбудовані правила (domain/scoring/rules/)
+
+1. **EMATrendRule** (вага 0.30)
+   - Порівнює EMA(fast) vs EMA(slow)
+   - Bullish якщо fast > slow на більше ніж threshold_pct
+   - Magnitude росте з gap size (cap 5%)
+
+2. **RSIMomentumRule** (вага 0.25)
+   - RSI > bull_high → 0 (overbought, low confidence)
+   - RSI в [bull_low, bull_high] → +1 (bullish momentum)
+   - RSI в [bear_low, bear_high] → -1 (bearish momentum)
+   - RSI < bear_low → 0 (oversold, low confidence)
+   - Default: bear_low=30, bear_high=49, bull_low=51, bull_high=70
+
+3. **VolumeConfirmationRule** (вага 0.25)
+   - Volume > 1.5x avg → strong (з confidence 0.8), напрямок = напрямок свічки
+   - Volume < 0.5x avg → weak (neutral, confidence 0.5)
+   - Інакше → None (немає opinion)
+
+4. **VolatilityFilterRule** (вага 0.20)
+   - ATR/price < min_atr_pct → low confidence (0.3)
+   - ATR/price > max_atr_pct → low confidence (0.3)
+   - Comfort zone → high confidence (0.9)
+   - НЕ додає до напрямку (value завжди 0), тільки впливає на confidence
+
+**Принцип кожного правила:**
+- Декларує які індикатори потрібні (`required_indicators()`)
+- Має classmethod `description()` для CLI/list-rules
+- Конструктор приймає **kwargs, всі параметри валідуються
+
+### 2.3 Indicator changes
+
+Для підтримки кількох EMA з різними періодами (потрібно EMATrend):
+
+**`Indicator.compute(series, *, name=None)`** — тепер приймає опціональний
+override для `IndicatorSeries.name`. Якщо передано — використовується
+замість класового `NAME`.
+
+**`IndicatorSpec.tag`** — опціональний суфікс. `IndicatorSpec(name="ema",
+params={"period": 20}, tag="20")` → серія зветься `"ema_20"`.
+
+**`compute_indicators()`** використовує `spec.series_name` для
+передачі в `Indicator.compute(..., name=...)`.
+
+Це дозволяє мати кілька індикаторів одного класу з різними параметрами
+в одному MarketState, кожен з унікальним ім'ям.
+
+### 2.4 Config (config/scoring_*)
+
+**scoring_models.py** — Pydantic:
+```python
+RuleSpec(name: str, enabled: bool = True, weight: float = 0.25, params: dict)
+ScoringRulesConfig(rules: list[RuleSpec], min_confidence: float = 0.0)
+```
+- name нормалізується в lowercase
+- extra="forbid" — невідомі поля відхиляються
+- params — вільний dict, валідується конструктором правила
+
+**scoring_loader.py** — `load_rules(path)`:
+- Перевіряє файл існує
+- Парсить JSON, видаляє meta-ключі ($schema, _*)
+- Валідує через Pydantic
+- Для кожного rule spec: RuleRegistry.get(name) → instantiate
+- Помилки → ConfigError (узгоджено з config loader)
+
+**scoring.example.json** — дефолтні параметри всіх 4 правил.
+
+### 2.5 CLI (presentation/cli.py)
+
+**Дві підкоманди:**
+
+`neon-radar list-rules`
+```
+Registered scoring rules:
+
+  ema_trend
+    display:  EMA Trend
+    summary:  Bullish when fast EMA is above slow EMA
+    defaults: {'fast_period': 20, 'slow_period': 50, 'threshold_pct': 0.005}
+
+  rsi_momentum
+    ...
+
+Registered indicators:
+  atr                  kind=meta
+  bollinger            kind=overlay
+  ema                  kind=overlay
+  macd                 kind=oscillator
+  rsi                  kind=oscillator
+  sma                  kind=overlay
+  volume_ma            kind=meta
+```
+
+`neon-radar scan`
+```
+SYMBOL      SCORE  CONF  BIAS      FACTORS
+BTCUSDT     +0.45  0.72  BULLISH   ema_trend:+, rsi_momentum:+, volume_confirmation:+, volatility_filter:0
+ETHUSDT     -0.32  0.68  BEARISH   ema_trend:-, rsi_momentum:-, volume_confirmation:0, volatility_filter:0
+```
+
+**Можливості CLI:**
+- Кольорові BULLISH/BEARISH/NEUTRAL
+- Сортування за score (desc)
+- ANSI якщо stdout — TTY (`--no-color` для відключення)
+- Послідовне завантаження (щоб не перевищити Binance rate limit)
+- Параметри: `--config`, `--scoring`, `--timeframe`, `--limit`, `--log-level`
+
+**Що відбувається при `scan`:**
+1. Завантажує config.json + scoring_rules.json
+2. Для кожного символу:
+   - `client.get_klines(symbol, timeframe, limit=300)`
+   - Збирає IndicatorSpec з усіх правил
+   - `compute_indicators(series, specs)` → IndicatorSeries з правильними іменами
+   - Створює MarketState з усіма індикаторами
+   - `RuleBasedEngine(rules).evaluate(state)` → AnalysisResult
+3. Сортує за score, друкує таблицю
+
+## 3. Метрики
+
+| Метрика | Значення |
+|---------|----------|
+| Тестів | 270 (було 212, +58) |
+| Файлів створено | 11 нових |
+| Файлів змінено | 8 |
+| Ruff | чисто ✓ |
+| Рядків коду | ~1100 (domain/scoring/ + cli + tests + indicator changes) |
+| Залежностей | 0 нових |
+
+## 4. Архітектурні рішення в цьому етапі
+
+### 4.1 Open/Closed для правил
+
+Додати нове правило = один новий файл + один імпорт в `__init__.py`.
+Жодних змін в engine, aggregator, CLI.
+
+```python
+@RuleRegistry.register("my_new_rule")
+class MyRule(FactorRule):
+    @classmethod
+    def description(cls): ...
+    @classmethod
+    def required_indicators(cls): ...
+    def __init__(self, *, name=None, weight=0.2, ...): ...
+    def evaluate(self, state): ...
+```
+
+### 4.2 Агрегація не використовує pandas/numpy
+
+Чиста арифметика на dataclasses. Швидко, прозоро, тестується без
+залежностей. Формула виражається у 10 рядках Python.
+
+### 4.3 Volatility filter зменшує confidence, не напрямок
+
+Ключове рішення: VolatilityFilterRule має value=0, але confidence=0.3
+або 0.9. Це дозволяє йому "голосувати" проти сумнівних угод через
+зниження confidence без впливу на напрямок score.
+
+### 4.4 IndicatorSeries.name = унікальний ідентифікатор
+
+Замість того, щоб кожен indicator class мав унікальне ім'я, дозволяємо
+runtime override. EMA(20) і EMA(50) обидва реєструються як "ema",
+але в MarketState зберігаються як "ema_20" і "ema_50".
+
+### 4.5 CLI як перший presentation
+
+Замість того, щоб одразу будувати Qt UI, CLI дає:
+- Негайну цінність (таблиця оцінок)
+- Швидке ітерування на scoring rules без UI-змін
+- Можливість писати backtesting tools пізніше
+
+## 5. Файли
+
+**Domain (нові):**
+- src/neon_radar/domain/scoring/__init__.py
+- src/neon_radar/domain/scoring/value_objects.py
+- src/neon_radar/domain/scoring/factor_rule.py
+- src/neon_radar/domain/scoring/registry.py
+- src/neon_radar/domain/scoring/aggregator.py
+- src/neon_radar/domain/scoring/engine.py
+- src/neon_radar/domain/scoring/rules/__init__.py
+- src/neon_radar/domain/scoring/rules/ema_trend.py
+- src/neon_radar/domain/scoring/rules/rsi_momentum.py
+- src/neon_radar/domain/scoring/rules/volume_confirmation.py
+- src/neon_radar/domain/scoring/rules/volatility_filter.py
+
+**Config (нові):**
+- src/neon_radar/config/scoring_models.py
+- src/neon_radar/config/scoring_loader.py
+- config/scoring.example.json
+
+**Presentation (нові):**
+- src/neon_radar/presentation/cli.py
+- src/neon_radar/presentation/app.py (placeholder для Stage 6)
+
+**Domain (змінено):**
+- src/neon_radar/domain/indicators/base.py              — compute accepts name=
+- src/neon_radar/domain/indicators/{sma,ema,rsi,macd,bollinger,atr,volume_ma}.py
+- src/neon_radar/application/services/indicator_pipeline.py  — IndicatorSpec.tag
+
+**Tests (нові):**
+- tests/test_scoring_rules.py           22 тести
+- tests/test_scoring_aggregator.py      7 тестів
+- tests/test_scoring_engine.py          5 тестів
+- tests/test_scoring_models.py          10 тестів
+- tests/test_cli.py                     12 тестів
+
+**Tests (змінено):**
+- tests/test_scoring.py                 _StubRule тепер має description()
+- tests/test_indicators_base.py         _restore_registry fixture
+
+## 6. Як запустити
+
+```bash
+# Встановити залежності (один раз)
+pip install -e ".[dev]"
+
+# Створити конфіги
+cp config.example.json config.json
+cp config/scoring.example.json scoring_rules.json
+
+# Подивитись доступні правила
+neon-radar list-rules
+
+# Запустити сканування (потребує інтернет)
+neon-radar scan
+
+# З іншими параметрами
+neon-radar scan --timeframe 4h --limit 500
+neon-radar scan --no-color --log-level INFO
+```
+
+## 7. Що далі
+
+**Етап 5: Scoring refinement** — додати ще правил (MACD cross, Bollinger
+squeeze, multi-timeframe alignment), backtesting можливість, тюнінг
+ваг через historical data.
+
+**Етап 6: UI skeleton** — MainWindow з QMainWindow, SymbolPanel, ChartWidget
+на pyqtgraph, IndicatorPanel.
+
+**Етап 7: UI + scoring integration** — Score panel у UI з real-time updates,
+клік на символ → одразу запускає scoring → показує результат.
+
+## 8. Що НЕ зроблено (свідомо)
+
+- ❌ Backtesting (Етап 5)
+- ❌ Multi-timeframe scoring (потребує більше індикаторів і правил)
+- ❌ Persistent scoring history (можна додати пізніше)
+- ❌ WebSocket real-time updates (потребує Binance WS + UI)
+- ❌ Telegram/Discord alerts (зовнішня інтеграція)
+
+Все це — майбутні етапи. Зараз MVP = CLI з таблицею, яка вже корисна.

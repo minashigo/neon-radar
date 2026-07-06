@@ -1,0 +1,367 @@
+###############################################################################
+# NEON RADAR — ЕТАП 5: ПРОПОЗИЦІЯ
+# "Вимірювання ефективності та підвищення якості сигналів"
+###############################################################################
+
+Цей документ — відповіді на 4 архітектурні питання щодо розвитку
+Scoring Engine перед початком Етапу 5, і пропозиція щодо його обсягу.
+
+## Передмова
+
+Після Етапу 4 ми маємо працюючий MVP: CLI `neon-radar scan` видає
+таблицю оцінок для всіх символів з config.json. Але є три серйозні
+проблеми в поточному дизайні, які потребують вирішення ДО того, як
+ми додаємо більше правил або починаємо UI:
+
+1. Кореляція індикаторів (factor crowding)
+2. Змішування Score та Confidence в одній формулі
+3. Відсутність інструменту для об'єктивної оцінки якості сигналів
+
+Етап 5 фокусується на цих трьох проблемах. НЕ на додаванні нових
+правил — спочатку вимірюємо те, що маємо.
+
+## Питання 1: Незалежність факторів
+
+### Діагноз проблеми
+
+Поточні правила побудовані навколо індикаторів, а не факторів:
+
+```
+EMA(20/50)  ──►  EMATrendRule     ──►  Signal (Trend)
+MACD        ──►  ??? (поки немає)
+RSI         ──►  RSIMomentumRule ──►  Signal (Momentum)
+Volume MA   ──►  VolumeConfirmationRule ──►  Signal (Volume)
+ATR         ──►  VolatilityFilterRule ──►  Signal (Volatility)
+```
+
+Це створює **factor crowding** — фундаментальну проблему в quant finance:
+
+- EMA(20/50), MACD, RSI — це три різних способи виміряти ОДНУ
+  ринкову властивість (price momentum)
+- Вони математично корельовані: EMA20 > EMA50 майже завжди
+  відповідає MACD > 0
+- Коли вони голосують разом → score зростає не тому, що три різні
+  речі кажуть "так", а тому, що одна річ каже "так" тричі
+- Штучно завищена впевненість
+
+### Рішення: рефакторинг на фактори
+
+Архітектура "rule = indicator → signal" змінюється на
+"factor = concept → signal":
+
+```
+ЗАРАН (погано)                ПОТРІБНО (правильно)
+───────────────                ──────────────────────
+                               ┌─ EMA(20/50)
+EMATrendRule    ──► signal     │  MACD
+RSIMomentumRule ──► signal ──►│  Price action ──► TrendFactor   ──► signal
+VolumeConfRule  ──► signal     └─
+VolatilityRule  ──► signal     ┌─ Volume MA
+                               │  OBV (майбутнє) ──► VolumeFactor ──► signal
+                               └─
+                               ATR / BB-width     ──► VolatilityFactor ──► signal
+                               Funding, OI         ──► DerivativesFactor ──► signal
+                               Higher-TF EMA       ──► StructureFactor ──► signal
+```
+
+**Кожен фактор — один "експерт" з однією ринковою властивістю.**
+Всередині фактора може бути кілька індикаторів, але назовні фактор
+віддає ОДИН голос з однією вагою.
+
+### Переваги
+
+- Один фактор, одна вага → немає factor crowding
+- Кожен фактор можна незалежно валідувати (backtest)
+- Користувач бачить рівно N факторів, а не M індикаторів
+- Можна вимикати цілі фактори без зміни ваг
+
+### Як це впливає на поточні 4 правила
+
+З 4 правил, які зараз є:
+- EMATrendRule → частина нового TrendFactor (разом з MACD)
+- RSIMomentumRule → частина нового MomentumFactor
+- VolumeConfirmationRule → залишається окремим VolumeFactor
+- VolatilityFilterRule → залишається як фільтр confidence
+
+У новій архітектурі буде менше "правил", але кожне — більш осмислене.
+
+### Що з'являється в коді
+
+```python
+class FactorRule(FactorRule):
+    """Базовий клас для мульти-індикаторного фактора.
+    
+    На відміну від старого EMATrendRule, фактор може комбінувати
+    кілька індикаторів в один голос. Це вирішує factor crowding:
+    один концепт = одна вага.
+    """
+    
+    @classmethod
+    @abstractmethod
+    def required_indicators(cls) -> tuple[IndicatorSpec, ...]:
+        """Усі індикатори, які потрібні фактору."""
+    
+    @abstractmethod
+    def evaluate(self, state: MarketState) -> Signal | None:
+        """Об'єднати індикатори в ОДИН signal."""
+```
+
+## Питання 2: Explainability
+
+### Діагноз
+
+Дані вже є: кожен Signal має value, weight, confidence, evidence.
+Але presentation layer цього не показує.
+
+### Рішення: CLI `--explain` режим
+
+```
+$ neon-radar scan --explain
+SYMBOL      SCORE  CONF  BIAS
+BTCUSDT     +0.45  0.72  BULLISH
+  ├─ TrendFactor       +0.22  w=0.30  "EMA20 above EMA50, MACD positive"
+  ├─ MomentumFactor    +0.11  w=0.25  "RSI=62 in bull zone"
+  ├─ VolumeFactor      +0.17  w=0.25  "Volume 1.8x avg, bullish candle"
+  └─ VolatilityFilter   0.00  w=0.20  conf=0.85  "ATR in comfort zone"
+```
+
+Кожен рядок показує:
+- factor name
+- contribution = value * weight
+- weight (з конфігу)
+- value (напрямок + сила)
+- description (що фактор побачив)
+- evidence (числові факти)
+
+Також додаємо в AnalysisResult метод `breakdown()`:
+
+```python
+def breakdown(self) -> list[FactorBreakdown]:
+    return [
+        FactorBreakdown(
+            factor=signal.name,
+            contribution=signal.value * signal.weight,
+            weight=signal.weight,
+            value=signal.value,
+            confidence=signal.confidence,
+            description=signal.description,
+        )
+        for signal in self.signals
+    ]
+```
+
+UI в Етапі 6/7 буде показувати це як ієрархічне дерево.
+
+## Питання 3: Score і Confidence — розділити
+
+### Діагноз
+
+Зараз: `contribution = value * confidence * weight`
+
+Проблема: коли rule повертає `value=1.0, confidence=0.2`, його
+внесок = 0.2. Користувач бачить Score=0.2 і думає "слабкий сигнал".
+Але реально:
+- value=1.0: "ринок чітко бичачий"
+- confidence=0.2: "я не впевнений"
+
+Це два різні висловлювання. Поточна формула їх змішує.
+
+### Рішення: розділити, але з обмеженням
+
+**Score** — напрямок і сила, розраховується БЕЗ confidence:
+
+```python
+total_weight = sum(s.weight for s in signals)
+value = sum(s.weight * s.value for s in signals) / total_weight
+long_score = sum(s.weight * s.value for s in signals if s.value > 0) / total_weight
+short_score = sum(s.weight * -s.value for s in signals if s.value < 0) / total_weight
+```
+
+**Confidence** — окрема вісь:
+
+```python
+confidence = sum(s.weight * s.confidence for s in signals) / total_weight
+```
+
+**Але** є застереження: якщо сигнал має `confidence < min_confidence`,
+він ВИКЛЮЧАЄТЬСЯ з обчислення Score. Це запобігає ситуації, коли
+слабкий сигнал з високим value штучно завищує score.
+
+```python
+def aggregate(signals, *, min_confidence: float = 0.0) -> Score:
+    signals = [s for s in signals if s.confidence >= min_confidence]
+    if not signals:
+        return zero_score()
+    ...
+```
+
+### Що це дає
+
+Ситуація 1: Score=+0.80, Confidence=0.85 → Strong bullish, можна довіряти
+Ситуація 2: Score=+0.80, Confidence=0.30 → "Bullish but low confidence" → SKIP
+Ситуація 3: Score=+0.20, Confidence=0.80 → "Weak but consistent" → small position
+Ситуація 4: Score=+0.05, Confidence=0.95 → "Almost neutral, high agreement" → SKIP
+
+Це набагато зрозуміліше, ніж поточна формула.
+
+### Що змінюється в коді
+
+- `aggregator.aggregate()` — нова формула
+- `min_confidence` додається в `ScoringRulesConfig`
+- `Score` dataclass не змінюється (поля ті самі, але семантика чистіша)
+
+## Питання 4: Backtesting — ключова частина Етапу 5
+
+### Діагноз
+
+Зараз ми маємо 4 правила з дефолтними вагами 0.30/0.25/0.25/0.20.
+Ніхто не знає, чи вони правильні. Підбір ваг "на око" — це
+найбільша слабкість поточного стану.
+
+### Рішення: Walk-forward backtester
+
+Не класичний backtest (який має data leakage), а WALK-FORWARD:
+
+```
+For each historical day T:
+    1. Use data from T-window to T (NO FUTURE)
+    2. Compute Score for each symbol at T
+    3. Record Score + Confidence
+    4. Wait for outcome: price change over next 1d/3d/7d
+    5. Bucket: did signal direction match actual outcome?
+```
+
+### Метрики, які порахуємо
+
+| Метрика | Що вимірює |
+|---------|-----------|
+| Hit rate (1d/3d/7d) | % випадків, коли direction сигналу збігається з рухом ціни |
+| Avg return when Long | Середній прибуток при Long-сигналі |
+| Avg return when Short | Середній прибуток при Short-сигналі |
+| Confidence calibration | Чи "high confidence" корелює з вищим hit rate |
+| Per-factor contribution | Який фактор дає найбільший value |
+| Per-factor hit rate | Які фактори взагалі працюють, які — шум |
+
+### CLI
+
+```
+$ neon-radar backtest --start 2024-01-01 --end 2024-12-31 \
+                       --symbols BTCUSDT,ETHUSDT,SOLUSDT
+
+Walking forward 2024-01-01 → 2024-12-31 (365 days)
+Symbols: BTCUSDT, ETHUSDT, SOLUSDT
+Timeframe: 1d (default)
+
+Overall:
+  Hit rate (1d):  54.3%  (Long: 58.1%, Short: 49.7%)
+  Hit rate (3d):  58.7%
+  Hit rate (7d):  62.1%
+  Avg return (1d) when Long:  +0.21%
+  Avg return (1d) when Short: -0.15%
+
+Per-factor (info value):
+  TrendFactor       w=0.30  hit_rate=61%  avg_impact=+0.34
+  MomentumFactor    w=0.25  hit_rate=55%  avg_impact=+0.18
+  VolumeFactor      w=0.25  hit_rate=57%  avg_impact=+0.22
+  VolatilityFilter  w=0.20  conf_calibration=0.78
+
+Recommendation: MomentumFactor has lower hit_rate (55% vs random 50%).
+                Consider reducing its weight or improving the rule.
+```
+
+### Чому не потрібні нові залежності
+
+Backtester використовує ті самі компоненти:
+- BinanceClient.get_klines() для історичних даних
+- RuleBasedEngine.evaluate() для score
+- IndicatorSpec для orchestrator
+
+Нове тільки: walk-forward логіка + агрегація метрик.
+
+### Архітектура
+
+```
+src/neon_radar/
+├── domain/scoring/
+│   └── backtest.py             # BacktestResult, FactorMetrics, dataclasses
+├── application/services/
+│   └── backtester.py           # WalkForwardBacktester orchestrator
+└── presentation/
+    └── cli.py                  # + `neon-radar backtest` підкоманда
+```
+
+## Загальний обсяг Етапу 5
+
+| # | Завдання | Складність | Файли |
+|---|---------|-----------|--------|
+| 1 | Фактор-рефакторинг | Висока | 4 нових файли, 4 оновлення |
+| 2 | Score/Confidence decoupling | Середня | 2 оновлення (aggregator, scoring_models) |
+| 3 | --explain режим в CLI | Низька | 1 оновлення (cli) |
+| 4 | Walk-forward backtester | Висока | 3 нових файли |
+| 5 | Метрики per-factor | Середня | частина backtester |
+
+**НЕ входить в Етап 5:**
+- Нові правила (відкладено, доки backtest не покаже потребу)
+- UI (Етап 6)
+- Multi-timeframe scoring (поки що)
+- Persistent scoring history
+
+**Опціонально (якщо буде час):**
+- 1-2 додаткові фактори: DerivativesFactor (funding + OI), StructureFactor (higher-TF)
+- Або тільки якщо backtesting показує, що вони додають цінність
+
+## Очікувані результати
+
+Після Етапу 5 користувач має:
+
+1. **Архітектурно чисту систему** — фактори замість корельованих
+   індикаторів, розділені Score і Confidence
+2. **Explainable results** — CLI показує внесок кожного фактора
+3. **Об'єктивні дані про якість** — backtest показує hit rate, avg
+   return, calibration confidence для кожного фактора
+4. **Рекомендації для ваг** — на основі метрик, не інтуїції
+5. **Основу для майбутніх покращень** — додати новий фактор? запустити
+   backtest → подивитись чи покращує метрики → залишити або відкинути
+
+## Файли, які будуть створені/змінені
+
+### Нові
+- `src/neon_radar/domain/scoring/factor.py` — новий ABC FactorRule
+- `src/neon_radar/domain/scoring/factors/__init__.py`
+- `src/neon_radar/domain/scoring/factors/trend.py` — TrendFactor
+- `src/neon_radar/domain/scoring/factors/momentum.py` — MomentumFactor
+- `src/neon_radar/domain/scoring/factors/volume.py` — VolumeFactor
+- `src/neon_radar/domain/scoring/factors/volatility.py` — VolatilityFactor
+- `src/neon_radar/domain/scoring/backtest.py` — BacktestResult, FactorMetrics
+- `src/neon_radar/application/services/backtester.py` — orchestrator
+
+### Змінені
+- `src/neon_radar/domain/scoring/aggregator.py` — нова формула
+- `src/neon_radar/config/scoring_models.py` — min_confidence поле
+- `src/neon_radar/presentation/cli.py` — --explain + backtest підкоманда
+- `tests/test_scoring_rules.py` — адаптація до нового API
+- `tests/test_scoring_aggregator.py` — нові тести для decoupling
+
+### Нові тести
+- `tests/test_factor_trend.py`
+- `tests/test_factor_momentum.py`
+- `tests/test_factor_volume.py`
+- `tests/test_factor_volatility.py`
+- `tests/test_aggregator_decoupled.py`
+- `tests/test_backtester.py` — з mock klines даними
+- `tests/test_cli_explain.py`
+
+## Оцінка розміру
+
+~1500 рядків коду + ~800 рядків тестів = ~2300 рядків.
+
+Це більше за Етап 4 (~1100 рядків), але:
+- Кожна частина має чітку мету
+- Тести мають реальні дані для перевірки
+- Результат вимірюваний: hit rate кожного фактора
+
+## Підтвердження
+
+Чекаю на підтвердження обсягу Етапу 5. Якщо ви хочете звузити
+(тільки explain + decoupling, без backtester) або розширити
+(додати нові фактори одразу), скажіть — скоригуємо план.

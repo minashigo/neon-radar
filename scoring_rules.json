@@ -1,0 +1,61 @@
+{
+  "$schema": "./docs/config.schema.json",
+
+  "_comment": "Neon Radar scoring rules. Copy to scoring_rules.json and edit.",
+
+  "min_confidence": 0.0,
+
+  "rules": [
+    {
+      "name": "ema_trend",
+      "enabled": true,
+      "weight": 0.25,
+      "params": {
+        "fast_period": 20,
+        "slow_period": 50,
+        "threshold_pct": 0.005
+      }
+    },
+    {
+      "name": "rsi_momentum",
+      "enabled": true,
+      "weight": 0.20,
+      "params": {
+        "period": 14,
+        "bull_low": 51.0,
+        "bull_high": 70.0,
+        "bear_low": 30.0,
+        "bear_high": 49.0
+      }
+    },
+    {
+      "name": "volume_confirmation",
+      "enabled": true,
+      "weight": 0.20,
+      "params": {
+        "period": 20,
+        "strong_multiplier": 1.5,
+        "weak_multiplier": 0.5
+      }
+    },
+    {
+      "name": "volatility_filter",
+      "enabled": true,
+      "weight": 0.20,
+      "params": {
+        "period": 14,
+        "min_atr_pct": 0.003,
+        "max_atr_pct": 0.05
+      }
+    },
+    {
+      "name": "funding_rate",
+      "enabled": true,
+      "weight": 0.15,
+      "params": {
+        "neutral_band": 0.00005,
+        "strong_threshold": 0.0005
+      }
+    }
+  ]
+}

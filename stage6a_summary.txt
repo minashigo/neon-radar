@@ -1,0 +1,215 @@
+###############################################################################
+# NEON RADAR — ЕТАП 6A: ПІДСУМКИ
+# "Radar view — ranking-first UI"
+###############################################################################
+
+## Мета етапу
+
+Побудувати першу версію Radar UI, де **ranking монет за Score є PRIMARY view**,
+а не chart. Це відповідає реальному use case: сканування десятків монет
+→ вибір топ-3 → drill-down.
+
+## Що реалізовано
+
+### 1. Neon theme (`presentation/theme/neon_palette.py`)
+
+Кольорова палітра:
+- Dark slate background (#1a1d23) для low eye-strain
+- Neon green/red/yellow для bias states
+- Neon blue для selected row
+
+Застосовується через QPalette + stylesheet.
+
+### 2. RankingTable (`presentation/widgets/ranking_table.py`)
+
+**Primary view** — таблиця, що займає ~60% висоти вікна.
+
+Колонки:
+- # (rank, 1..N)
+- Symbol
+- Score (кольоровий: green/yellow/red)
+- Confidence
+- Bias (BULLISH/BEARISH/NEUTRAL з arrow ▲▼→)
+- Factors (компактні arrows: "trend↑ mom↑ vol↑")
+
+**Поведінка:**
+- Auto-sort за Score descending
+- Color-coded bias
+- Клікабельний рядок → emit `symbol_selected` signal
+- `select_symbol(s)` для програмного вибору
+
+### 3. DetailPanel (`presentation/widgets/detail_panel.py`)
+
+**Secondary view** — компактний breakdown для вибраного символу.
+
+Показує:
+- Title "SELECTED: BTCUSDT"
+- Score (великий, кольоровий)
+- Confidence, Bias, Signals count
+- Breakdown table: Factor | Contrib | Value | Weight | Conf | Description
+- Кнопка "View Chart" (поки disabled, для Stage 6B)
+
+### 4. MainWindow (`presentation/main_window.py`)
+
+**Оркеструє:**
+- Створює MarketDataService + AsyncWorker
+- Підключається до `klines_ready` signal
+- Кожні `refresh_seconds` (за замовчуванням 60) → `_refresh_all()`
+- Приходить нова свічка → compute indicators + score → update RankingTable + DetailPanel
+- `closeEvent` → зупиняє таймер + service
+
+**Layout:** QSplitter (vertical)
+- Top (60%): RankingTable
+- Bottom (40%): DetailPanel
+
+**Status bar:** "Neon Radar v0.1 | Last refresh: HH:MM:SS | Auto: 60s | Symbols: N/M"
+
+### 5. Entry point (`presentation/app.py`)
+
+```bash
+python -m neon_radar.presentation.app
+# або
+neon-radar-app
+```
+
+Приймає `--config` і `--scoring`. Завантажує rules через `load_rules()`.
+
+## Метрики
+
+| Метрика | Значення |
+|---------|----------|
+| Тестів | 310 (+11 нових UI тестів) |
+| Файлів створено | 5 (theme, ranking_table, detail_panel, main_window, test_ui_radar) |
+| Файлів змінено | 2 (app.py, __init__.py) |
+| Ruff | чисто ✓ |
+| Smoke test | MainWindow constructs successfully ✓ |
+
+## Smoke test (verified)
+
+```
+Title: Neon Radar
+Size: 1200 x 800
+Symbols configured: 5
+Rules loaded: 4
+```
+
+## Архітектурні рішення
+
+### 1. Ranking-first UX
+
+Chart НЕ в primary view. Спочатку ranking (всі монети), потім
+detail (вибрана монета з breakdown), потім chart (майбутнє).
+
+Це паттерн professional scanners (Bloomberg, Finviz), не TradingView.
+
+### 2. Pre-built rules в MainWindow
+
+```python
+window = MainWindow(
+    config=config,
+    scoring_config=scoring_cfg,
+    rules=tuple(rules),  # ОБОВ'ЯЗКОВО
+    ...
+)
+```
+
+Як і в WalkForwardBacktester — config тримає specs, але instance
+потребує ready-to-use instances. Це:
+- Тестується (передаємо mock rules)
+- Explicit (rules не "магічні")
+- CLI loader викликається явно в `app.py`
+
+### 3. AsyncWorker integration (Qt-safe)
+
+`MainWindow` запускає `MarketDataService.start()` → AsyncWorker в
+окремому потоці. Cross-thread signals (klines_ready → _on_klines_ready)
+Qt автоматично маршрутизує як QueuedConnection. UI не блокується.
+
+### 4. Compute scoring on main thread
+
+Scoring (indicators + rules) виконується в `_on_klines_ready` на main
+thread. ~1-10 мс на символ. Для 20 символів = ~200 мс — непомітно.
+
+Якщо в майбутньому буде повільно — можна винести в worker thread.
+
+### 5. QTimer для auto-refresh
+
+Кожні `refresh_seconds` запускає `_refresh_all()`. Не блокує UI.
+Qt гарантує, що timer firing відбувається на main thread.
+
+## Що залишилось для Етапу 6B
+
+- `ChartWidget` з candlesticks + EMA/Bollinger overlays
+- Volume bars внизу
+- Modal/tab для chart при кліку "View Chart"
+- Інтеграція chart з DetailPanel (показати chart для вибраного символу)
+- Chart refresh при зміні символу
+
+Це **~600 рядків**, окремий етап.
+
+## Що НЕ зроблено (свідомо)
+
+- ❌ Chart (Stage 6B)
+- ❌ WebSocket real-time (polling 60s поки достатньо)
+- ❌ Settings dialog (config.json поки що)
+- ❌ Persistent state (QSettings, last refresh time)
+- ❌ Multiple windows / charts поруч
+- ❌ Trading actions (ми не торгуємо)
+
+## Як запустити
+
+```bash
+# Встановити залежності (один раз)
+pip install -e ".[dev]"
+sudo apt-get install libxkbcommon0 libxkbcommon-x11-0  # для Qt (Linux)
+
+# Підготувати конфіги
+cp config.example.json config.json
+cp config/scoring.example.json scoring_rules.json
+
+# Запустити
+python -m neon_radar.presentation.app
+# або
+QT_QPA_PLATFORM=offscreen python -m neon_radar.presentation.app  # без display
+
+# У headless середовищі (CI/тести)
+QT_QPA_PLATFORM=offscreen python -m pytest tests/test_ui_radar.py
+```
+
+## Файли
+
+**Нові:**
+- `src/neon_radar/presentation/theme/neon_palette.py` (~110 рядків)
+- `src/neon_radar/presentation/widgets/ranking_table.py` (~170 рядків)
+- `src/neon_radar/presentation/widgets/detail_panel.py` (~210 рядків)
+- `src/neon_radar/presentation/main_window.py` (~280 рядків)
+- `tests/test_ui_radar.py` (~280 рядків)
+
+**Змінені:**
+- `src/neon_radar/presentation/app.py` (real entry point)
+- `src/neon_radar/presentation/__init__.py` (re-exports)
+
+## Метрика готовності 6A
+
+✅ `python -m neon_radar.presentation.app` запускає вікно
+✅ Ranking table видно з усіма enabled symbols (поки порожня до першого refresh)
+✅ Status bar показує last refresh, auto-refresh status
+✅ Detail panel має placeholder values
+✅ Color scheme (neon theme) applied
+✅ Tests passing (11 нових UI тестів)
+✅ Ruff clean
+✅ No network calls in tests (FakeExchange)
+
+## Наступний крок
+
+**Stage 6B: Drill-down (chart)** — коли ви готові.
+
+Або:
+- Спочатку запустити 6A, "покатати" UI, перевірити чи зручний layout
+- Потім додати chart
+
+Або:
+- Запустити `neon-radar backtest` на реальних даних зараз, зібрати метрики
+- Потім рухатись до 6B або інших покращень
+
+Який варіант?

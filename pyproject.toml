@@ -1,0 +1,137 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "neon-radar"
+version = "0.1.0"
+description = "Professional desktop tool for Binance Futures market analysis"
+readme = "README.md"
+requires-python = ">=3.13"
+license = { text = "MIT" }
+authors = [
+    { name = "Neon Radar Team" },
+]
+keywords = ["binance", "futures", "trading", "analysis", "qt", "pyside6"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: X11 Applications :: Qt",
+    "Intended Audience :: Financial and Insurance Industry",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Office/Business :: Financial :: Investment",
+]
+
+# Runtime dependencies
+# Chosen deliberately — see docs/DECISIONS.md for rationale.
+dependencies = [
+    "PySide6>=6.8.0",          # Qt 6.8 LTS, Python 3.13 supported
+    "httpx[http2]>=0.27.0",    # Async HTTP client with HTTP/2 support
+    "pydantic>=2.8.0",         # Config validation
+    "numpy>=2.0.0",            # Indicator math
+    "pyqtgraph>=0.13.3",       # Fast Qt-native charting
+    "pandas>=2.2.0",           # Time-series data manipulation
+    "python-dateutil>=2.9.0",  # Robust datetime parsing
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+    "pytest-qt>=4.4.0",
+    "pytest-cov>=5.0.0",
+    "ruff>=0.6.0",
+    "mypy>=1.11.0",
+    "types-python-dateutil",
+]
+
+[project.scripts]
+neon-radar = "neon_radar.presentation.cli:main"
+neon-radar-app = "neon_radar.presentation.app:main"
+
+# ---------------------------------------------------------------------------
+# Hatch build configuration
+# ---------------------------------------------------------------------------
+[tool.hatch.build.targets.wheel]
+packages = ["src/neon_radar"]
+
+# ---------------------------------------------------------------------------
+# Ruff — linter + formatter
+# ---------------------------------------------------------------------------
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+# Strict but pragmatic. We allow complexity to be moderate because
+# financial domain logic sometimes has many branches.
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "N",   # pep8-naming
+    "UP",  # pyupgrade — modernize syntax
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "SIM", # flake8-simplify
+    "RUF", # Ruff-specific rules
+    "TCH", # flake8-type-checking
+]
+ignore = [
+    "E501",  # handled by formatter
+    "B008",  # function call in default argument (Pydantic Field pattern)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B011"]  # asserts are fine in tests
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+# ---------------------------------------------------------------------------
+# MyPy — strict type checking
+# ---------------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.13"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+no_implicit_optional = true
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = ["pyqtgraph.*", "pandas.*"]
+ignore_missing_imports = true
+
+# ---------------------------------------------------------------------------
+# Pytest configuration
+# ---------------------------------------------------------------------------
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--strict-config",
+]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+# ---------------------------------------------------------------------------
+# Coverage
+# ---------------------------------------------------------------------------
+[tool.coverage.run]
+source = ["src/neon_radar"]
+branch = true
+omit = ["*/tests/*", "*/__init__.py"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]

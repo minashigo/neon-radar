@@ -1,0 +1,177 @@
+###############################################################################
+# NEON RADAR — ЕТАП 6B: ПІДСУМКИ
+# "Drill-down — chart з candlesticks + indicators + volume"
+###############################################################################
+
+## Мета етапу
+
+Додати chart до Radar UI для підтвердження вибору монети з ranking.
+Ranking залишається PRIMARY view — chart тільки доповнює.
+
+## Що реалізовано
+
+### 1. ChartWidget (`presentation/widgets/chart_widget.py`)
+
+**Pyqtgraph-based chart** з двома зв'язаними plots:
+
+```
+┌────────────────────────────────┐
+│ Candlesticks + EMA20 + EMA50   │  ← price plot (75%)
+│ + Bollinger Bands               │
+├────────────────────────────────┤
+│ Volume bars                    │  ← volume plot (25%)
+└────────────────────────────────┘
+```
+
+**CandlestickItem** — custom `QGraphicsObject`:
+- Малює wick (high-low line) + body (open-close rectangle)
+- Green (#00e676) для bullish (close ≥ open)
+- Red (#ff1744) для bearish
+- Pre-rendered як `QPicture` для швидкого repaint
+
+**Indicators** — лінії на price plot:
+- EMA20 — cyan (#4fc3f7)
+- EMA50 — purple (#ab47bc)
+- Bollinger — dim grey
+- Інші — fallback to text colour
+
+**Volume bars** — `BarGraphItem` на volume plot:
+- Color-coded за напрямком свічки
+- Slight transparency (alpha=120) для layered look
+
+**Time axis** — `DateAxisItem`:
+- Unix timestamps (ms → s)
+- Автоматичні labels типу "Jan 15", "Feb 1"
+
+**Performance:**
+- Last 200 candles (DEFAULT_VISIBLE)
+- NaN values автоматично пропускаються
+- Pre-rendered QPicture = швидкий repaint
+
+### 2. DetailPanel — enable "View Chart"
+
+Кнопка "View Chart →" тепер активна після вибору символу.
+Викликає `view_chart_requested` signal.
+
+### 3. MainWindow — chart dock
+
+**QDockWidget** з правого боку (Qt-native):
+- Можна переміщувати (drag)
+- Можна закривати
+- Можна змінити область (right/bottom)
+
+**Інтеграція:**
+- `view_chart_requested` → show dock + render current selection
+- `symbol_selected` → render chart for new symbol
+- `klines_ready` → cache latest data → render chart
+
+**Кеш для швидкого рендерингу:**
+- `_last_results[symbol]` → AnalysisResult
+- `_last_klines[symbol]` → KlineSeries
+- `_last_indicators[symbol]` → tuple[IndicatorSeries, ...]
+
+## Метрики
+
+| Метрика | Значення |
+|---------|----------|
+| Тестів | 319 (+9 нових chart тестів) |
+| Файлів створено | 2 (chart_widget.py, test_ui_chart.py) |
+| Файлів змінено | 3 (main_window.py, detail_panel.py, __init__.py) |
+| Ruff | чисто ✓ |
+| Smoke test | 50 candles + 1 EMA = 51 items ✓ |
+
+## Smoke test (verified)
+
+```
+Title: Neon Radar
+Size: 1400 x 900
+Chart items in price plot: 51
+Chart items in volume plot: 1
+OK - Chart renders with 50 candles + 1 indicator
+```
+
+## Архітектурні рішення
+
+### 1. Custom QGraphicsObject для candlesticks
+
+Замість двох QGraphicsItem per candle (wick + body), один
+CandlestickItem з pre-rendered QPicture. Один paint call per candle,
+а не два. Для 200 candles = 200 paint calls = швидко.
+
+### 2. QDockWidget pattern
+
+Qt-native підхід для "drill-down" вікна. Не модальне — можна тримати
+поруч із ranking. Не блокує workflow — можна закрити, коли непотрібно.
+
+### 3. Cache klines + indicators
+
+MainWindow тепер кешує останні дані для кожного символу. При кліку
+"View Chart" рендеринг миттєвий (без мережі). При auto-refresh кожні
+60с — chart автоматично оновлюється.
+
+### 4. DateAxisItem
+
+Pyqtgraph's `DateAxisItem` дає автоматичні date labels. Конвертуємо
+ms → s перед plot.
+
+## Що готово
+
+✅ `python -m neon_radar.presentation.app` запускає вікно
+✅ Ranking table видно з усіма enabled symbols
+✅ Detail panel показує breakdown для вибраного
+✅ Click "View Chart →" → chart dock з'являється
+✅ Chart показує candles + indicators + volume
+✅ Color scheme (bullish green / bearish red)
+✅ Time axis з dates
+✅ Auto-refresh кожні 60с (ranking + chart)
+✅ Ruff clean
+✅ 319 тестів проходять
+
+## Що НЕ зроблено (свідомо)
+
+- ❌ Multi-timeframe в chart (тільки 1d поки)
+- ❌ Індикатор toggle on/off
+- ❌ Crosshair cursor (точне значення ціни)
+- ❌ Zoom/pan обмеження (працює з коробки pyqtgraph)
+- ❌ Draw tools, trend lines
+- ❌ Multi-chart в одному вікні
+
+## Файли
+
+**Нові:**
+- `src/neon_radar/presentation/widgets/chart_widget.py` (~220 рядків)
+- `tests/test_ui_chart.py` (~130 рядків)
+
+**Змінені:**
+- `src/neon_radar/presentation/main_window.py` (chart dock + caches + wiring)
+- `src/neon_radar/presentation/widgets/detail_panel.py` (enable View Chart button)
+- `src/neon_radar/presentation/__init__.py` (re-export ChartWidget)
+
+## Метрика готовності 6B
+
+✅ MainWindow constructs with chart widget
+✅ Ranking table visible
+✅ Detail panel shows breakdown
+✅ Click symbol → chart renders
+✅ Candlesticks + indicators + volume visible
+✅ Color coding works (green/red)
+✅ Time axis shows dates
+✅ Dock can be moved/closed
+✅ 319 tests pass
+✅ Ruff clean
+
+## Наступний крок
+
+**Етап 7: Полірування** — на основі того, що у вас зараз працює:
+- Tooltips, шорткати
+- Збереження layout (QSettings)
+- Watchlist (тільки вибрані символи)
+- Maybe: persistent scoring history
+
+Або:
+**Запустити `neon-radar backtest`** на реальних даних зараз,
+зібрати метрики → приймати рішення про тюнинг.
+
+Або:
+**Ви вже можете користуватись Neon Radar** для daily-use.
+Тестуйте UI, кажіть що покращити.

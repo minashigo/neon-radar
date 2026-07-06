@@ -1,0 +1,258 @@
+###############################################################################
+# NEON RADAR — ЕТАП 6: ПРОПОЗИЦІЯ
+# "Functional Radar UI"
+###############################################################################
+
+## Контекст і стратегічне рішення
+
+Пройшли Етапи 1-5A. Архітектурні питання по Scoring Engine закриті.
+Фокус зміщено з "красивої архітектури" на "робочий інструмент".
+
+Головна мета проєкту (нагадування):
+**"Щодня економити мені час і допомагати знаходити найкращі торгові
+можливості серед десятків ф'ючерсних пар."**
+
+CLI (`neon-radar scan`) уже робить це — але текстовий вивід не дозволяє
+швидко сканувати десятки монет. Для daily-use потрібен Radar з графіками.
+
+## Що було зроблено в Етапі 5A
+
+- Decoupling Score/Confidence в aggregator
+- FactorBreakdown + breakdown() method
+- CLI `--explain` режим
+- WalkForwardBacktester (повністю функціональний)
+- CLI `backtest` subcommand з text/JSON виводом
+
+Demo на синтетичних даних показав, що backtester працює end-to-end:
+- 2826 evaluations за рік на 3 символах
+- Per-rule hit rate обчислюється
+- Correlation matrix обчислюється
+- Confidence calibration обчислюється
+- Heuristic recommendations формуються
+
+На реальних Binance даних будуть конкретні цифри для прийняття рішень.
+
+## Наступний крок: UI (Етап 6)
+
+### Мінімальний функціональний Radar
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ File  View  Symbols  Help                              [_ □ ×]  │
+├─────────┬───────────────────────────────────────┬───────────────┤
+│ SYMBOLS │  BTCUSDT  1D  ▲                    │  SCORE        │
+│         │   ┌────────────────────┐             │  +0.62  ▲     │
+│ BTCUSDT │   │   ╱╲    ╱╲╱╲╱╲      │             │  conf 0.71   │
+│ ETHUSDT │   │  ╱  ╲  ╱      ╲╱╲   │             │               │
+│ SOLUSDT │   │ ╱    ╲╱        ╲   │             │  ─────        │
+│ ONDO    │   │╱                 ╲  │             │  Trend:    +0.27
+│ LINK    │   └────────────────────┘             │  Momentum: +0.10
+│ TAO     │                                       │  Volume:   +0.12
+│ ARB     │ ─── EMA20 ─── EMA50 ─── BB ─────     │               │
+│         │                                       │  ──────────   │
+│ [↻]     │ Last: $67,420  +1.2%                 │  [ Refresh ]  │
+│         │ O:67,000  H:67,800  L:66,800  C:67,420 │               │
+└─────────┴───────────────────────────────────────┴───────────────┘
+```
+
+### Архітектурні рішення
+
+**Технологія:** PySide6 (Qt 6.8 LTS) + pyqtgraph (custom candlestick
+renderer). Вже встановлено в Етапі 1.
+
+**Async-Qt bridge:** `AsyncWorker` (QThread + asyncio loop) — вже
+реалізовано в Етапі 2 через `MarketDataService`.
+
+**Threading model:**
+- Main thread: тільки UI (рендеринг, event loop Qt)
+- AsyncWorker thread: BinanceClient, scoring engine
+- Cross-thread signals: Qt автоматично робить QueuedConnection
+
+### Структура файлів
+
+**Нові:**
+- `src/neon_radar/presentation/main_window.py` — QMainWindow
+- `src/neon_radar/presentation/widgets/symbol_panel.py` — список символів
+- `src/neon_radar/presentation/widgets/chart_widget.py` — candlesticks + індикатори
+- `src/neon_radar/presentation/widgets/score_panel.py` — score + breakdown
+- `src/neon_radar/presentation/widgets/indicator_legend.py` — легенда для chart
+- `src/neon_radar/presentation/theme/neon_palette.py` — кольори
+
+**Змінені:**
+- `src/neon_radar/presentation/app.py` — entry point
+- `src/neon_radar/presentation/__init__.py` — re-exports
+
+**Нові тести:**
+- `tests/test_main_window.py` — smoke tests (window opens)
+- `tests/test_chart_widget.py` — candle rendering, indicator overlay
+- `tests/test_score_panel.py` — display update logic
+
+### Scope Етапу 6 (MVP)
+
+**Обов'язково (must-have):**
+1. MainWindow з 3-панельним layout
+2. SymbolPanel — список з auto-refresh кожні 60с
+3. ChartWidget — candlesticks для вибраного символу + EMA20/EMA50/Bollinger overlays
+4. ScorePanel — поточний score + breakdown
+5. Refresh button для ручного оновлення
+6. Клац на символ → load chart + compute score
+7. Підключення до MarketDataService.klines_ready
+
+**Бажано (nice-to-have):**
+8. Volume bars під графіком
+9. Volume MA overlay
+10. ATR/RSI indicators
+11. Keyboard shortcuts (Enter = refresh, Esc = cancel)
+12. Last update timestamp
+
+**НЕ входить (відкладено):**
+- ❌ WebSocket real-time updates (polling 60s достатньо для daily-use)
+- ❌ Backtest UI (CLI залишається)
+- ❌ Settings/preferences dialog (config.json поки що)
+- ❌ Multi-window / charts поруч
+- ❌ Trading actions (ми не торгуємо, ми аналізуємо)
+- ❌ Persistent state (налаштування, історія) — Stage 7+
+
+### Опції реалізації
+
+**Варіант A: Монолітний Етап 6 (~1000 рядків)**
+
+Один великий етап: MainWindow + ChartWidget + ScorePanel + integration.
+Результат — готовий Radar одразу.
+
+Плюси:
+- Швидше отримуємо працюючий інструмент
+- Менше coordination overhead між етапами
+- Один повний "user journey" за один етап
+
+Мінуси:
+- Більше коду за раз = більше ризик помилок
+- Довша ітерація без проміжних результатів
+- Складніше review
+
+**Варіант B: Розділений на 6A + 6B (~500 + 500 рядків)**
+
+**6A: Каркас + Chart (1-2 дні)**
+- MainWindow, SymbolPanel, ChartWidget з candlesticks
+- Можна вибирати символи, бачити графіки з EMA
+- Без scoring panel
+
+**6B: ScorePanel + integration (1-2 дні)**
+- ScorePanel з breakdown
+- Підключення до MarketDataService
+- Refresh button
+- Повний "Radar" готовий
+
+Плюси:
+- Частіші проміжні результати
+- Легше review кожної частини
+- Можна "покатати" 6A без scoring, оцінити UI/UX
+
+Мінуси:
+- Дві ітерації замість однієї
+- 6A без scoring panel виглядає "напівпоробленим"
+
+### Моя рекомендація
+
+**Варіант A (монолітний Етап 6)** — тому що:
+1. Користувач явно просив "швидше отримати працюючий інструмент"
+2. UI без scoring panel марний для нашої мети
+3. Один цілісний етап простіше тримати в голові
+4. Після Етапу 6 одразу можна почати daily-use
+
+Якщо в процесі виявиться, що scope завеликий — розіб'ємо на 6A/6B.
+
+### Метрики готовності
+
+Етап 6 завершений, якщо:
+1. `python -m neon_radar.presentation.app` запускає вікно
+2. Список символів з config.json видно в SymbolPanel
+3. Клац на символ → chart з candles + indicators
+4. Score panel показує score + breakdown
+5. Refresh працює (оновлює chart + score)
+6. pytest-qt tests проходять
+7. ruff чисто
+8. Smoke test: запустити додаток → побачити дані → переключити символ → побачити нові дані
+
+### Після Етапу 6
+
+Користувач запускає `python -m neon_radar.presentation.app` кожен ранок.
+Бачить список 20 монет з поточними score. Клацає на топ-3 — бачить графіки
+з повним breakdown. Приймає рішення про trade за 5 хвилин замість 30.
+
+Потім — на основі реальних даних з backtester:
+- Переглянути правила (можливо, відключити деякі)
+- Можливо, додати DerivativesFactor (funding + OI)
+- Можливо, переглянути ваги
+
+Але це ВЖЕ після того, як Radar буде працювати.
+
+## Технічні деталі (для реалізації)
+
+### pyqtgraph candlesticks
+
+pyqtgraph не має вбудованих candlesticks. Потрібно реалізувати:
+1. Малювати high-low як вертикальну лінію
+2. Малювати open-close як прямокутник (зелений = bullish, червоний = bearish)
+3. Накласти EMA як криву (через `pg.PlotDataItem`)
+4. Накласти Bollinger як 3 криві (upper, middle, lower)
+5. Volume bars внизу окремою plot
+
+Оцінка: ~150 рядків.
+
+### Layout
+
+`QMainWindow` з `QDockWidget` для 3 панелей. Користувач може
+переміщувати/ховати панелі. Зберігаємо layout через `QSettings`.
+
+Або простіше: `QSplitter` з 3 віджетами. Менш гнучко, але простіше.
+
+Оцінка: ~50 рядків.
+
+### Async integration
+
+`MarketDataService.start()` запускає AsyncWorker.
+`MainWindow` підключається до `klines_ready` signal.
+При виборі символу → `request_klines(symbol, timeframe)`.
+При отриманні результату → оновити ChartWidget + ScorePanel.
+
+Оцінка: ~100 рядків.
+
+### Refresh
+
+`QTimer` кожні 60 секунд → для кожного символу викликає
+`request_klines`. Показує останній timestamp в StatusBar.
+
+Оцінка: ~50 рядків.
+
+### Neon theme
+
+`QPalette` з темними кольорами. Кольори:
+- Background: dark gray (#1e1e1e)
+- Bullish: neon green (#00ff88)
+- Bearish: neon red (#ff0055)
+- Neutral: neon yellow (#ffaa00)
+- Text: light gray (#e0e0e0)
+
+Оцінка: ~80 рядків.
+
+## Сумарна оцінка
+
+- Файлів створено: ~7
+- Файлів змінено: ~3
+- Рядків коду: ~1000 (UI) + ~400 (тести) = ~1400
+- Час: 1 великий етап
+- Залежностей: 0 нових (PySide6, pyqtgraph вже є)
+
+## Що я пропоную
+
+**Зробити монолітний Етап 6.** Мета — працюючий Radar за один етап.
+Після завершення:
+- Daily-use інструмент готовий
+- Реальні дані через backtester покажуть, які правила тюнити
+- Можна ітерувати на основі метрик, а не здогадок
+
+Альтернативи:
+- **Розділити на 6A + 6B**, якщо хочете частіше проміжні результати
+- **Додати в CLI** щось типу `neon-radar top` (top N поточних), якщо UI
+  поки не потрібен
