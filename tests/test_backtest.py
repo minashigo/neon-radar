@@ -10,6 +10,8 @@ from neon_radar.application.services.backtester import WalkForwardBacktester
 from neon_radar.config.scoring_models import ScoringRulesConfig
 from neon_radar.domain.models import KlineSeries, Symbol
 from neon_radar.domain.scoring.backtest import (
+    BacktestConfig,
+    BacktestResult,
     ConfidenceCalibration,
     EvaluationResult,
 )
@@ -306,3 +308,42 @@ class TestConfidenceCalibration:
     def test_empty_bucket(self) -> None:
         cal = ConfidenceCalibration.from_pairs([(0.0, 0.3, 0, 0)])
         assert cal.buckets[0][2] == 0.0
+
+
+class TestBacktestSummary:
+    def test_summary_mentions_hit_rate_and_returns(self) -> None:
+        result = BacktestResult(
+            config=BacktestConfig(
+                start_date=date(2024, 1, 1),
+                end_date=date(2024, 1, 10),
+                timeframe="1d",
+                symbols=("BTCUSDT",),
+                horizons=(1,),
+            ),
+            n_evaluations=10,
+            overall_hit_rate={1: 0.75},
+            overall_avg_return_long=0.03,
+            overall_avg_return_short=-0.02,
+            overall_n_long=4,
+            overall_n_short=3,
+        )
+
+        assert "1d hit rate" in result.summary
+        assert "75.0%" in result.summary
+        assert "long" in result.summary.lower()
+        assert "short" in result.summary.lower()
+
+    def test_summary_for_empty_result(self) -> None:
+        result = BacktestResult(
+            config=BacktestConfig(
+                start_date=date(2024, 1, 1),
+                end_date=date(2024, 1, 10),
+                timeframe="1d",
+                symbols=("BTCUSDT",),
+                horizons=(1,),
+            ),
+            n_evaluations=0,
+            overall_hit_rate={},
+        )
+
+        assert result.summary == "No evaluations produced."

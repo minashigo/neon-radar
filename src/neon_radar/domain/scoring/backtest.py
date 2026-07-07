@@ -181,3 +181,17 @@ class BacktestResult:
 
     def hit_rate(self, horizon: int) -> float:
         return self.overall_hit_rate.get(horizon, 0.0)
+
+    @property
+    def summary(self) -> str:
+        """Short, human-readable summary for the backtest outcome."""
+        if self.n_evaluations == 0:
+            return "No evaluations produced."
+
+        primary_horizon = self.config.horizons[0] if self.config.horizons else 1
+        hit_rate = self.hit_rate(primary_horizon)
+        return (
+            f"{primary_horizon}d hit rate {hit_rate:.1%}; "
+            f"long {self.overall_avg_return_long:+.2%} ({self.overall_n_long}); "
+            f"short {self.overall_avg_return_short:+.2%} ({self.overall_n_short})"
+        )
