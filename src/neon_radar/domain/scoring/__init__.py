@@ -31,6 +31,7 @@ from neon_radar.domain.scoring.registry import RuleRegistry
 
 # Import built-in rules for side-effect registration.
 from neon_radar.domain.scoring.rules import (
+    CandleBreakoutRule,
     EMATrendRule,
     FundingRateRule,
     MACDMomentumRule,
@@ -49,6 +50,7 @@ from neon_radar.domain.scoring.value_objects import (
 __all__ = [
     "AnalysisResult",
     "BacktestConfig",
+    "CandleBreakoutRule",
     "BacktestResult",
     "ConfidenceCalibration",
     "CorrelationMatrix",
