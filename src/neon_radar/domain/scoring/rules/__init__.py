@@ -11,6 +11,7 @@ To add a new rule:
 4. Add the import to this file.
 """
 
+from neon_radar.domain.scoring.rules.bollinger_bands import BollingerBandsRule
 from neon_radar.domain.scoring.rules.candle_breakout import CandleBreakoutRule
 from neon_radar.domain.scoring.rules.ema_trend import EMATrendRule
 from neon_radar.domain.scoring.rules.funding_rate import FundingRateRule
@@ -20,6 +21,7 @@ from neon_radar.domain.scoring.rules.volatility_filter import VolatilityFilterRu
 from neon_radar.domain.scoring.rules.volume_confirmation import VolumeConfirmationRule
 
 __all__ = [
+    "BollingerBandsRule",
     "CandleBreakoutRule",
     "EMATrendRule",
     "FundingRateRule",
