@@ -33,6 +33,7 @@ from neon_radar.domain.scoring.registry import RuleRegistry
 from neon_radar.domain.scoring.rules import (
     EMATrendRule,
     FundingRateRule,
+    MACDMomentumRule,
     RSIMomentumRule,
     VolatilityFilterRule,
     VolumeConfirmationRule,
@@ -54,6 +55,7 @@ __all__ = [
     "EMATrendRule",
     "FundingRateRule",
     "EvaluationResult",
+    "MACDMomentumRule",
     "EvidenceItem",
     "FactorBreakdown",
     "FactorRule",
