@@ -17,6 +17,7 @@ from neon_radar.domain.scoring.rules.ema_trend import EMATrendRule
 from neon_radar.domain.scoring.rules.funding_rate import FundingRateRule
 from neon_radar.domain.scoring.rules.macd_momentum import MACDMomentumRule
 from neon_radar.domain.scoring.rules.rsi_momentum import RSIMomentumRule
+from neon_radar.domain.scoring.rules.sma_trend import SMATrendRule
 from neon_radar.domain.scoring.rules.volatility_filter import VolatilityFilterRule
 from neon_radar.domain.scoring.rules.volume_confirmation import VolumeConfirmationRule
 
@@ -27,6 +28,7 @@ __all__ = [
     "FundingRateRule",
     "MACDMomentumRule",
     "RSIMomentumRule",
+    "SMATrendRule",
     "VolatilityFilterRule",
     "VolumeConfirmationRule",
 ]

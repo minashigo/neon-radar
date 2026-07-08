@@ -37,6 +37,7 @@ from neon_radar.domain.scoring.rules import (
     FundingRateRule,
     MACDMomentumRule,
     RSIMomentumRule,
+    SMATrendRule,
     VolatilityFilterRule,
     VolumeConfirmationRule,
 )
@@ -65,6 +66,7 @@ __all__ = [
     "FactorRule",
     "RSIMomentumRule",
     "RuleBasedEngine",
+    "SMATrendRule",
     "RuleDescription",
     "RuleMetrics",
     "RuleRegistry",
