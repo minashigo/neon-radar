@@ -35,6 +35,7 @@ from neon_radar.domain.indicators.ema import EMA, ema_difference
 from neon_radar.domain.indicators.macd import MACD
 from neon_radar.domain.indicators.rsi import RSI
 from neon_radar.domain.indicators.sma import SMA
+from neon_radar.domain.indicators.roc import ROC
 from neon_radar.domain.indicators.volume_ma import VolumeMA
 
 __all__ = [
@@ -43,6 +44,7 @@ __all__ = [
     "MACD",
     "RSI",
     "SMA",
+    "ROC",
     "BollingerBands",
     "Indicator",
     "IndicatorKind",

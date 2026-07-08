@@ -163,3 +163,24 @@ def rolling_std(values: np.ndarray, period: int) -> np.ndarray:
     variance = np.maximum(variance, 0.0)
     out[period - 1:] = np.sqrt(variance)
     return out
+
+
+def roc_array(values: np.ndarray, period: int) -> np.ndarray:
+    """Rate of Change (ROC).
+
+    Formula: (current - past) / past * 100
+    The first `period` elements are NaN.
+    """
+    n = values.size
+    out = np.full(n, np.nan, dtype=float)
+    if period < 1 or n <= period:
+        return out
+
+    past = values[:-period]
+    current = values[period:]
+    
+    with np.errstate(divide="ignore", invalid="ignore"):
+        result = (current - past) / past * 100.0
+    
+    out[period:] = result
+    return out
