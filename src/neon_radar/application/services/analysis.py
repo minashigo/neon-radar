@@ -58,7 +58,13 @@ def analyze_series(
     """Run the complete analysis cycle for one candle series."""
     rules_tuple = tuple(rules)
     specs = collect_indicator_specs(rules_tuple)
-    indicators = compute_indicators(series, specs)
+
+    primary_specs = [s for s in specs if s.target == "primary"]
+    higher_specs = [s for s in specs if s.target == "higher_tf"]
+
+    indicators = compute_indicators(series, primary_specs)
+    if higher_tf_series is not None and higher_specs:
+        indicators.extend(compute_indicators(higher_tf_series, higher_specs))
 
     state = MarketState(
         symbol=series.symbol,

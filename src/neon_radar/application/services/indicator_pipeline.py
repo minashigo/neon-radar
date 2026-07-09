@@ -23,7 +23,7 @@ Design notes
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from neon_radar.domain.indicators.base import Indicator, IndicatorRegistry, IndicatorSeries
 
@@ -54,11 +54,13 @@ class IndicatorSpec:
     name: str
     params: dict[str, Any] = field(default_factory=dict)
     tag: str | None = None
+    target: Literal["primary", "higher_tf"] = "primary"
 
     @property
     def series_name(self) -> str:
         """Name to use for the resulting ``IndicatorSeries``."""
-        return f"{self.name}_{self.tag}" if self.tag else self.name
+        base = f"{self.name}_{self.tag}" if self.tag else self.name
+        return f"htf_{base}" if self.target == "higher_tf" else base
 
     def build(self) -> Indicator:
         """Instantiate the indicator class with the configured params."""
