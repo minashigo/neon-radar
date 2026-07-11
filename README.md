@@ -34,10 +34,10 @@
 | 1.5. Scoring foundation | ✅ | Signal/Score/MarketState/Indicator ABC/ExchangeClient ABC |
 | 2. Шар даних | ✅ | BinanceClient, mappers, rate limiter, KlineCache, AsyncWorker, MarketDataService |
 | 3. Індикатори | ✅ | SMA / EMA / RSI / MACD / BollingerBands / ATR / VolumeMA + IndicatorPipeline |
-| 4. UI skeleton | 🔜 | MainWindow, віджети, графіки |
-| 5. Інтеграція | 🔜 | Сигнали/слоти, оновлення, кеш |
+| 4. UI skeleton | ✅ | MainWindow, віджети, графіки |
+| 5. Інтеграція | ✅ | Сигнали/слоти, оновлення, кеш |
 | 6. Полірування | 🔜 | Тема, шорткати, help |
-| 7. Scoring system | 🔜 | Long/Short оцінювання (типи вже готові) |
+| 7. Scoring system | ✅ | Long/Short оцінювання (типи вже готові) |
 
 ## Архітектура
 
