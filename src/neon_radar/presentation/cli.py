@@ -210,7 +210,14 @@ async def _score_one_symbol(
     min_confidence: float,
 ) -> tuple[Symbol, MarketState, AnalysisResult]:
     """Fetch + compute + score one symbol. Returns (symbol, state, result)."""
-    series = await client.get_klines(symbol, timeframe, limit=limit)
+    htf = timeframe.higher_timeframe
+    coros = [client.get_klines(symbol, timeframe, limit=limit)]
+    if htf:
+        coros.append(client.get_klines(symbol, htf, limit=limit))
+
+    results = await asyncio.gather(*coros)
+    series = results[0]
+    higher_tf_series = results[1] if htf else None
 
     funding_rate: FundingRate | None = None
     try:
@@ -224,6 +231,7 @@ async def _score_one_symbol(
         min_confidence=min_confidence,
         timestamp=int(_now_ms()),
         funding_rate=funding_rate,
+        higher_tf_series=higher_tf_series,
     )
     assert result.market_state is not None
     return symbol, result.market_state, result

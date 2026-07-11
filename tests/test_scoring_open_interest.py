@@ -1,11 +1,11 @@
+from neon_radar.config.models import TimeFrame
+from neon_radar.domain.funding import OpenInterest
+from neon_radar.domain.market_state import MarketState
+from neon_radar.domain.models import OHLCV, KlineSeries, Symbol
 from neon_radar.domain.scoring.rules.open_interest_confirmation import (
     OpenInterestConfirmationRule,
 )
 from neon_radar.domain.scoring.value_objects import Signal
-from neon_radar.domain.models import OHLCV, KlineSeries, Symbol
-from neon_radar.domain.funding import OpenInterest
-from neon_radar.domain.market_state import MarketState
-from neon_radar.config.models import TimeFrame
 
 
 def make_series(prices, volumes, timeframe=TimeFrame.D1):

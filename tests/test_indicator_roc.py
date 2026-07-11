@@ -67,8 +67,8 @@ class TestROC:
 
     def test_division_by_zero(self) -> None:
         """ROC handles past value == 0 smoothly (inf)."""
-        from neon_radar.domain.models import OHLCV, KlineSeries, Symbol
         from neon_radar.config.models import TimeFrame
+        from neon_radar.domain.models import OHLCV, KlineSeries, Symbol
 
         candles = [
             OHLCV(open_time=0, open=0.0, high=0.0, low=0.0, close=0.0, volume=0.0),

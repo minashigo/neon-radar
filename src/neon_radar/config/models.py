@@ -71,6 +71,27 @@ class TimeFrame(StrEnum):
         }
         return mapping[self]
 
+    @property
+    def higher_timeframe(self) -> TimeFrame | None:
+        """Logical higher timeframe for macro trend analysis."""
+        mapping: dict[TimeFrame, TimeFrame | None] = {
+            TimeFrame.M1: TimeFrame.M5,
+            TimeFrame.M5: TimeFrame.M15,
+            TimeFrame.M15: TimeFrame.H1,
+            TimeFrame.M30: TimeFrame.H4,
+            TimeFrame.H1: TimeFrame.H4,
+            TimeFrame.H2: TimeFrame.H8,
+            TimeFrame.H4: TimeFrame.D1,
+            TimeFrame.H6: TimeFrame.D1,
+            TimeFrame.H8: TimeFrame.D1,
+            TimeFrame.H12: TimeFrame.D3,
+            TimeFrame.D1: TimeFrame.W1,
+            TimeFrame.D3: TimeFrame.W1,
+            TimeFrame.W1: TimeFrame.MN,
+            TimeFrame.MN: None,
+        }
+        return mapping.get(self)
+
 
 class SymbolConfig(BaseModel):
     """A single tradable instrument on Binance Futures.

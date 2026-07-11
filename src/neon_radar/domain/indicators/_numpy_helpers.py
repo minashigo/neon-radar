@@ -178,9 +178,9 @@ def roc_array(values: np.ndarray, period: int) -> np.ndarray:
 
     past = values[:-period]
     current = values[period:]
-    
+
     with np.errstate(divide="ignore", invalid="ignore"):
         result = (current - past) / past * 100.0
-    
+
     out[period:] = result
     return out
