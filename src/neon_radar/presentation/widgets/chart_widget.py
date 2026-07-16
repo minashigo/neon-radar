@@ -16,6 +16,7 @@ import math
 from typing import TYPE_CHECKING
 
 import pyqtgraph as pg
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QBrush, QColor, QPainter, QPen, QPicture
 from PySide6.QtWidgets import QVBoxLayout, QWidget
 
@@ -24,61 +25,124 @@ from neon_radar.presentation.theme.neon_palette import NeonPalette
 if TYPE_CHECKING:
     from neon_radar.domain.indicators.base import IndicatorSeries
     from neon_radar.domain.models import KlineSeries
+    from neon_radar.domain.trading.setup import TradeSetup
 
 
 class CandlestickItem(pg.GraphicsObject):
-    """One candlestick — drawn as a pre-rendered :class:`QPicture`.
+    """Batched candlestick chart item.
 
-    Drawing each candle as a QPicture (instead of issuing per-pixel
-    QPainter calls in :meth:`paint`) lets Qt batch the render and
-    keeps scrolling / zooming smooth with hundreds of candles.
+    Draws all candles into a single :class:`QPicture` for maximum
+    performance during panning and zooming.
     """
 
-    def __init__(self, x: float, o: float, h: float, lo: float, c: float) -> None:
+    def __init__(self, data: list[tuple[float, float, float, float, float]]) -> None:
+        """Initialize with data array.
+        
+        Args:
+            data: List of (time, open, high, low, close) tuples.
+        """
         super().__init__()
-        self.x = x
-        self.o = o
-        self.h = h
-        self.lo = lo
-        self.c = c
+        self.data = data
         self._picture = QPicture()
+        self._bounding_rect = pg.QtCore.QRectF()
         self._generate_picture()
 
     def _generate_picture(self) -> None:
-        painter = QPainter(self._picture)
-        try:
-            is_bull = self.c >= self.o
-            color_hex = (
-                NeonPalette.ACCENT_BULLISH if is_bull else NeonPalette.ACCENT_BEARISH
-            )
-            color = QColor(color_hex)
-            pen = QPen(color)
-            pen.setWidth(1)
-            painter.setPen(pen)
-            painter.setBrush(QBrush(color))
+        if not self.data:
+            return
 
-            # Wick (high-low line).
-            painter.drawLine(
-                pg.QtCore.QPointF(self.x, self.lo),
-                pg.QtCore.QPointF(self.x, self.h),
-            )
-            # Body (open-close rectangle).
-            body = pg.QtCore.QRectF(
-                self.x - 0.3,
-                min(self.o, self.c),
-                0.6,
-                abs(self.c - self.o) if self.c != self.o else 0.001,
-            )
-            painter.drawRect(body)
+        painter = QPainter(self._picture)
+
+        min_x, max_x = float('inf'), float('-inf')
+        min_y, max_y = float('inf'), float('-inf')
+
+        try:
+            pen = QPen()
+            pen.setWidth(1)
+
+            # Width of the candle body based on timeframe spacing.
+            # Using 0.6 standard width if t is unix timestamp in seconds.
+            # If t is seconds, 1 hour = 3600. So width 0.6 is tiny!
+            # Wait, previously we had x values in seconds?
+            # Let's check: previous code used width 0.6 for x in seconds?
+            # Actually, previous code:
+            # `body = pg.QtCore.QRectF(self.x - 0.3, ..., 0.6, ...)`
+            # But the volume bar used width `(xs[1] - xs[0]) * 0.7`.
+            # Let's use `(xs[1] - xs[0]) * 0.7` for candle width too!
+
+            if len(self.data) > 1:
+                w = (self.data[1][0] - self.data[0][0]) * 0.7
+            else:
+                w = 86400 * 0.7
+
+            for t, o, h, lo, c in self.data:
+                is_bull = c >= o
+                color_hex = (
+                    NeonPalette.ACCENT_BULLISH if is_bull else NeonPalette.ACCENT_BEARISH
+                )
+                color = QColor(color_hex)
+                pen.setColor(color)
+                painter.setPen(pen)
+                painter.setBrush(QBrush(color))
+
+                # Wick (high-low line).
+                painter.drawLine(
+                    pg.QtCore.QPointF(t, lo),
+                    pg.QtCore.QPointF(t, h),
+                )
+                # Body (open-close rectangle).
+                body_h = abs(c - o) if c != o else 0.001
+                body_y = min(o, c)
+                body = pg.QtCore.QRectF(
+                    t - w / 2,
+                    body_y,
+                    w,
+                    body_h,
+                )
+                painter.drawRect(body)
+
+                min_x = min(min_x, t)
+                max_x = max(max_x, t)
+                min_y = min(min_y, lo)
+                max_y = max(max_y, h)
         finally:
             painter.end()
+
+        # Precompute bounding rect
+        pad_x = w if 'w' in locals() else 0.5
+        self._bounding_rect = pg.QtCore.QRectF(
+            min_x - pad_x,
+            min_y,
+            max_x - min_x + 2 * pad_x,
+            max_y - min_y
+        )
 
     def paint(self, painter, *_args) -> None:
         painter.drawPicture(0, 0, self._picture)
 
-    def boundingRect(self) -> pg.QtCore.QRectF:  # noqa: N802 — Qt override
-        # Pad slightly so anti-aliased wicks don't get clipped.
-        return pg.QtCore.QRectF(self.x - 0.5, self.lo, 1.0, max(self.h - self.lo, 0.001))
+    def boundingRect(self) -> pg.QtCore.QRectF:  # noqa: N802
+        return self._bounding_rect
+
+    def dataBounds(self, ax: int, frac: float = 1.0, orthoRange: tuple[float, float] | None = None) -> tuple[float, float] | None:  # noqa: N802, N803
+        """Provide accurate data bounds for auto-scaling.
+        
+        Args:
+            ax: 0 for X-axis, 1 for Y-axis.
+            frac: Ignored.
+            orthoRange: The visible range of the orthogonal axis.
+        """
+        if not self.data:
+            return None
+        if ax == 0:
+            return (self.data[0][0], self.data[-1][0])
+        elif ax == 1:
+            if orthoRange is not None:
+                min_x, max_x = orthoRange
+                visible = [d for d in self.data if min_x <= d[0] <= max_x]
+                if visible:
+                    return (min(d[3] for d in visible), max(d[2] for d in visible))
+            return (min(d[3] for d in self.data), max(d[2] for d in self.data))
+        return None
 
 
 class ChartWidget(QWidget):
@@ -100,6 +164,7 @@ class ChartWidget(QWidget):
         series: KlineSeries,
         indicators: tuple[IndicatorSeries, ...] = (),
         *,
+        trade_setup: TradeSetup | None = None,
         visible_candles: int = DEFAULT_VISIBLE,
     ) -> None:
         """Render the supplied series + indicators.
@@ -122,13 +187,18 @@ class ChartWidget(QWidget):
         xs = [c.open_time / 1000.0 for c in recent]
 
         # Candles.
-        for i, candle in enumerate(recent):
-            self._price_plot.addItem(
-                CandlestickItem(xs[i], candle.open, candle.high, candle.low, candle.close)
-            )
+        candle_data = [
+            (xs[i], c.open, c.high, c.low, c.close)
+            for i, c in enumerate(recent)
+        ]
+        self._price_plot.addItem(CandlestickItem(candle_data))
 
         # Indicators as lines.
+        from neon_radar.domain.indicators.base import IndicatorKind
         for ind in indicators:
+            if ind.kind != IndicatorKind.OVERLAY:
+                continue
+                
             color_hex = self._indicator_color(ind.name)
             ys = []
             xs_ind = []
@@ -142,6 +212,52 @@ class ChartWidget(QWidget):
                 continue
             pen = pg.mkPen(color_hex, width=2)
             self._price_plot.plot(xs_ind, ys, pen=pen, name=ind.name)
+
+        # Trade Setup Overlay.
+        if trade_setup:
+            color_hex = NeonPalette.ACCENT_BULLISH if trade_setup.direction.name == "BULLISH" else NeonPalette.ACCENT_BEARISH
+            color = QColor(color_hex)
+
+            # Entry
+            entry_line = pg.InfiniteLine(
+                pos=trade_setup.entry_price,
+                angle=0,
+                pen=pg.mkPen(color, width=2, style=Qt.PenStyle.DashLine),
+                label="Entry",
+                labelOpts={"position": 0.05, "color": color, "movable": True}
+            )
+            self._price_plot.addItem(entry_line)
+
+            # Stop Loss
+            sl_color = QColor(NeonPalette.ACCENT_BEARISH if trade_setup.direction.name == "BULLISH" else NeonPalette.ACCENT_BULLISH)
+            sl_line = pg.InfiniteLine(
+                pos=trade_setup.stop_loss,
+                angle=0,
+                pen=pg.mkPen(sl_color, width=2, style=Qt.PenStyle.DashLine),
+                label="SL",
+                labelOpts={"position": 0.05, "color": sl_color, "movable": True}
+            )
+            self._price_plot.addItem(sl_line)
+
+            # TP1 & TP2
+            tp_pen = pg.mkPen(color, width=2, style=Qt.PenStyle.DotLine)
+            tp1_line = pg.InfiniteLine(
+                pos=trade_setup.take_profit_1,
+                angle=0,
+                pen=tp_pen,
+                label="TP1",
+                labelOpts={"position": 0.05, "color": color, "movable": True}
+            )
+            self._price_plot.addItem(tp1_line)
+
+            tp2_line = pg.InfiniteLine(
+                pos=trade_setup.take_profit_2,
+                angle=0,
+                pen=tp_pen,
+                label="TP2",
+                labelOpts={"position": 0.05, "color": color, "movable": True}
+            )
+            self._price_plot.addItem(tp2_line)
 
         # Volume bars.
         volumes = [c.volume for c in recent]
@@ -161,7 +277,8 @@ class ChartWidget(QWidget):
         )
         self._volume_plot.addItem(bar)
 
-        # Auto-range the price plot.
+        # Auto-range the price plot dynamically as we pan
+        self._price_plot.getViewBox().setAutoVisible(y=True)
         self._price_plot.enableAutoRange(axis="y", enable=True)
 
     def clear(self) -> None:
