@@ -83,9 +83,7 @@ class TestRankingTable:
             RankingRow("CCC", -0.4, 0.5, Bias.BEARISH, "trend↓"),
         ]
         table.update_rows(rows)
-        symbols_in_order = [
-            table.item(r, 1).text() for r in range(table.rowCount())
-        ]
+        symbols_in_order = [table.item(r, 1).text() for r in range(table.rowCount())]
         assert symbols_in_order == ["BBB", "AAA", "CCC"]
 
     def test_ranks_are_one_indexed(self, qtbot) -> None:
@@ -256,9 +254,7 @@ def _make_scoring_config() -> ScoringRulesConfig:
 
 
 class TestMainWindow:
-    def test_constructs_without_network(
-        self, qtbot, monkeypatch
-    ) -> None:
+    def test_constructs_without_network(self, qtbot, monkeypatch) -> None:
         from neon_radar.domain.scoring import (
             EMATrendRule,
             RSIMomentumRule,

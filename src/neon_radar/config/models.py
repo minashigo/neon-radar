@@ -114,9 +114,7 @@ class SymbolConfig(BaseModel):
         """Symbols are case-insensitive on Binance but the API expects upper-case."""
         cleaned = value.strip().upper()
         if not cleaned.isalnum():
-            raise ValueError(
-                f"Invalid symbol '{value}': must be alphanumeric (e.g. 'BTCUSDT')"
-            )
+            raise ValueError(f"Invalid symbol '{value}': must be alphanumeric (e.g. 'BTCUSDT')")
         return cleaned
 
 

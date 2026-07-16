@@ -30,7 +30,9 @@ def test_open_interest_confirms_price_move():
     oi_quote = avg_quote_vol * 5.0  # ratio = 5.0 (>= high_ratio default 3.0)
 
     oi = OpenInterest(symbol=Symbol("BTCUSDT"), value=0.0, value_quote=oi_quote)
-    state = MarketState(symbol=Symbol("BTCUSDT"), timestamp=0, primary_series=series, open_interest=oi)
+    state = MarketState(
+        symbol=Symbol("BTCUSDT"), timestamp=0, primary_series=series, open_interest=oi
+    )
 
     rule = OpenInterestConfirmationRule()
     sig = rule.evaluate(state)
@@ -50,7 +52,9 @@ def test_open_interest_diverges_from_price():
     oi_quote = avg_quote_vol * 0.1  # ratio = 0.1 (< low_ratio 0.5)
 
     oi = OpenInterest(symbol=Symbol("BTCUSDT"), value=0.0, value_quote=oi_quote)
-    state = MarketState(symbol=Symbol("BTCUSDT"), timestamp=0, primary_series=series, open_interest=oi)
+    state = MarketState(
+        symbol=Symbol("BTCUSDT"), timestamp=0, primary_series=series, open_interest=oi
+    )
 
     rule = OpenInterestConfirmationRule()
     sig = rule.evaluate(state)
@@ -64,7 +68,9 @@ def test_open_interest_no_data_returns_none():
     prices = [100.0, 101.0]
     volumes = [1.0, 1.0]
     series = make_series(prices, volumes)
-    state = MarketState(symbol=Symbol("BTCUSDT"), timestamp=0, primary_series=series, open_interest=None)
+    state = MarketState(
+        symbol=Symbol("BTCUSDT"), timestamp=0, primary_series=series, open_interest=None
+    )
 
     rule = OpenInterestConfirmationRule()
     sig = rule.evaluate(state)

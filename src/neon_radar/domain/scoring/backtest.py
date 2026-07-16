@@ -85,9 +85,7 @@ class EvaluationResult:
         d = self.direction
         if d == 0:
             return None
-        return (d > 0 and self.actual_return_pct > 0) or (
-            d < 0 and self.actual_return_pct < 0
-        )
+        return (d > 0 and self.actual_return_pct > 0) or (d < 0 and self.actual_return_pct < 0)
 
 
 @dataclass(slots=True, frozen=True)
@@ -142,9 +140,7 @@ class ConfidenceCalibration:
     """One entry per bucket: (low, high, hit_rate)."""
 
     @classmethod
-    def from_pairs(
-        cls, pairs: list[tuple[float, float, int, int]]
-    ) -> ConfidenceCalibration:
+    def from_pairs(cls, pairs: list[tuple[float, float, int, int]]) -> ConfidenceCalibration:
         """Build from (low, high, hits, total) tuples."""
         b = tuple((lo, hi, hits / total if total else 0.0) for lo, hi, hits, total in pairs)
         return cls(buckets=b)

@@ -50,9 +50,7 @@ class TestKlineCache:
         cache = KlineCache(tmp_path)
         assert cache.get(Symbol("BTCUSDT"), TimeFrame.H4) is None
 
-    def test_ttl_zero_never_expires(
-        self, tmp_path: Path
-    ) -> None:
+    def test_ttl_zero_never_expires(self, tmp_path: Path) -> None:
         cache = KlineCache(tmp_path, ttl_seconds=0)
         s = _series("BTCUSDT", TimeFrame.H4)
         cache.put(s)

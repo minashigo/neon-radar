@@ -47,9 +47,7 @@ class MACDMomentumRule(FactorRule):
         # Lazy import to avoid circular dependency at module load.
         from neon_radar.application.services.indicator_pipeline import IndicatorSpec
 
-        return (
-            IndicatorSpec(name="macd", params={}, tag=""),
-        )
+        return (IndicatorSpec(name="macd", params={}, tag=""),)
 
     def evaluate(self, state: MarketState) -> Signal | None:
         macd_series = state.get_indicator("macd")
@@ -84,7 +82,11 @@ class MACDMomentumRule(FactorRule):
         if histogram > 0:
             expanding = histogram > prev_histogram
             confidence = 0.8 if expanding else 0.5
-            desc = "MACD bullish state (expanding)" if expanding else "MACD bullish state (contracting)"
+            desc = (
+                "MACD bullish state (expanding)"
+                if expanding
+                else "MACD bullish state (contracting)"
+            )
             return Signal(
                 name=self.name,
                 weight=self.weight,
@@ -101,7 +103,11 @@ class MACDMomentumRule(FactorRule):
         if histogram < 0:
             expanding = histogram < prev_histogram
             confidence = 0.8 if expanding else 0.5
-            desc = "MACD bearish state (expanding)" if expanding else "MACD bearish state (contracting)"
+            desc = (
+                "MACD bearish state (expanding)"
+                if expanding
+                else "MACD bearish state (contracting)"
+            )
             return Signal(
                 name=self.name,
                 weight=self.weight,

@@ -46,8 +46,7 @@ class MACD(Indicator):
             raise ValueError(f"fast_period must be positive, got {fast_period}")
         if slow_period <= fast_period:
             raise ValueError(
-                f"slow_period ({slow_period}) must be greater than fast_period "
-                f"({fast_period})"
+                f"slow_period ({slow_period}) must be greater than fast_period ({fast_period})"
             )
         if signal_period < 1:
             raise ValueError(f"signal_period must be positive, got {signal_period}")

@@ -42,13 +42,9 @@ class VolumeConfirmationRule(FactorRule):
         if period < 1:
             raise ValueError(f"period must be positive, got {period}")
         if strong_multiplier <= 1:
-            raise ValueError(
-                f"strong_multiplier must be > 1, got {strong_multiplier}"
-            )
+            raise ValueError(f"strong_multiplier must be > 1, got {strong_multiplier}")
         if weak_multiplier >= 1 or weak_multiplier <= 0:
-            raise ValueError(
-                f"weak_multiplier must be in (0, 1), got {weak_multiplier}"
-            )
+            raise ValueError(f"weak_multiplier must be in (0, 1), got {weak_multiplier}")
         self.period = period
         self.strong_multiplier = strong_multiplier
         self.weak_multiplier = weak_multiplier

@@ -51,9 +51,7 @@ class Signal:
         if not -1.0 <= self.value <= 1.0:
             raise ValueError(f"Signal.value must be in [-1, 1], got {self.value}")
         if not 0.0 <= self.confidence <= 1.0:
-            raise ValueError(
-                f"Signal.confidence must be in [0, 1], got {self.confidence}"
-            )
+            raise ValueError(f"Signal.confidence must be in [0, 1], got {self.confidence}")
 
     @property
     def is_bullish(self) -> bool:
@@ -78,9 +76,7 @@ class Score:
         if not -1.0 <= self.value <= 1.0:
             raise ValueError(f"Score.value must be in [-1, 1], got {self.value}")
         if not 0.0 <= self.confidence <= 1.0:
-            raise ValueError(
-                f"Score.confidence must be in [0, 1], got {self.confidence}"
-            )
+            raise ValueError(f"Score.confidence must be in [0, 1], got {self.confidence}")
         if self.long_score < 0 or self.short_score < 0:
             raise ValueError("long_score and short_score must be non-negative")
         if self.contributing_signals < 0:

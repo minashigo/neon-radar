@@ -218,9 +218,7 @@ class MainWindow(QMainWindow):
 
     def _apply_scoring(self, symbol: Symbol, series: KlineSeries) -> None:
         funding = self._last_funding.get(symbol)
-        result, indicators = self._compute_result(
-            symbol, series, funding_rate=funding
-        )
+        result, indicators = self._compute_result(symbol, series, funding_rate=funding)
         if result is None:
             return
         self._last_results[symbol] = result
@@ -261,6 +259,13 @@ class MainWindow(QMainWindow):
         funding_rate: FundingRate | None = None,
     ) -> tuple[AnalysisResult | None, tuple[IndicatorSeries, ...]]:
         """Run the engine on the supplied series."""
+        from neon_radar.application.services.indicator_pipeline import IndicatorSpec
+
+        ui_indicators = (
+            IndicatorSpec(name="ema", params={"period": 20}, tag="20"),
+            IndicatorSpec(name="ema", params={"period": 50}, tag="50"),
+        )
+
         try:
             result = analyze_series(
                 series,
@@ -268,6 +273,7 @@ class MainWindow(QMainWindow):
                 min_confidence=self._scoring_config.min_confidence,
                 timestamp=int(series.candles[-1].open_time),
                 funding_rate=funding_rate,
+                extra_indicators=ui_indicators,
             )
         except Exception:
             return None, ()
@@ -282,8 +288,10 @@ class MainWindow(QMainWindow):
         series = self._last_klines.get(symbol)
         if series is None:
             return
+        result = self._last_results.get(symbol)
         indicators = self._last_indicators.get(symbol, ())
-        self._chart.render(series, indicators)
+        trade_setup = result.trade_setup if result else None
+        self._chart.render(series, indicators, trade_setup=trade_setup)
 
     # ------------------------------------------------------------------
     # UI updates

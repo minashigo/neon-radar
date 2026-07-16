@@ -50,7 +50,13 @@ def _score_with_signals():
     signals = (
         Signal(name="ema_trend", weight=0.3, value=0.9, confidence=0.8, description="EMA20>EMA50"),
         Signal(name="rsi_momentum", weight=0.25, value=0.4, confidence=0.7, description="RSI=62"),
-        Signal(name="volume_confirmation", weight=0.25, value=0.5, confidence=0.6, description="Vol 1.6x"),
+        Signal(
+            name="volume_confirmation",
+            weight=0.25,
+            value=0.5,
+            confidence=0.6,
+            description="Vol 1.6x",
+        ),
     )
     return AnalysisResult(score=score, signals=signals, summary="bullish", computed_at=0)
 
@@ -75,9 +81,15 @@ class TestBacktestParser:
         with pytest.raises(SystemExit):
             build_parser().parse_args(["backtest", "--end", "2024-12-31"])
 
-    def test_minimal(self) -> None:
+    def test_minimal_trade_backtest(self) -> None:
+        ns = build_parser().parse_args(["backtest", "--start", "2024-01-01", "--end", "2024-12-31"])
+        assert ns.start == date(2024, 1, 1)
+        assert ns.end == date(2024, 12, 31)
+        assert ns.timeframe == "1d"
+
+    def test_minimal_signals_backtest(self) -> None:
         ns = build_parser().parse_args(
-            ["backtest", "--start", "2024-01-01", "--end", "2024-12-31"]
+            ["signals-backtest", "--start", "2024-01-01", "--end", "2024-12-31"]
         )
         assert ns.start == date(2024, 1, 1)
         assert ns.end == date(2024, 12, 31)
@@ -86,9 +98,7 @@ class TestBacktestParser:
 
     def test_invalid_date(self) -> None:
         with pytest.raises(SystemExit):
-            build_parser().parse_args(
-                ["backtest", "--start", "not-a-date", "--end", "2024-12-31"]
-            )
+            build_parser().parse_args(["backtest", "--start", "not-a-date", "--end", "2024-12-31"])
 
 
 # ---------------------------------------------------------------------------
@@ -110,10 +120,15 @@ class TestBreakdown:
     def test_handles_no_signals(self) -> None:
         empty = AnalysisResult(
             score=Score(
-                value=0.0, confidence=0.0,
-                long_score=0.0, short_score=0.0, contributing_signals=0,
+                value=0.0,
+                confidence=0.0,
+                long_score=0.0,
+                short_score=0.0,
+                contributing_signals=0,
             ),
-            signals=(), summary="", computed_at=0,
+            signals=(),
+            summary="",
+            computed_at=0,
         )
         with captured_stdout() as buf:
             _print_breakdown(empty, use_color=False)

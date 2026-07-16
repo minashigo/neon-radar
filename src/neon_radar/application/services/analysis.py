@@ -54,15 +54,17 @@ def analyze_series(
     ticker: TickerStats | None = None,
     funding_rate: FundingRate | None = None,
     open_interest: OpenInterest | None = None,
+    extra_indicators: Iterable[IndicatorSpec] = (),
 ) -> AnalysisResult:
     """Run the complete analysis cycle for one candle series."""
-    from neon_radar.domain.trading.setup import TradeSetupEngine
     from dataclasses import replace
+
+    from neon_radar.domain.trading.setup import TradeSetupEngine
 
     setup_engine = TradeSetupEngine()
 
     rules_tuple = tuple(rules)
-    
+
     # Collect rule indicators and engine indicators
     spec_map: dict[str, IndicatorSpec] = {}
     for rule in rules_tuple:
@@ -70,7 +72,9 @@ def analyze_series(
             spec_map.setdefault(spec.series_name, spec)
     for spec in setup_engine.required_indicators():
         spec_map.setdefault(spec.series_name, spec)
-    
+    for spec in extra_indicators:
+        spec_map.setdefault(spec.series_name, spec)
+
     specs = tuple(spec_map.values())
 
     primary_specs = [s for s in specs if s.target == "primary"]

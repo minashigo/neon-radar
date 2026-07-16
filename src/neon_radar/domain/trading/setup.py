@@ -37,7 +37,7 @@ class TradeSetup:
             raise ValueError("stop_loss must be > 0")
         if self.take_profit_1 <= 0 or self.take_profit_2 <= 0:
             raise ValueError("take_profits must be > 0")
-        
+
         # Verify ordering based on direction
         if self.direction == Bias.BULLISH:
             if not (self.stop_loss < self.entry_price < self.take_profit_1 < self.take_profit_2):
@@ -49,7 +49,7 @@ class TradeSetup:
 
 class TradeSetupEngine:
     """Generates a TradeSetup recommendation from market state and score.
-    
+
     This is an independent service that does not compute indicators itself.
     It expects the necessary indicators (e.g., ATR) to be present in the
     MarketState. The pipeline is responsible for querying `required_indicators()`
@@ -92,6 +92,7 @@ class TradeSetupEngine:
             return None
 
         import math
+
         atr_val = atr_series.snapshots[-1].get("atr")
         if atr_val is None or math.isnan(atr_val) or atr_val <= 0:
             return None

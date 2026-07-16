@@ -31,6 +31,7 @@ if TYPE_CHECKING:
         AnalysisResult,
         FactorBreakdown,
     )
+
     pass
 
 
@@ -57,17 +58,13 @@ class DetailPanel(QFrame):
         score = result.score
         bias = score.bias
         self._score_value.setText(f"{score.value:+.2f}")
-        self._score_value.setObjectName(
-            "score_value_" + bias.value.lower()
-        )
+        self._score_value.setObjectName("score_value_" + bias.value.lower())
         # Re-apply style by forcing stylesheet refresh.
         self._score_value.style().unpolish(self._score_value)
         self._score_value.style().polish(self._score_value)
         self._conf_value.setText(f"{score.confidence:.2f}")
         self._bias_value.setText(self._bias_label(bias))
-        self._bias_value.setStyleSheet(
-            f"color: {self._bias_color(bias)}; font-weight: bold;"
-        )
+        self._bias_value.setStyleSheet(f"color: {self._bias_color(bias)}; font-weight: bold;")
         self._signals_value.setText(str(len(result.signals)))
         self._view_chart_btn.setEnabled(True)
 
@@ -78,7 +75,7 @@ class DetailPanel(QFrame):
             self._sl_val.setText(f"{ts.stop_loss:.4g}")
             self._tp1_val.setText(f"{ts.take_profit_1:.4g}")
             self._tp2_val.setText(f"{ts.take_profit_2:.4g}")
-            
+
             color = self._bias_color(ts.direction)
             style = f"color: {color}; font-weight: bold;"
             self._entry_val.setStyleSheet(style)
@@ -101,7 +98,9 @@ class DetailPanel(QFrame):
         for i, b in enumerate(rows):
             self._set_breakdown_cell(i, 0, b.factor)
             self._set_breakdown_cell(
-                i, 1, f"{b.contribution:+.2f}",
+                i,
+                1,
+                f"{b.contribution:+.2f}",
                 color=self._contrib_color(b),
                 bold=True,
                 align=Qt.AlignmentFlag.AlignRight,
@@ -187,17 +186,17 @@ class DetailPanel(QFrame):
         # Trade Setup section
         setup_grid = QGridLayout()
         setup_grid.setHorizontalSpacing(24)
-        
+
         entry_lbl = self._make_label("ENTRY", dim=True)
         sl_lbl = self._make_label("STOP LOSS", dim=True)
         tp1_lbl = self._make_label("TP1", dim=True)
         tp2_lbl = self._make_label("TP2", dim=True)
-        
+
         self._entry_val = self._make_value_label()
         self._sl_val = self._make_value_label()
         self._tp1_val = self._make_value_label()
         self._tp2_val = self._make_value_label()
-        
+
         setup_grid.addWidget(entry_lbl, 0, 0)
         setup_grid.addWidget(self._entry_val, 1, 0)
         setup_grid.addWidget(sl_lbl, 0, 1)
@@ -206,7 +205,7 @@ class DetailPanel(QFrame):
         setup_grid.addWidget(self._tp1_val, 1, 2)
         setup_grid.addWidget(tp2_lbl, 0, 3)
         setup_grid.addWidget(self._tp2_val, 1, 3)
-        
+
         layout.addLayout(setup_grid)
 
         # Breakdown table.

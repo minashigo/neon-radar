@@ -123,9 +123,7 @@ class RSIMomentumRule(FactorRule):
 
         if rsi <= self.bear_high:
             # Bear zone: stronger signal as RSI falls toward oversold.
-            magnitude = -min(
-                1.0, (self.bear_high - rsi) / (self.bear_high - self.bear_low)
-            )
+            magnitude = -min(1.0, (self.bear_high - rsi) / (self.bear_high - self.bear_low))
             confidence = 0.7
             return Signal(
                 name=self.name,

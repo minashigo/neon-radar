@@ -58,7 +58,5 @@ def test_multiple_confidence_modifiers_with_directional():
     assert score.long_score == pytest.approx(0.4 / directional_weight)
     assert score.short_score == pytest.approx(0.2 / directional_weight)
     assert score.value == pytest.approx((0.4 / directional_weight) - (0.2 / directional_weight))
-    expected_conf = (
-        0.4 * 0.9 + 0.2 * 0.8 + 0.1 * 0.2 + 0.15 * 0.6 + 0.15 * 0.7
-    ) / 1.0
+    expected_conf = (0.4 * 0.9 + 0.2 * 0.8 + 0.1 * 0.2 + 0.15 * 0.6 + 0.15 * 0.7) / 1.0
     assert score.confidence == pytest.approx(expected_conf)

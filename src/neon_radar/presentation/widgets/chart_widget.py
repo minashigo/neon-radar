@@ -37,7 +37,7 @@ class CandlestickItem(pg.GraphicsObject):
 
     def __init__(self, data: list[tuple[float, float, float, float, float]]) -> None:
         """Initialize with data array.
-        
+
         Args:
             data: List of (time, open, high, low, close) tuples.
         """
@@ -53,8 +53,8 @@ class CandlestickItem(pg.GraphicsObject):
 
         painter = QPainter(self._picture)
 
-        min_x, max_x = float('inf'), float('-inf')
-        min_y, max_y = float('inf'), float('-inf')
+        min_x, max_x = float("inf"), float("-inf")
+        min_y, max_y = float("inf"), float("-inf")
 
         try:
             pen = QPen()
@@ -77,9 +77,7 @@ class CandlestickItem(pg.GraphicsObject):
 
             for t, o, h, lo, c in self.data:
                 is_bull = c >= o
-                color_hex = (
-                    NeonPalette.ACCENT_BULLISH if is_bull else NeonPalette.ACCENT_BEARISH
-                )
+                color_hex = NeonPalette.ACCENT_BULLISH if is_bull else NeonPalette.ACCENT_BEARISH
                 color = QColor(color_hex)
                 pen.setColor(color)
                 painter.setPen(pen)
@@ -109,12 +107,9 @@ class CandlestickItem(pg.GraphicsObject):
             painter.end()
 
         # Precompute bounding rect
-        pad_x = w if 'w' in locals() else 0.5
+        pad_x = w if "w" in locals() else 0.5
         self._bounding_rect = pg.QtCore.QRectF(
-            min_x - pad_x,
-            min_y,
-            max_x - min_x + 2 * pad_x,
-            max_y - min_y
+            min_x - pad_x, min_y, max_x - min_x + 2 * pad_x, max_y - min_y
         )
 
     def paint(self, painter, *_args) -> None:
@@ -123,9 +118,11 @@ class CandlestickItem(pg.GraphicsObject):
     def boundingRect(self) -> pg.QtCore.QRectF:  # noqa: N802
         return self._bounding_rect
 
-    def dataBounds(self, ax: int, frac: float = 1.0, orthoRange: tuple[float, float] | None = None) -> tuple[float, float] | None:  # noqa: N802, N803
+    def dataBounds(
+        self, ax: int, frac: float = 1.0, orthoRange: tuple[float, float] | None = None
+    ) -> tuple[float, float] | None:  # noqa: N802, N803
         """Provide accurate data bounds for auto-scaling.
-        
+
         Args:
             ax: 0 for X-axis, 1 for Y-axis.
             frac: Ignored.
@@ -187,22 +184,22 @@ class ChartWidget(QWidget):
         xs = [c.open_time / 1000.0 for c in recent]
 
         # Candles.
-        candle_data = [
-            (xs[i], c.open, c.high, c.low, c.close)
-            for i, c in enumerate(recent)
-        ]
+        candle_data = [(xs[i], c.open, c.high, c.low, c.close) for i, c in enumerate(recent)]
         self._price_plot.addItem(CandlestickItem(candle_data))
 
         # Indicators as lines.
         from neon_radar.domain.indicators.base import IndicatorKind
+
         for ind in indicators:
             if ind.kind != IndicatorKind.OVERLAY:
                 continue
-                
+
             color_hex = self._indicator_color(ind.name)
             ys = []
             xs_ind = []
-            for ts, snap in zip(series.candles[-visible_candles:], ind.snapshots[-visible_candles:], strict=True):
+            for ts, snap in zip(
+                series.candles[-visible_candles:], ind.snapshots[-visible_candles:], strict=True
+            ):
                 v = snap.get(self._primary_value_name(ind.name))
                 if v is None or math.isnan(v):
                     continue
@@ -215,7 +212,11 @@ class ChartWidget(QWidget):
 
         # Trade Setup Overlay.
         if trade_setup:
-            color_hex = NeonPalette.ACCENT_BULLISH if trade_setup.direction.name == "BULLISH" else NeonPalette.ACCENT_BEARISH
+            color_hex = (
+                NeonPalette.ACCENT_BULLISH
+                if trade_setup.direction.name == "BULLISH"
+                else NeonPalette.ACCENT_BEARISH
+            )
             color = QColor(color_hex)
 
             # Entry
@@ -224,18 +225,22 @@ class ChartWidget(QWidget):
                 angle=0,
                 pen=pg.mkPen(color, width=2, style=Qt.PenStyle.DashLine),
                 label="Entry",
-                labelOpts={"position": 0.05, "color": color, "movable": True}
+                labelOpts={"position": 0.05, "color": color, "movable": True},
             )
             self._price_plot.addItem(entry_line)
 
             # Stop Loss
-            sl_color = QColor(NeonPalette.ACCENT_BEARISH if trade_setup.direction.name == "BULLISH" else NeonPalette.ACCENT_BULLISH)
+            sl_color = QColor(
+                NeonPalette.ACCENT_BEARISH
+                if trade_setup.direction.name == "BULLISH"
+                else NeonPalette.ACCENT_BULLISH
+            )
             sl_line = pg.InfiniteLine(
                 pos=trade_setup.stop_loss,
                 angle=0,
                 pen=pg.mkPen(sl_color, width=2, style=Qt.PenStyle.DashLine),
                 label="SL",
-                labelOpts={"position": 0.05, "color": sl_color, "movable": True}
+                labelOpts={"position": 0.05, "color": sl_color, "movable": True},
             )
             self._price_plot.addItem(sl_line)
 
@@ -246,7 +251,7 @@ class ChartWidget(QWidget):
                 angle=0,
                 pen=tp_pen,
                 label="TP1",
-                labelOpts={"position": 0.05, "color": color, "movable": True}
+                labelOpts={"position": 0.05, "color": color, "movable": True},
             )
             self._price_plot.addItem(tp1_line)
 
@@ -255,7 +260,7 @@ class ChartWidget(QWidget):
                 angle=0,
                 pen=tp_pen,
                 label="TP2",
-                labelOpts={"position": 0.05, "color": color, "movable": True}
+                labelOpts={"position": 0.05, "color": color, "movable": True},
             )
             self._price_plot.addItem(tp2_line)
 
@@ -264,9 +269,7 @@ class ChartWidget(QWidget):
         is_bull = [c.close >= c.open for c in recent]
         brushes = []
         for bull in is_bull:
-            color = QColor(
-                NeonPalette.ACCENT_BULLISH if bull else NeonPalette.ACCENT_BEARISH
-            )
+            color = QColor(NeonPalette.ACCENT_BULLISH if bull else NeonPalette.ACCENT_BEARISH)
             color.setAlpha(120)  # slight transparency for layered look
             brushes.append(pg.mkBrush(color))
         bar = pg.BarGraphItem(
@@ -301,9 +304,7 @@ class ChartWidget(QWidget):
 
         # Price plot — takes ~75% of vertical space.
         date_axis = pg.DateAxisItem(orientation="bottom")
-        self._price_plot = self._plot_widget.addPlot(
-            row=0, col=0, axisItems={"bottom": date_axis}
-        )
+        self._price_plot = self._plot_widget.addPlot(row=0, col=0, axisItems={"bottom": date_axis})
         self._price_plot.showGrid(x=True, y=True, alpha=0.3)
         self._price_plot.setLabel("left", "Price")
         self._price_plot.getAxis("left").setTextPen(pg.mkPen(NeonPalette.TEXT_PRIMARY))
@@ -311,9 +312,7 @@ class ChartWidget(QWidget):
 
         # Volume plot — fixed height, share X axis with price.
         vol_axis = pg.DateAxisItem(orientation="bottom")
-        self._volume_plot = self._plot_widget.addPlot(
-            row=1, col=0, axisItems={"bottom": vol_axis}
-        )
+        self._volume_plot = self._plot_widget.addPlot(row=1, col=0, axisItems={"bottom": vol_axis})
         self._volume_plot.setMaximumHeight(120)
         self._volume_plot.setLabel("left", "Vol")
         self._volume_plot.showGrid(x=True, y=True, alpha=0.3)
@@ -327,13 +326,13 @@ class ChartWidget(QWidget):
     def _indicator_color(name: str) -> str:
         """Pick a colour for an indicator line."""
         palette = {
-            "ema_20": "#4fc3f7",     # cyan
-            "ema_50": "#ab47bc",     # purple
-            "ema_": "#4fc3f7",      # any EMA
-            "rsi": "#ff9800",        # orange
-            "macd": "#9c27b0",       # deep purple
+            "ema_20": "#4fc3f7",  # cyan
+            "ema_50": "#ab47bc",  # purple
+            "ema_": "#4fc3f7",  # any EMA
+            "rsi": "#ff9800",  # orange
+            "macd": "#9c27b0",  # deep purple
             "bollinger": "#8a8f99",  # dim grey
-            "atr": "#607d8b",        # blue-grey
+            "atr": "#607d8b",  # blue-grey
             "volume_ma": "#607d8b",
         }
         for prefix, color in palette.items():

@@ -167,8 +167,10 @@ class MarketDataService(QObject):
             except Exception as exc:  # last-resort safety net
                 self.error_occurred.emit(type(exc).__name__, str(exc))
             else:
-                if self._cache is not None and timeframe is not None and isinstance(
-                    result, KlineSeries
+                if (
+                    self._cache is not None
+                    and timeframe is not None
+                    and isinstance(result, KlineSeries)
                 ):
                     self._cache.put(result)
                 on_success(result)

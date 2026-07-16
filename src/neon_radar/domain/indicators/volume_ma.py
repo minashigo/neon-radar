@@ -43,9 +43,7 @@ class VolumeMA(Indicator):
         *,
         name: str | None = None,
     ) -> IndicatorSeries:
-        volumes = np.fromiter(
-            (c.volume for c in series), dtype=float, count=len(series)
-        )
+        volumes = np.fromiter((c.volume for c in series), dtype=float, count=len(series))
         values = sma_array(volumes, self.period)
         snapshots = _build_snapshots(series, [("volume_ma", values)])
         return IndicatorSeries(name=name or self.NAME, kind=self.KIND, snapshots=snapshots)

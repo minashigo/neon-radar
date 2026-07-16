@@ -44,9 +44,7 @@ class VolatilityFilterRule(FactorRule):
     ) -> None:
         super().__init__(name=name, weight=weight, description=description)
         if not 0 < min_atr_pct < max_atr_pct:
-            raise ValueError(
-                f"Need 0 < min_atr_pct ({min_atr_pct}) < max_atr_pct ({max_atr_pct})"
-            )
+            raise ValueError(f"Need 0 < min_atr_pct ({min_atr_pct}) < max_atr_pct ({max_atr_pct})")
         self.period = period
         self.min_atr_pct = min_atr_pct
         self.max_atr_pct = max_atr_pct
@@ -121,9 +119,7 @@ class VolatilityFilterRule(FactorRule):
             weight=self.weight,
             value=0.0,
             confidence=0.9,
-            description=(
-                f"Volatility in comfort zone ({atr_pct * 100:.2f}%)"
-            ),
+            description=(f"Volatility in comfort zone ({atr_pct * 100:.2f}%)"),
             evidence=(
                 EvidenceItem("atr_pct", f"{atr_pct * 100:.3f}%"),
                 EvidenceItem("atr", f"{atr:.4f}"),

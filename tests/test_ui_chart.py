@@ -16,7 +16,9 @@ from neon_radar.presentation.widgets.chart_widget import (
 )
 
 
-def _make_series(n: int = 50, start_price: float = 100.0, start_time: int = 1_700_000_000_000) -> KlineSeries:
+def _make_series(
+    n: int = 50, start_price: float = 100.0, start_time: int = 1_700_000_000_000
+) -> KlineSeries:
     """Build a small test series with predictable prices."""
     candles = tuple(
         OHLCV(
@@ -69,8 +71,10 @@ class TestChartWidget:
         qtbot.addWidget(widget)
         series = _make_series(n=10)
         widget.render(series)
-        # Plot should have at least 10 candle items (plus indicators later).
-        assert len(widget._price_plot.items) >= 10
+        # Plot should have exactly 1 batched CandlestickItem
+        candle_items = [it for it in widget._price_plot.items if isinstance(it, CandlestickItem)]
+        assert len(candle_items) == 1
+        assert len(candle_items[0].data) == 10
 
     def test_render_with_indicators(self, qtbot) -> None:
         widget = ChartWidget()
@@ -78,21 +82,20 @@ class TestChartWidget:
         series = _make_series(n=30)
         indicators = (_make_indicator_series("ema_20", n=30),)
         widget.render(series, indicators)
-        # Two types: candles + ema line. Items count > 30.
-        assert len(widget._price_plot.items) > 30
+        # Two types: candles (1 batched item) + ema line.
+        candle_items = [it for it in widget._price_plot.items if isinstance(it, CandlestickItem)]
+        assert len(candle_items) == 1
+        assert len(widget._price_plot.items) >= 2
 
     def test_visible_candles_limits_render(self, qtbot) -> None:
         widget = ChartWidget()
         qtbot.addWidget(widget)
         series = _make_series(n=100)
         widget.render(series, visible_candles=20)
-        # Should have ~20 candles, not 100.
-        # (Plus the EMA plot line = 1.) We allow some slack for axis items.
-        candle_count = sum(
-            1 for it in widget._price_plot.items
-            if isinstance(it, CandlestickItem)
-        )
-        assert candle_count == 20
+        # Should have 1 CandlestickItem containing exactly 20 candles.
+        candle_items = [it for it in widget._price_plot.items if isinstance(it, CandlestickItem)]
+        assert len(candle_items) == 1
+        assert len(candle_items[0].data) == 20
 
     def test_clear_resets_chart(self, qtbot) -> None:
         widget = ChartWidget()
@@ -131,12 +134,12 @@ class TestChartWidget:
 
 class TestCandlestickItem:
     def test_bullish_color(self) -> None:
-        item = CandlestickItem(x=0, o=100, h=110, lo=99, c=105)  # close > open = bullish
+        item = CandlestickItem([(0, 100, 110, 99, 105)])  # close > open = bullish
         # boundingRect covers low to high.
-        assert item.lo == 99
-        assert item.h == 110
+        assert item.data[0][3] == 99
+        assert item.data[0][2] == 110
 
     def test_bearish_color(self) -> None:
-        item = CandlestickItem(x=0, o=110, h=111, lo=99, c=100)  # close < open = bearish
-        assert item.o == 110
-        assert item.c == 100
+        item = CandlestickItem([(0, 110, 111, 99, 100)])  # close < open = bearish
+        assert item.data[0][1] == 110
+        assert item.data[0][4] == 100

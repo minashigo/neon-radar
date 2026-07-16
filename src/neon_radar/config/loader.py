@@ -87,9 +87,7 @@ class ConfigLoader:
         try:
             raw = json.loads(self._path.read_text(encoding="utf-8"))
         except json.JSONDecodeError as exc:
-            raise ConfigError(
-                f"Configuration file is not valid JSON: {self._path}"
-            ) from exc
+            raise ConfigError(f"Configuration file is not valid JSON: {self._path}") from exc
 
         # Strip documentation-only meta-keys so users can leave comments
         # in their config.json without breaking validation.
@@ -99,12 +97,8 @@ class ConfigLoader:
             return AppConfig.model_validate(clean)
         except ValidationError as exc:
             # Re-raise as ConfigError with a clean, human-readable message.
-            issues = "\n".join(
-                f"  • {err['loc']}: {err['msg']}" for err in exc.errors()
-            )
-            raise ConfigError(
-                f"Configuration validation failed:\n{issues}"
-            ) from exc
+            issues = "\n".join(f"  • {err['loc']}: {err['msg']}" for err in exc.errors())
+            raise ConfigError(f"Configuration validation failed:\n{issues}") from exc
 
 
 def load_config(path: Path = DEFAULT_CONFIG_PATH) -> AppConfig:

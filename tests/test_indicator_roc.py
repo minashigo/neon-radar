@@ -75,7 +75,9 @@ class TestROC:
             OHLCV(open_time=1000, open=0.0, high=0.0, low=0.0, close=0.0, volume=0.0),
             OHLCV(open_time=2000, open=0.0, high=10.0, low=0.0, close=10.0, volume=0.0),
         ]
-        series = KlineSeries(symbol=Symbol("BTCUSDT"), timeframe=TimeFrame.D1, candles=tuple(candles))
+        series = KlineSeries(
+            symbol=Symbol("BTCUSDT"), timeframe=TimeFrame.D1, candles=tuple(candles)
+        )
         out = ROC(period=2).compute(series)
         assert math.isinf(out.snapshots[2].get("roc"))
         assert out.snapshots[2].get("roc") > 0

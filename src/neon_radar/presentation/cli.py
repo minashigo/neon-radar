@@ -120,10 +120,55 @@ def build_parser() -> argparse.ArgumentParser:
         help="List all registered scoring rules and their defaults",
     )
 
+    # ---- signals-backtest ----
+    signals_backtest = sub.add_parser(
+        "signals-backtest",
+        help="Walk-forward historical simulation of the scoring engine (signals only)",
+    )
+    signals_backtest.add_argument(
+        "--start",
+        type=_parse_date,
+        required=True,
+        help="Start date (YYYY-MM-DD)",
+    )
+    signals_backtest.add_argument(
+        "--end",
+        type=_parse_date,
+        required=True,
+        help="End date (YYYY-MM-DD)",
+    )
+    signals_backtest.add_argument(
+        "--symbols",
+        default=None,
+        help="Comma-separated symbols (default: all enabled in config.json)",
+    )
+    signals_backtest.add_argument(
+        "--timeframe",
+        default="1d",
+        help="Timeframe (default: 1d)",
+    )
+    signals_backtest.add_argument(
+        "--horizons",
+        default="1,3,7",
+        help="Comma-separated forward horizons in days (default: 1,3,7)",
+    )
+    signals_backtest.add_argument(
+        "--min-history",
+        type=int,
+        default=100,
+        help="Minimum candles of history before scoring (default: 100)",
+    )
+    signals_backtest.add_argument(
+        "--output",
+        choices=["text", "json"],
+        default="text",
+        help="Output format (default: text)",
+    )
+
     # ---- backtest ----
     backtest = sub.add_parser(
         "backtest",
-        help="Walk-forward historical simulation of the scoring engine",
+        help="Walk-forward historical simulation of the complete trading system",
     )
     backtest.add_argument(
         "--start",
@@ -148,15 +193,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="Timeframe (default: 1d)",
     )
     backtest.add_argument(
-        "--horizons",
-        default="1,3,7",
-        help="Comma-separated forward horizons in days (default: 1,3,7)",
-    )
-    backtest.add_argument(
         "--min-history",
         type=int,
         default=100,
-        help="Minimum candles of history before scoring (default: 100)",
+        help="Minimum candles of history before trading (default: 100)",
     )
     backtest.add_argument(
         "--output",
@@ -172,9 +212,7 @@ def _parse_date(value: str) -> date:
     try:
         return datetime.strptime(value, "%Y-%m-%d").date()
     except ValueError as exc:
-        raise argparse.ArgumentTypeError(
-            f"Invalid date {value!r}, expected YYYY-MM-DD"
-        ) from exc
+        raise argparse.ArgumentTypeError(f"Invalid date {value!r}, expected YYYY-MM-DD") from exc
 
 
 # ---------------------------------------------------------------------------
@@ -341,6 +379,50 @@ async def _run_backtest(args: argparse.Namespace) -> int:
     return 0
 
 
+async def _run_trade_backtest(args: argparse.Namespace) -> int:
+    """Walk-forward trade backtest via ``TradeBacktester``."""
+    from neon_radar.application.services.trade_backtester import TradeBacktester
+
+    config = ConfigLoader(args.config).load()
+    scoring_cfg = ScoringRulesConfig.model_validate(_strip_meta(_read_json(args.scoring)))
+
+    if args.symbols:
+        symbols = tuple(Symbol(s.strip()) for s in args.symbols.split(",") if s.strip())
+    else:
+        symbols = tuple(Symbol(s.symbol) for s in config.enabled_symbols())
+
+    logger.info(
+        "Trade Backtest: %s to %s, %d symbols",
+        args.start,
+        args.end,
+        len(symbols),
+    )
+
+    async with BinanceClient(config.api) as client:
+        from neon_radar.config.scoring_loader import load_rules as _load
+
+        rules = tuple(_load(args.scoring))
+        backtester = TradeBacktester(
+            exchange=client,
+            scoring_config=scoring_cfg,
+            rules=rules,
+        )
+        result = await backtester.run(
+            start_date=args.start,
+            end_date=args.end,
+            symbols=symbols,
+            timeframe=args.timeframe,
+            min_history_candles=args.min_history,
+        )
+
+    if args.output == "json":
+        # We can reuse the JSON dumper for BacktestReport
+        print_result_json(result)
+    else:
+        print_trade_backtest_report(result, use_color=_should_color(args))
+    return 0
+
+
 def _read_json(path: Path) -> dict:
     import json
 
@@ -361,8 +443,7 @@ def _tf_from_str(value: str):
         return TimeFrame(value)
     except ValueError as exc:
         raise SystemExit(
-            f"Invalid timeframe: {value!r}. "
-            f"Valid options: {[t.value for t in TimeFrame]}"
+            f"Invalid timeframe: {value!r}. Valid options: {[t.value for t in TimeFrame]}"
         ) from exc
 
 
@@ -419,9 +500,10 @@ def _format_score_row(
     else:
         bias_text = _c("NEUTRAL ", "yellow", use_color)
 
-    factors = ", ".join(
-        f"{s.name}:{_arrow(s.value)}" for s in result.signals if s.value != 0
-    ) or "(no directional signals)"
+    factors = (
+        ", ".join(f"{s.name}:{_arrow(s.value)}" for s in result.signals if s.value != 0)
+        or "(no directional signals)"
+    )
 
     return (
         f"{symbol:<10}  "
@@ -518,9 +600,7 @@ def print_backtest_report(result: BacktestResult, *, use_color: bool) -> None:
     print(f"{'rule':<25}  {'n_votes':>8}  {'hit_rate':>9}  {'avg|val|':>8}")
     for name, m in sorted(result.rule_metrics.items()):
         hr = m.hit_rate_by_horizon.get(1, 0.0)
-        print(
-            f"{name:<25}  {m.n_votes:>8}  {hr:>9.1%}  {m.avg_abs_value:>8.2f}"
-        )
+        print(f"{name:<25}  {m.n_votes:>8}  {hr:>9.1%}  {m.avg_abs_value:>8.2f}")
     print()
 
     # Correlation.
@@ -532,8 +612,7 @@ def print_backtest_report(result: BacktestResult, *, use_color: bool) -> None:
         print(header)
         for i, row_name in enumerate(names):
             cells = "  ".join(
-                f"{result.correlation.matrix[i][j]:>+10.2f}"
-                for j in range(len(names))
+                f"{result.correlation.matrix[i][j]:>+10.2f}" for j in range(len(names))
             )
             print(f"  {row_name[:14]:<14}  {cells}")
         print()
@@ -555,7 +634,45 @@ def print_backtest_report(result: BacktestResult, *, use_color: bool) -> None:
     print()
 
 
-def print_result_json(result: BacktestResult) -> None:
+def print_trade_backtest_report(result, *, use_color: bool) -> None:
+    """Human-readable trade backtest output."""
+    from neon_radar.domain.trading.backtest import BacktestReport
+
+    if not isinstance(result, BacktestReport):
+        return
+
+    if result.total_trades == 0:
+        print(_c("No trades executed. Check date range and history.", "yellow", use_color))
+        return
+
+    print(_c("=== Trade Backtest Summary ===", "bold", use_color))
+    print(f"Total Trades:  {result.total_trades}")
+    print(f"Win Rate:      {result.win_rate:>7.1%}")
+    print(f"Wins:          {result.wins}")
+    print(f"Losses:        {result.losses}")
+    print(f"Avg Win:       {result.avg_win_pct:>+7.2%}")
+    print(f"Avg Loss:      {result.avg_loss_pct:>+7.2%}")
+    print(f"Profit Factor: {result.profit_factor:>7.2f}")
+    print()
+
+    print(_c("=== Executed Trades ===", "bold", use_color))
+    print(f"{'SYMBOL':<10} {'DIR':<8} {'STATUS':<10} {'ENTRY':<10} {'EXIT':<10} {'PNL%':>8}")
+    for t in result.trades:
+        color = "green" if t.pnl_pct > 0 else ("red" if t.pnl_pct < 0 else "dim")
+        status = t.status.value.upper()
+        dir_name = t.direction.name
+
+        # Format prices to match significant digits
+        ep = f"{t.entry_price:.4f}"
+        xp = f"{t.exit_price:.4f}" if t.exit_price is not None else "OPEN"
+        pnl = f"{t.pnl_pct:>+8.2%}"
+
+        row = f"{t.symbol!s:<10} {dir_name:<8} {status:<10} {ep:<10} {xp:<10} {pnl}"
+        print(_c(row, color, use_color))
+    print()
+
+
+def print_result_json(result) -> None:
     """JSON dump of the backtest — for further analysis."""
     import dataclasses
     import json
@@ -591,8 +708,10 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_list_rules(args)
     if args.command == "scan":
         return asyncio.run(_run_scan(args))
-    if args.command == "backtest":
+    if args.command == "signals-backtest":
         return asyncio.run(_run_backtest(args))
+    if args.command == "backtest":
+        return asyncio.run(_run_trade_backtest(args))
 
     parser.print_help()
     return 1

@@ -21,7 +21,6 @@ from neon_radar.domain.scoring.registry import RuleRegistry
 from neon_radar.domain.scoring.value_objects import EvidenceItem, Signal
 
 if TYPE_CHECKING:
-
     from neon_radar.domain.market_state import MarketState
 
 
@@ -41,9 +40,7 @@ class EMATrendRule(FactorRule):
     ) -> None:
         super().__init__(name=name, weight=weight, description=description)
         if fast_period >= slow_period:
-            raise ValueError(
-                f"fast_period ({fast_period}) must be < slow_period ({slow_period})"
-            )
+            raise ValueError(f"fast_period ({fast_period}) must be < slow_period ({slow_period})")
         if threshold_pct <= 0:
             raise ValueError(f"threshold_pct must be positive, got {threshold_pct}")
         self.fast_period = fast_period

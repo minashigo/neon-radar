@@ -29,7 +29,10 @@ class _AlwaysBullishRule(FactorRule):
     @classmethod
     def description(cls):  # type: ignore[override]
         from neon_radar.domain.scoring.factor_rule import RuleDescription
-        return RuleDescription(name="always_bull", display_name="AB", summary="always bull", default_params={})
+
+        return RuleDescription(
+            name="always_bull", display_name="AB", summary="always bull", default_params={}
+        )
 
     def evaluate(self, state):
         return Signal(
@@ -48,7 +51,10 @@ class _AlwaysBearishRule(FactorRule):
     @classmethod
     def description(cls):  # type: ignore[override]
         from neon_radar.domain.scoring.factor_rule import RuleDescription
-        return RuleDescription(name="always_bear", display_name="AB", summary="always bear", default_params={})
+
+        return RuleDescription(
+            name="always_bear", display_name="AB", summary="always bear", default_params={}
+        )
 
     def evaluate(self, state):
         return Signal(
@@ -69,6 +75,7 @@ class _CrashyRule(FactorRule):
     @classmethod
     def description(cls):  # type: ignore[override]
         from neon_radar.domain.scoring.factor_rule import RuleDescription
+
         return RuleDescription(name="crash", display_name="C", summary="crashes", default_params={})
 
     def evaluate(self, state):
@@ -125,15 +132,21 @@ class TestRuleBasedEngine:
             timestamp=0,
             primary_series=series,
         )
+
         # Always-bullish (conf 1.0, weight 0.5) + low-confidence rule.
         class _LowConf(FactorRule):
             @classmethod
             def description(cls):  # type: ignore[override]
                 from neon_radar.domain.scoring.factor_rule import RuleDescription
-                return RuleDescription(name="lowconf", display_name="L", summary="low", default_params={})
+
+                return RuleDescription(
+                    name="lowconf", display_name="L", summary="low", default_params={}
+                )
 
             def evaluate(self, state):
-                return Signal(name="lowconf", weight=0.5, value=0.0, confidence=0.1, description="low")
+                return Signal(
+                    name="lowconf", weight=0.5, value=0.0, confidence=0.1, description="low"
+                )
 
         engine = RuleBasedEngine(
             rules=(_AlwaysBullishRule(), _LowConf()),

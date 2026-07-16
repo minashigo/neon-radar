@@ -37,8 +37,7 @@ class RuleRegistry:
                 raise ValueError("Rule name must be a non-empty string")
             if name in cls._items:
                 raise ValueError(
-                    f"Duplicate rule name '{name}'. "
-                    f"Already registered: {cls._items[name].__name__}"
+                    f"Duplicate rule name '{name}'. Already registered: {cls._items[name].__name__}"
                 )
             rule_cls.NAME = name
             cls._items[name] = rule_cls
@@ -52,8 +51,7 @@ class RuleRegistry:
             return cls._items[name]
         except KeyError as exc:
             raise KeyError(
-                f"Unknown scoring rule '{name}'. "
-                f"Registered: {sorted(cls._items)}"
+                f"Unknown scoring rule '{name}'. Registered: {sorted(cls._items)}"
             ) from exc
 
     @classmethod

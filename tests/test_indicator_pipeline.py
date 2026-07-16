@@ -74,9 +74,7 @@ class TestComputeIndicators:
     def test_all_builtins_compute(self) -> None:
         """Every registered built-in must compute without errors."""
         series = make_series([100.0 + i for i in range(60)])
-        specs = [
-            IndicatorSpec(name) for name in available_indicators()
-        ]
+        specs = [IndicatorSpec(name) for name in available_indicators()]
         results = compute_indicators(series, specs)
         assert len(results) == len(available_indicators())
 

@@ -161,7 +161,7 @@ def rolling_std(values: np.ndarray, period: int) -> np.ndarray:
     means = sums / period
     variance = sums_sq / period - means * means
     variance = np.maximum(variance, 0.0)
-    out[period - 1:] = np.sqrt(variance)
+    out[period - 1 :] = np.sqrt(variance)
     return out
 
 

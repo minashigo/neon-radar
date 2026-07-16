@@ -66,9 +66,7 @@ def _build_snapshots(
     """
     snapshots: list[IndicatorSnapshot] = []
     for i, candle in enumerate(series):
-        values = tuple(
-            IndicatorValue(name, float(arr[i])) for name, arr in named_arrays
-        )
+        values = tuple(IndicatorValue(name, float(arr[i])) for name, arr in named_arrays)
         snapshots.append(IndicatorSnapshot(timestamp=candle.open_time, values=values))
     return tuple(snapshots)
 

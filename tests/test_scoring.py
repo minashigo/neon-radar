@@ -125,16 +125,22 @@ class TestScore:
 
     def test_rejects_value_out_of_range(self) -> None:
         with pytest.raises(ValueError):
-            Score(value=1.5, confidence=0.5, long_score=0.0, short_score=0.0, contributing_signals=0)
+            Score(
+                value=1.5, confidence=0.5, long_score=0.0, short_score=0.0, contributing_signals=0
+            )
 
     def test_rejects_negative_components(self) -> None:
         with pytest.raises(ValueError):
-            Score(value=0.0, confidence=0.5, long_score=-0.1, short_score=0.0, contributing_signals=0)
+            Score(
+                value=0.0, confidence=0.5, long_score=-0.1, short_score=0.0, contributing_signals=0
+            )
 
 
 class TestAnalysisResult:
     def test_basic(self) -> None:
-        score = Score(value=0.5, confidence=0.8, long_score=0.7, short_score=0.2, contributing_signals=3)
+        score = Score(
+            value=0.5, confidence=0.8, long_score=0.7, short_score=0.2, contributing_signals=3
+        )
         signals = (
             Signal(name="a", weight=0.4, value=0.6, confidence=0.7, description=""),
             Signal(name="b", weight=0.3, value=0.4, confidence=0.9, description=""),
@@ -150,7 +156,9 @@ class TestAnalysisResult:
             Signal(name="a", weight=0.3, value=0.6, confidence=0.7, description=""),  # dup
         )
         result = AnalysisResult(
-            score=Score(value=0.5, confidence=0.7, long_score=0.5, short_score=0.0, contributing_signals=2),
+            score=Score(
+                value=0.5, confidence=0.7, long_score=0.5, short_score=0.0, contributing_signals=2
+            ),
             signals=signals,
             summary="",
             computed_at=1,
@@ -172,6 +180,7 @@ class _StubRule(FactorRule):
     @classmethod
     def description(cls):  # type: ignore[override]
         from neon_radar.domain.scoring.factor_rule import RuleDescription
+
         return RuleDescription(
             name="stub", display_name="Stub", summary="stub rule", default_params={}
         )

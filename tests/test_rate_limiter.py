@@ -27,18 +27,14 @@ class TestTokenBucketRateLimiter:
     @pytest.mark.asyncio
     async def test_single_request_consumes_weight(self) -> None:
         clock = FakeClock()
-        rl = TokenBucketRateLimiter(
-            RateLimiterConfig(max_weight_per_minute=100), clock=clock
-        )
+        rl = TokenBucketRateLimiter(RateLimiterConfig(max_weight_per_minute=100), clock=clock)
         await rl.acquire(weight=5)
         assert rl._current_weight() == 5
 
     @pytest.mark.asyncio
     async def test_old_entries_drop_out(self) -> None:
         clock = FakeClock()
-        rl = TokenBucketRateLimiter(
-            RateLimiterConfig(max_weight_per_minute=100), clock=clock
-        )
+        rl = TokenBucketRateLimiter(RateLimiterConfig(max_weight_per_minute=100), clock=clock)
         await rl.acquire(weight=50)
         assert rl._current_weight() == 50
         clock.advance(61_000)  # past 60s window
@@ -58,9 +54,7 @@ class TestTokenBucketRateLimiter:
     async def test_concurrent_acquires_serialise(self) -> None:
         """Multiple concurrent callers must not exceed the cap."""
         clock = FakeClock()
-        rl = TokenBucketRateLimiter(
-            RateLimiterConfig(max_weight_per_minute=100), clock=clock
-        )
+        rl = TokenBucketRateLimiter(RateLimiterConfig(max_weight_per_minute=100), clock=clock)
         # Schedule 10 concurrent acquires of weight 20. Cap is 95 (with
         # 5% safety margin), so only 4 can succeed without the clock
         # advancing. With our fake sleep we never advance, so all 10

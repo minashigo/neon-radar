@@ -137,9 +137,7 @@ class BinanceClient(ExchangeClient):
         if end_time is not None:
             params["endTime"] = end_time
 
-        raw = await self._get_json(
-            "/fapi/v1/klines", params=params, weight=_WEIGHT_KLINES
-        )
+        raw = await self._get_json("/fapi/v1/klines", params=params, weight=_WEIGHT_KLINES)
         try:
             return map_klines(raw, symbol=symbol, timeframe=timeframe)
         except (ParseError, ValueError):
@@ -206,13 +204,9 @@ class BinanceClient(ExchangeClient):
                     try:
                         return response.json()
                     except ValueError as exc:
-                        raise ParseError(
-                            f"Binance returned non-JSON for {path}: {exc}"
-                        ) from exc
+                        raise ParseError(f"Binance returned non-JSON for {path}: {exc}") from exc
                 if response.status_code == 429:
-                    last_error = RateLimitError(
-                        f"Binance rate limit hit on {path}"
-                    )
+                    last_error = RateLimitError(f"Binance rate limit hit on {path}")
                     # 429 is special: respect Retry-After if present.
                     retry_after = response.headers.get("Retry-After")
                     if retry_after:
@@ -228,9 +222,7 @@ class BinanceClient(ExchangeClient):
                 else:
                     # 4xx (other than 429) — do not retry.
                     body = response.text[:200]
-                    raise ParseError(
-                        f"Binance HTTP {response.status_code} on {path}: {body}"
-                    )
+                    raise ParseError(f"Binance HTTP {response.status_code} on {path}: {body}")
 
             # Backoff before next retry, unless we exhausted retries.
             if attempt < self._config.max_retries:

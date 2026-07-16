@@ -64,9 +64,7 @@ class TestScoringRulesConfig:
 
     def test_extra_fields_rejected(self) -> None:
         with pytest.raises(ValidationError):
-            ScoringRulesConfig.model_validate(
-                {"rules": [], "unknown": 1}
-            )
+            ScoringRulesConfig.model_validate({"rules": [], "unknown": 1})
 
 
 class TestLoadRules:
@@ -103,9 +101,7 @@ class TestLoadRules:
 
     def test_unknown_rule_raises(self, tmp_path: Path) -> None:
         path = tmp_path / "rules.json"
-        path.write_text(
-            json.dumps({"rules": [{"name": "nonexistent_rule"}]})
-        )
+        path.write_text(json.dumps({"rules": [{"name": "nonexistent_rule"}]}))
         with pytest.raises(ConfigError, match="Unknown scoring rule"):
             load_rules(path)
 
@@ -148,7 +144,11 @@ class TestLoadRules:
             json.dumps(
                 {
                     "rules": [
-                        {"name": "ema_trend", "enabled": False, "params": {"fast_period": 20, "slow_period": 50}},
+                        {
+                            "name": "ema_trend",
+                            "enabled": False,
+                            "params": {"fast_period": 20, "slow_period": 50},
+                        },
                         {"name": "rsi_momentum", "enabled": True},
                     ]
                 }

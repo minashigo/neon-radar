@@ -35,10 +35,10 @@ if TYPE_CHECKING:
 # in colorlog. Disable by setting NO_COLOR or by running in a non-TTY.
 _RESET = "\x1b[0m"
 _COLORS: dict[int, str] = {
-    logging.DEBUG: "\x1b[38;5;244m",      # grey
-    logging.INFO: "\x1b[38;5;39m",       # blue
-    logging.WARNING: "\x1b[38;5;220m",   # yellow
-    logging.ERROR: "\x1b[38;5;196m",     # red
+    logging.DEBUG: "\x1b[38;5;244m",  # grey
+    logging.INFO: "\x1b[38;5;39m",  # blue
+    logging.WARNING: "\x1b[38;5;220m",  # yellow
+    logging.ERROR: "\x1b[38;5;196m",  # red
     logging.CRITICAL: "\x1b[1;38;5;201m",  # bold magenta
 }
 
@@ -67,10 +67,27 @@ class _JsonFormatter(logging.Formatter):
     # Standard LogRecord attributes we don't want in the JSON output.
     _RESERVED: ClassVar[frozenset[str]] = frozenset(
         {
-            "name", "msg", "args", "levelname", "levelno", "pathname",
-            "filename", "module", "exc_info", "exc_text", "stack_info",
-            "lineno", "funcName", "created", "msecs", "relativeCreated",
-            "thread", "threadName", "processName", "process", "message",
+            "name",
+            "msg",
+            "args",
+            "levelname",
+            "levelno",
+            "pathname",
+            "filename",
+            "module",
+            "exc_info",
+            "exc_text",
+            "stack_info",
+            "lineno",
+            "funcName",
+            "created",
+            "msecs",
+            "relativeCreated",
+            "thread",
+            "threadName",
+            "processName",
+            "process",
+            "message",
             "taskName",
         }
     )

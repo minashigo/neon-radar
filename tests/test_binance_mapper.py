@@ -169,7 +169,8 @@ class TestMapFundingRate:
     def test_rejects_non_dict(self) -> None:
         with pytest.raises(ParseError):
             map_funding_rate_from_premium_index(
-                "not a dict", symbol=Symbol("BTCUSDT")  # type: ignore[arg-type]
+                "not a dict",
+                symbol=Symbol("BTCUSDT"),  # type: ignore[arg-type]
             )
 
 

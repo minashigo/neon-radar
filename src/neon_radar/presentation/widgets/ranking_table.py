@@ -81,20 +81,23 @@ class RankingTable(QTableWidget):
             self._set_cell(rank - 1, 0, str(rank), align=Qt.AlignmentFlag.AlignCenter)
             self._set_cell(rank - 1, 1, row.symbol)
             self._set_cell(
-                rank - 1, 2,
+                rank - 1,
+                2,
                 f"{row.score:+.2f}",
                 color=self._score_color(row.score),
                 bold=True,
                 align=Qt.AlignmentFlag.AlignRight,
             )
             self._set_cell(
-                rank - 1, 3,
+                rank - 1,
+                3,
                 f"{row.confidence:.2f}",
                 color=NeonPalette.TEXT_PRIMARY,
                 align=Qt.AlignmentFlag.AlignRight,
             )
             self._set_cell(
-                rank - 1, 4,
+                rank - 1,
+                4,
                 self._bias_label(row.bias),
                 color=self._bias_color(row.bias),
                 bold=True,

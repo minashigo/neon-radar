@@ -85,7 +85,9 @@ class TestIndicatorSnapshot:
 class TestIndicatorSeries:
     def test_length(self) -> None:
         snaps = tuple(
-            IndicatorSnapshot(timestamp=1_700_000_000_000 + i, values=(IndicatorValue("v", float(i)),))
+            IndicatorSnapshot(
+                timestamp=1_700_000_000_000 + i, values=(IndicatorValue("v", float(i)),)
+            )
             for i in range(5)
         )
         s = IndicatorSeries(name="test", kind=IndicatorKind.META, snapshots=snaps)
@@ -231,9 +233,7 @@ class TestIndicatorNaNWarmup:
                             values=(IndicatorValue("v", val),),
                         )
                     )
-                return IndicatorSeries(
-                    name=self.NAME, kind=self.KIND, snapshots=tuple(snaps)
-                )
+                return IndicatorSeries(name=self.NAME, kind=self.KIND, snapshots=tuple(snaps))
 
         result = Warm(period=3).compute(_make_series(n=5))
         assert math.isnan(result.snapshots[0].get("v"))  # warm

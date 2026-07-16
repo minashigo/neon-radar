@@ -220,10 +220,7 @@ class IndicatorRegistry:
         try:
             return cls._items[name]
         except KeyError as exc:
-            raise KeyError(
-                f"Unknown indicator '{name}'. "
-                f"Registered: {sorted(cls._items)}"
-            ) from exc
+            raise KeyError(f"Unknown indicator '{name}'. Registered: {sorted(cls._items)}") from exc
 
     @classmethod
     def all(cls) -> tuple[type[Indicator], ...]:

@@ -88,9 +88,7 @@ class AsyncWorker(QThread):
                 for task in pending:
                     task.cancel()
                 if pending:
-                    self._loop.run_until_complete(
-                        asyncio.gather(*pending, return_exceptions=True)
-                    )
+                    self._loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
             finally:
                 self._loop.close()
                 self._loop = None
@@ -114,8 +112,7 @@ class AsyncWorker(QThread):
         """
         if self._loop is None or not self._loop.is_running():
             raise RuntimeError(
-                "AsyncWorker is not running. Call start() and wait briefly "
-                "before submit()."
+                "AsyncWorker is not running. Call start() and wait briefly before submit()."
             )
         return asyncio.run_coroutine_threadsafe(coro, self._loop)
 

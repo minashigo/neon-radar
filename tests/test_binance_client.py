@@ -301,17 +301,13 @@ class TestBinanceClientHappyPath:
 
 class TestBinanceClientValidation:
     @pytest.mark.asyncio
-    async def test_klines_limit_too_small(
-        self, make_client: Callable[..., BinanceClient]
-    ) -> None:
+    async def test_klines_limit_too_small(self, make_client: Callable[..., BinanceClient]) -> None:
         client = make_client()
         with pytest.raises(ValueError, match="limit"):
             await client.get_klines(Symbol("BTCUSDT"), TimeFrame.H4, limit=0)
 
     @pytest.mark.asyncio
-    async def test_klines_limit_too_large(
-        self, make_client: Callable[..., BinanceClient]
-    ) -> None:
+    async def test_klines_limit_too_large(self, make_client: Callable[..., BinanceClient]) -> None:
         client = make_client()
         with pytest.raises(ValueError, match="limit"):
             await client.get_klines(Symbol("BTCUSDT"), TimeFrame.H4, limit=2000)
@@ -397,9 +393,7 @@ class TestBinanceClientRateLimit:
         drop out of the window.
         """
         clock = FakeClock()
-        rl = TokenBucketRateLimiter(
-            RateLimiterConfig(max_weight_per_minute=4), clock=clock
-        )
+        rl = TokenBucketRateLimiter(RateLimiterConfig(max_weight_per_minute=4), clock=clock)
         # Cap after safety margin: int(4 * 0.95) = 3.
         # First acquire(weight=2) puts current weight at 2.
         await rl.acquire(weight=2)
@@ -418,9 +412,7 @@ class TestBinanceClientRateLimit:
 
 class TestBinanceClientClose:
     @pytest.mark.asyncio
-    async def test_close_is_idempotent(
-        self, make_client: Callable[..., BinanceClient]
-    ) -> None:
+    async def test_close_is_idempotent(self, make_client: Callable[..., BinanceClient]) -> None:
         client = make_client()
         await client.close()
         await client.close()  # no error

@@ -42,9 +42,7 @@ def _series_with_volumes(closes, *, volumes=None, timeframe=None):
         )
         for c, vol in zip(series, volumes, strict=True)
     )
-    return KlineSeries(
-        symbol=series.symbol, timeframe=series.timeframe, candles=new_candles
-    )
+    return KlineSeries(symbol=series.symbol, timeframe=series.timeframe, candles=new_candles)
 
 
 def _state(closes, *, volumes=None, timeframe=None, funding_rate=None):

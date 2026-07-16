@@ -168,9 +168,7 @@ class TestFormatScoreRow:
             Signal(name="ema_trend", weight=0.3, value=0.9, confidence=0.8, description=""),
             Signal(name="rsi_momentum", weight=0.25, value=0.7, confidence=0.75, description=""),
         )
-        result = AnalysisResult(
-            score=score, signals=signals, summary="", computed_at=0
-        )
+        result = AnalysisResult(score=score, signals=signals, summary="", computed_at=0)
         row = _format_score_row(Symbol("BTCUSDT"), result, use_color=False)
         assert "BTCUSDT" in row
         assert "+0.82" in row
@@ -190,9 +188,7 @@ class TestFormatScoreRow:
             short_score=0.25,
             contributing_signals=1,
         )
-        result = AnalysisResult(
-            score=score, signals=(), summary="", computed_at=0
-        )
+        result = AnalysisResult(score=score, signals=(), summary="", computed_at=0)
         row = _format_score_row(Symbol("ETHUSDT"), result, use_color=False)
         assert "NEUTRAL" in row
 

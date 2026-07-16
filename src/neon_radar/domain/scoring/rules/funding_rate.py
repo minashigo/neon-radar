@@ -44,8 +44,7 @@ class FundingRateRule(FactorRule):
             raise ValueError(f"neutral_band must be positive, got {neutral_band}")
         if strong_threshold <= neutral_band:
             raise ValueError(
-                f"strong_threshold ({strong_threshold}) must be > "
-                f"neutral_band ({neutral_band})"
+                f"strong_threshold ({strong_threshold}) must be > neutral_band ({neutral_band})"
             )
         self.neutral_band = neutral_band
         self.strong_threshold = strong_threshold
@@ -91,9 +90,7 @@ class FundingRateRule(FactorRule):
             weight=self.weight,
             value=value,
             confidence=confidence,
-            description=(
-                f"Funding {rate_bps:+.2f} bps ({crowd}) → {tilt}"
-            ),
+            description=(f"Funding {rate_bps:+.2f} bps ({crowd}) → {tilt}"),
             evidence=(
                 EvidenceItem("rate", f"{rate:.6f}"),
                 EvidenceItem("rate_bps", f"{rate_bps:.3f}"),

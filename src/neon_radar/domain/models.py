@@ -111,9 +111,7 @@ class OHLCV:
             if value < 0:
                 raise ValueError(f"OHLCV.{name} must be non-negative, got {value}")
         if self.high < self.low:
-            raise ValueError(
-                f"OHLCV.high ({self.high}) must be >= low ({self.low})"
-            )
+            raise ValueError(f"OHLCV.high ({self.high}) must be >= low ({self.low})")
         if self.close_time is not None and self.close_time < self.open_time:
             raise ValueError("OHLCV.close_time must be >= open_time")
 

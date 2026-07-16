@@ -90,9 +90,7 @@ class TestAppConfig:
 
     def test_extra_fields_rejected(self) -> None:
         with pytest.raises(ValidationError):
-            AppConfig.model_validate(
-                {"symbols": [{"symbol": "BTCUSDT"}], "unknown": 1}
-            )
+            AppConfig.model_validate({"symbols": [{"symbol": "BTCUSDT"}], "unknown": 1})
 
 
 class TestConfigLoader:

@@ -57,22 +57,27 @@ class TestAnalyzeSeries:
 
     def test_analyze_series_builds_trade_setup(self) -> None:
         from neon_radar.domain.scoring.factor_rule import FactorRule, RuleDescription
-        from neon_radar.domain.scoring.value_objects import Signal, Bias
+        from neon_radar.domain.scoring.value_objects import Bias, Signal
+
         # Build series with dummy OHLCV
         series = make_series([100.0] * 50)
+
         # The rule must return a bullish signal to trigger trade setup logic
         class AlwaysBullishRule(FactorRule):
             NAME = "bullish_dummy"
+
             @classmethod
             def description(cls) -> RuleDescription:
                 return RuleDescription(cls.NAME, cls.NAME, "Dummy")
+
             def required_indicators(self):
                 return ()
+
             def evaluate(self, state):
                 return Signal(self.NAME, 1.0, 1.0, 1.0, "Bullish")
 
         result = analyze_series(series, rules=(AlwaysBullishRule(),))
-        
+
         assert result.bias == Bias.BULLISH
         assert result.trade_setup is not None
         assert result.trade_setup.direction == Bias.BULLISH
@@ -103,6 +108,7 @@ class TestAnalyzeSeries:
                 return Signal(name="dummy", value=0.5, confidence=1.0)
 
         from neon_radar.config.models import TimeFrame
+
         series = make_series([100.0] * 10, timeframe=TimeFrame.H4)
         higher_tf_series = make_series([100.0] * 10, timeframe=TimeFrame.D1)
 
@@ -116,4 +122,3 @@ class TestAnalyzeSeries:
         ind_names = {i.name for i in result.market_state.indicator_series}
         assert "sma_5" in ind_names
         assert "htf_sma_5" in ind_names
-

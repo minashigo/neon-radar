@@ -31,9 +31,7 @@ class SMATrendRule(FactorRule):
     ) -> None:
         super().__init__(name=name, weight=weight, description=description)
         if fast_period >= slow_period:
-            raise ValueError(
-                f"fast_period ({fast_period}) must be < slow_period ({slow_period})"
-            )
+            raise ValueError(f"fast_period ({fast_period}) must be < slow_period ({slow_period})")
         if threshold_pct <= 0:
             raise ValueError(f"threshold_pct must be positive, got {threshold_pct}")
         self.fast_period = fast_period

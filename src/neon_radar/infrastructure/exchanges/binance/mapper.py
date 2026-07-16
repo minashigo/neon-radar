@@ -117,7 +117,9 @@ def map_kline(raw: list[Any]) -> OHLCV:
             low=_require_float(raw[_KLINE_LOW], path="kline.low"),
             close=_require_float(raw[_KLINE_CLOSE], path="kline.close"),
             volume=_require_float(raw[_KLINE_VOLUME], path="kline.volume"),
-            close_time=_optional_int(raw[_KLINE_CLOSE_TIME]) if len(raw) > _KLINE_CLOSE_TIME else None,
+            close_time=_optional_int(raw[_KLINE_CLOSE_TIME])
+            if len(raw) > _KLINE_CLOSE_TIME
+            else None,
             quote_volume=(
                 _optional_float(raw[_KLINE_QUOTE_VOLUME])
                 if len(raw) > _KLINE_QUOTE_VOLUME
@@ -196,9 +198,7 @@ def map_funding_rate_from_premium_index(
     the most recent known value at query time.
     """
     if not isinstance(raw, dict):
-        raise ParseError(
-            f"PremiumIndex response must be a dict, got {type(raw).__name__}"
-        )
+        raise ParseError(f"PremiumIndex response must be a dict, got {type(raw).__name__}")
     return FundingRate(
         symbol=symbol,
         rate=_require_float(raw.get("lastFundingRate"), path="premiumIndex.lastFundingRate"),
@@ -216,9 +216,7 @@ def map_funding_rate_from_premium_index(
 def map_open_interest(raw: dict[str, Any], *, symbol: Symbol) -> OpenInterest:
     """Convert an open-interest response to :class:`OpenInterest`."""
     if not isinstance(raw, dict):
-        raise ParseError(
-            f"OpenInterest response must be a dict, got {type(raw).__name__}"
-        )
+        raise ParseError(f"OpenInterest response must be a dict, got {type(raw).__name__}")
     return OpenInterest(
         symbol=symbol,
         value=_require_float(raw.get("sumOpenInterest"), path="openInterest.sumOpenInterest"),

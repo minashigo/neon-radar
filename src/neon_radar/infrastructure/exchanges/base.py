@@ -29,7 +29,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from neon_radar.config.models import TimeFrame
@@ -65,6 +65,12 @@ class ExchangeClient(ABC):
 
     #: Human-readable name shown in the UI ("Binance", "Bybit", …).
     name: str = ""
+
+    async def __aenter__(self) -> ExchangeClient:
+        return self
+
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        await self.close()
 
     @abstractmethod
     async def info(self) -> ExchangeInfo:
@@ -146,6 +152,4 @@ def _not_implemented(exchange_name: str, method: str) -> Exception:
     """
     from neon_radar.domain.exceptions import ExchangeError
 
-    return ExchangeError(
-        f"Exchange '{exchange_name}' does not support {method}()"
-    )
+    return ExchangeError(f"Exchange '{exchange_name}' does not support {method}()")

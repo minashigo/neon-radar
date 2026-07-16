@@ -49,9 +49,7 @@ def load_rules(path: Path = DEFAULT_SCORING_RULES_PATH) -> list[FactorRule]:
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
-        raise ConfigError(
-            f"Scoring rules file is not valid JSON: {path}"
-        ) from exc
+        raise ConfigError(f"Scoring rules file is not valid JSON: {path}") from exc
 
     # Reuse the meta-key stripper from the app-config loader so
     # both JSON files accept documentation keys consistently.
@@ -60,9 +58,7 @@ def load_rules(path: Path = DEFAULT_SCORING_RULES_PATH) -> list[FactorRule]:
     try:
         cfg = ScoringRulesConfig.model_validate(clean)
     except ValidationError as exc:
-        issues = "\n".join(
-            f"  • {err['loc']}: {err['msg']}" for err in exc.errors()
-        )
+        issues = "\n".join(f"  • {err['loc']}: {err['msg']}" for err in exc.errors())
         raise ConfigError(f"Scoring rules validation failed:\n{issues}") from exc
 
     rules: list[FactorRule] = []
@@ -71,15 +67,13 @@ def load_rules(path: Path = DEFAULT_SCORING_RULES_PATH) -> list[FactorRule]:
             cls = RuleRegistry.get(spec.name)
         except KeyError as exc:
             raise ConfigError(
-                f"Unknown scoring rule '{spec.name}'. "
-                f"Known rules: {list(RuleRegistry.names())}"
+                f"Unknown scoring rule '{spec.name}'. Known rules: {list(RuleRegistry.names())}"
             ) from exc
         try:
             rules.append(cls(weight=spec.weight, **spec.params))
         except (TypeError, ValueError) as exc:
             raise ConfigError(
-                f"Rule '{spec.name}' could not be constructed with "
-                f"params {spec.params!r}: {exc}"
+                f"Rule '{spec.name}' could not be constructed with params {spec.params!r}: {exc}"
             ) from exc
 
     return rules

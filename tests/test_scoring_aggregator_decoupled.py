@@ -33,11 +33,7 @@ class TestDecoupledAggregation:
 
     def test_value_does_not_use_confidence(self) -> None:
         """Even with low confidence, value reflects direction and magnitude."""
-        s = aggregate(
-            (
-                _sig("a", value=1.0, weight=1.0, confidence=0.1),
-            )
-        )
+        s = aggregate((_sig("a", value=1.0, weight=1.0, confidence=0.1),))
         # OLD: would be 1.0 * 1.0 * 0.1 = 0.1
         # NEW: 1.0 * 1.0 / 1.0 = 1.0 (confidence is separate)
         assert s.value == pytest.approx(1.0)
@@ -46,11 +42,7 @@ class TestDecoupledAggregation:
 
     def test_confidence_independent_of_value(self) -> None:
         """High value with zero confidence gives zero confidence score."""
-        s = aggregate(
-            (
-                _sig("a", value=1.0, weight=1.0, confidence=0.0),
-            )
-        )
+        s = aggregate((_sig("a", value=1.0, weight=1.0, confidence=0.0),))
         assert s.value == pytest.approx(1.0)
         assert s.confidence == pytest.approx(0.0)
 

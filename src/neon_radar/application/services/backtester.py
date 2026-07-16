@@ -227,9 +227,7 @@ class WalkForwardBacktester:
                     continue
                 # Slice: keep candles with open_time < day_start_ms.
                 # This means "we are scoring at the open of day".
-                history = tuple(
-                    c for c in series if c.open_time < day_start_ms
-                )
+                history = tuple(c for c in series if c.open_time < day_start_ms)
                 if len(history) < min_history_candles:
                     continue
                 history_series = KlineSeries(
@@ -252,11 +250,7 @@ class WalkForwardBacktester:
                         continue
                     price_after = outcome_candle.close
 
-                    rule_values = tuple(
-                        (s.name, s.value)
-                        for s in result.signals
-                        if s.value != 0
-                    )
+                    rule_values = tuple((s.name, s.value) for s in result.signals if s.value != 0)
                     out.append(
                         EvaluationResult(
                             symbol=symbol,
@@ -326,14 +320,10 @@ class WalkForwardBacktester:
         long_evals = [e for e in primary if e.direction == 1]
         short_evals = [e for e in primary if e.direction == -1]
         avg_long = (
-            sum(e.actual_return_pct for e in long_evals) / len(long_evals)
-            if long_evals
-            else 0.0
+            sum(e.actual_return_pct for e in long_evals) / len(long_evals) if long_evals else 0.0
         )
         avg_short = (
-            sum(e.actual_return_pct for e in short_evals) / len(short_evals)
-            if short_evals
-            else 0.0
+            sum(e.actual_return_pct for e in short_evals) / len(short_evals) if short_evals else 0.0
         )
 
         # Per-rule metrics (using 1d horizon for the headline).
@@ -385,16 +375,10 @@ class WalkForwardBacktester:
         longs = [e for e in primary if e.direction == 1]
         shorts = [e for e in primary if e.direction == -1]
         neutrals = [e for e in primary if e.direction == 0]
-        avg_long = (
-            sum(e.actual_return_pct for e in longs) / len(longs) if longs else 0.0
-        )
-        avg_short = (
-            sum(e.actual_return_pct for e in shorts) / len(shorts) if shorts else 0.0
-        )
+        avg_long = sum(e.actual_return_pct for e in longs) / len(longs) if longs else 0.0
+        avg_short = sum(e.actual_return_pct for e in shorts) / len(shorts) if shorts else 0.0
         avg_neutral = (
-            sum(e.actual_return_pct for e in neutrals) / len(neutrals)
-            if neutrals
-            else 0.0
+            sum(e.actual_return_pct for e in neutrals) / len(neutrals) if neutrals else 0.0
         )
         return SymbolBacktestResult(
             symbol=Symbol(sym),
@@ -432,16 +416,8 @@ class WalkForwardBacktester:
                     if e.horizon_days == h
                     and any(n == rule_name and v != 0 for n, v in e.rule_values)
                 ]
-                hits = [
-                    e
-                    for e in relevant
-                    if e.direction != 0 and e.hit is True
-                ]
-                misses = [
-                    e
-                    for e in relevant
-                    if e.direction != 0 and e.hit is False
-                ]
+                hits = [e for e in relevant if e.direction != 0 and e.hit is True]
+                misses = [e for e in relevant if e.direction != 0 and e.hit is False]
                 total = len(hits) + len(misses)
                 hit_rate[h] = len(hits) / total if total else 0.0
             avg_abs = sum(abs(v) for v in values) / len(values) if values else 0.0
@@ -496,9 +472,7 @@ class WalkForwardBacktester:
         pairs: list[tuple[float, float, int, int]] = []
         for low, high in buckets_def:
             in_bucket = [
-                e for e in primary_evals
-                if low <= e.confidence < high
-                and e.hit is not None
+                e for e in primary_evals if low <= e.confidence < high and e.hit is not None
             ]
             hits = sum(1 for e in in_bucket if e.hit)
             pairs.append((low, high, hits, len(in_bucket)))
