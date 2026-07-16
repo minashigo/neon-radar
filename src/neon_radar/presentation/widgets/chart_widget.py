@@ -120,7 +120,7 @@ class CandlestickItem(pg.GraphicsObject):
 
     def dataBounds(
         self, ax: int, frac: float = 1.0, orthoRange: tuple[float, float] | None = None
-    ) -> tuple[float, float] | None:  # noqa: N802, N803
+    ) -> tuple[float, float] | None:
         """Provide accurate data bounds for auto-scaling.
 
         Args:

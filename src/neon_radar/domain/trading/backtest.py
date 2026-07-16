@@ -20,6 +20,15 @@ class TradeStatus(StrEnum):
     BREAK_EVEN = "break_even"
 
 
+class TradeExitReason(StrEnum):
+    """The reason why a trade was exited."""
+
+    NONE = "none"
+    TAKE_PROFIT = "take_profit"
+    STOP_LOSS = "stop_loss"
+    FORCE_CLOSE = "force_close"
+
+
 @dataclass(slots=True, frozen=True)
 class Trade:
     """A simulated trade execution."""
@@ -35,6 +44,7 @@ class Trade:
     exit_time: int | None = None
     exit_price: float | None = None
     status: TradeStatus = TradeStatus.OPEN
+    exit_reason: TradeExitReason = TradeExitReason.NONE
 
     @property
     def pnl_pct(self) -> float:
@@ -52,7 +62,11 @@ class Trade:
 
 @dataclass(slots=True, frozen=True)
 class BacktestReport:
-    """Aggregated statistics of a Trade-based backtest."""
+    """Aggregated statistics of a Trade-based backtest.
+
+    This is a pure data transfer object (DTO). The calculation of these
+    metrics is handled by `TradeAnalyzer`.
+    """
 
     total_trades: int
     win_rate: float
@@ -61,50 +75,9 @@ class BacktestReport:
     avg_win_pct: float
     avg_loss_pct: float
     profit_factor: float
+    expectancy: float
+    max_consecutive_wins: int
+    max_consecutive_losses: int
+    avg_holding_time_ms: float
 
     trades: tuple[Trade, ...] = field(default_factory=tuple)
-
-    @classmethod
-    def from_trades(cls, trades: list[Trade]) -> BacktestReport:
-        """Compute metrics from a list of completed trades."""
-        total = len(trades)
-        if total == 0:
-            return cls(
-                total_trades=0,
-                win_rate=0.0,
-                wins=0,
-                losses=0,
-                avg_win_pct=0.0,
-                avg_loss_pct=0.0,
-                profit_factor=0.0,
-                trades=(),
-            )
-
-        wins = [t for t in trades if t.pnl_pct > 0]
-        losses = [t for t in trades if t.pnl_pct < 0]
-
-        n_wins = len(wins)
-        n_losses = len(losses)
-
-        sum_wins = sum(t.pnl_pct for t in wins)
-        sum_losses = sum(abs(t.pnl_pct) for t in losses)
-
-        avg_win = sum_wins / n_wins if n_wins > 0 else 0.0
-        avg_loss = sum_losses / n_losses if n_losses > 0 else 0.0
-
-        profit_factor = sum_wins / sum_losses if sum_losses > 0 else float("inf")
-        if n_losses == 0 and n_wins == 0:
-            profit_factor = 0.0
-
-        win_rate = n_wins / total
-
-        return cls(
-            total_trades=total,
-            win_rate=win_rate,
-            wins=n_wins,
-            losses=n_losses,
-            avg_win_pct=avg_win,
-            avg_loss_pct=avg_loss,
-            profit_factor=profit_factor,
-            trades=tuple(trades),
-        )

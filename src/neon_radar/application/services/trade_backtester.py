@@ -14,10 +14,12 @@ from typing import TYPE_CHECKING
 from neon_radar.application.services.analysis import analyze_series
 from neon_radar.domain.enums import Bias
 from neon_radar.domain.models import KlineSeries, Symbol
-from neon_radar.domain.trading.backtest import BacktestReport, Trade, TradeStatus
+from neon_radar.domain.trading.backtest import Trade, TradeExitReason, TradeStatus
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
+
+    from neon_radar.config.models import TimeFrame
 
     from neon_radar.config.scoring_models import ScoringRulesConfig
     from neon_radar.domain.scoring.factor_rule import FactorRule
@@ -46,17 +48,16 @@ class TradeBacktester:
 
     async def run(
         self,
-        *,
         start_date: date,
         end_date: date,
         symbols: Iterable[Symbol],
-        timeframe: str,
-        min_history_candles: int = 100,
-    ) -> BacktestReport:
+        timeframe: TimeFrame = "1d",
+        min_history_candles: int = 50,
+    ) -> tuple[Trade, ...]:
         """Run trade-based walk-forward backtest over the period."""
         symbols = tuple(symbols)
         if not symbols or end_date <= start_date:
-            return BacktestReport.from_trades([])
+            return ()
 
         await self._prefetch(symbols, timeframe, start_date, end_date)
 
@@ -71,7 +72,7 @@ class TradeBacktester:
             )
             all_trades.extend(trades)
 
-        return BacktestReport.from_trades(all_trades)
+        return tuple(all_trades)
 
     async def _prefetch(
         self,
@@ -150,7 +151,11 @@ class TradeBacktester:
                 if active_trade.direction == Bias.BULLISH:
                     if candle.low <= active_trade.stop_loss:
                         active_trade = self._close_trade(
-                            active_trade, active_trade.stop_loss, candle.open_time, TradeStatus.LOSS
+                            active_trade,
+                            active_trade.stop_loss,
+                            candle.open_time,
+                            TradeStatus.LOSS,
+                            TradeExitReason.STOP_LOSS,
                         )
                         trades.append(active_trade)
                         active_trade = None
@@ -161,6 +166,7 @@ class TradeBacktester:
                             active_trade.take_profit,
                             candle.open_time,
                             TradeStatus.WIN,
+                            TradeExitReason.TAKE_PROFIT,
                         )
                         trades.append(active_trade)
                         active_trade = None
@@ -168,7 +174,11 @@ class TradeBacktester:
                 else:  # BEARISH
                     if candle.high >= active_trade.stop_loss:
                         active_trade = self._close_trade(
-                            active_trade, active_trade.stop_loss, candle.open_time, TradeStatus.LOSS
+                            active_trade,
+                            active_trade.stop_loss,
+                            candle.open_time,
+                            TradeStatus.LOSS,
+                            TradeExitReason.STOP_LOSS,
                         )
                         trades.append(active_trade)
                         active_trade = None
@@ -179,6 +189,7 @@ class TradeBacktester:
                             active_trade.take_profit,
                             candle.open_time,
                             TradeStatus.WIN,
+                            TradeExitReason.TAKE_PROFIT,
                         )
                         trades.append(active_trade)
                         active_trade = None
@@ -198,6 +209,7 @@ class TradeBacktester:
                         stop_loss=pending_setup.stop_loss,
                         take_profit=pending_setup.take_profit_1,  # MVP: TP1 target
                         status=TradeStatus.OPEN,
+                        exit_reason=TradeExitReason.NONE,
                     )
                 # In this MVP, setup expires if not triggered on the very next candle, or it persists?
                 # Usually we let it expire if a new setup overrides it.
@@ -230,14 +242,30 @@ class TradeBacktester:
             if active_trade.pnl_pct == 0:
                 status = TradeStatus.BREAK_EVEN
             active_trade = self._close_trade(
-                active_trade, last_candle.close, last_candle.open_time, status
+                active_trade,
+                last_candle.close,
+                last_candle.open_time,
+                status,
+                TradeExitReason.FORCE_CLOSE,
             )
             trades.append(active_trade)
 
-        return trades
+        return tuple(trades)
 
     @staticmethod
-    def _close_trade(trade: Trade, exit_price: float, exit_time: int, status: TradeStatus) -> Trade:
+    def _close_trade(
+        trade: Trade,
+        exit_price: float,
+        exit_time: int,
+        status: TradeStatus,
+        exit_reason: TradeExitReason,
+    ) -> Trade:
         from dataclasses import replace
 
-        return replace(trade, exit_price=exit_price, exit_time=exit_time, status=status)
+        return replace(
+            trade,
+            exit_price=exit_price,
+            exit_time=exit_time,
+            status=status,
+            exit_reason=exit_reason,
+        )

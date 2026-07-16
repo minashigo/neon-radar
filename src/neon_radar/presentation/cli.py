@@ -204,6 +204,12 @@ def build_parser() -> argparse.ArgumentParser:
         default="text",
         help="Output format (default: text)",
     )
+    backtest.add_argument(
+        "--export-csv",
+        type=Path,
+        default=None,
+        help="Path to export the trade history to CSV",
+    )
 
     return parser
 
@@ -407,7 +413,7 @@ async def _run_trade_backtest(args: argparse.Namespace) -> int:
             scoring_config=scoring_cfg,
             rules=rules,
         )
-        result = await backtester.run(
+        trades = await backtester.run(
             start_date=args.start,
             end_date=args.end,
             symbols=symbols,
@@ -415,11 +421,22 @@ async def _run_trade_backtest(args: argparse.Namespace) -> int:
             min_history_candles=args.min_history,
         )
 
+    from neon_radar.application.services.trade_analyzer import TradeAnalyzer
+
+    analyzer = TradeAnalyzer()
+    report = analyzer.analyze(trades)
+
+    if args.export_csv:
+        from neon_radar.infrastructure.exporters.trade_exporter import export_trades_to_csv
+
+        export_trades_to_csv(trades, args.export_csv)
+        logger.info("Exported trades to %s", args.export_csv)
+
     if args.output == "json":
         # We can reuse the JSON dumper for BacktestReport
-        print_result_json(result)
+        print_result_json(report)
     else:
-        print_trade_backtest_report(result, use_color=_should_color(args))
+        print_trade_backtest_report(report, use_color=_should_color(args))
     return 0
 
 
@@ -647,27 +664,43 @@ def print_trade_backtest_report(result, *, use_color: bool) -> None:
 
     print(_c("=== Trade Backtest Summary ===", "bold", use_color))
     print(f"Total Trades:  {result.total_trades}")
-    print(f"Win Rate:      {result.win_rate:>7.1%}")
+    print(f"Win Rate:        {result.win_rate:>7.1%}")
     print(f"Wins:          {result.wins}")
     print(f"Losses:        {result.losses}")
     print(f"Avg Win:       {result.avg_win_pct:>+7.2%}")
     print(f"Avg Loss:      {result.avg_loss_pct:>+7.2%}")
-    print(f"Profit Factor: {result.profit_factor:>7.2f}")
+    print(f"Profit Factor:   {result.profit_factor:>7.2f}")
+    print(f"Expectancy:    {result.expectancy:>+7.2%}")
+    print(f"Max Cons. Wins:  {result.max_consecutive_wins}")
+    print(f"Max Cons. Loss:  {result.max_consecutive_losses}")
+
+    # Format holding time (e.g. '4.5 hours', '1.2 days')
+    ms = result.avg_holding_time_ms
+    if ms < 1000 * 60 * 60:
+        ht = f"{ms / (1000 * 60):.1f} mins"
+    elif ms < 1000 * 60 * 60 * 24:
+        ht = f"{ms / (1000 * 60 * 60):.1f} hours"
+    else:
+        ht = f"{ms / (1000 * 60 * 60 * 24):.1f} days"
+    print(f"Avg Holding Time:{ht:>7s}")
     print()
 
     print(_c("=== Executed Trades ===", "bold", use_color))
-    print(f"{'SYMBOL':<10} {'DIR':<8} {'STATUS':<10} {'ENTRY':<10} {'EXIT':<10} {'PNL%':>8}")
+    print(
+        f"{'SYMBOL':<10} {'DIR':<8} {'STATUS':<10} {'REASON':<12} {'ENTRY':<10} {'EXIT':<10} {'PNL%':>8}"
+    )
     for t in result.trades:
         color = "green" if t.pnl_pct > 0 else ("red" if t.pnl_pct < 0 else "dim")
         status = t.status.value.upper()
         dir_name = t.direction.name
+        reason = t.exit_reason.value.upper()
 
         # Format prices to match significant digits
         ep = f"{t.entry_price:.4f}"
         xp = f"{t.exit_price:.4f}" if t.exit_price is not None else "OPEN"
         pnl = f"{t.pnl_pct:>+8.2%}"
 
-        row = f"{t.symbol!s:<10} {dir_name:<8} {status:<10} {ep:<10} {xp:<10} {pnl}"
+        row = f"{t.symbol!s:<10} {dir_name:<8} {status:<10} {reason:<12} {ep:<10} {xp:<10} {pnl}"
         print(_c(row, color, use_color))
     print()
 

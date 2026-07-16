@@ -9,7 +9,7 @@ from neon_radar.application.services.trade_backtester import TradeBacktester
 from neon_radar.config.scoring_models import ScoringRulesConfig
 from neon_radar.domain.enums import Bias
 from neon_radar.domain.models import OHLCV, KlineSeries, Symbol
-from neon_radar.domain.trading.backtest import BacktestReport, TradeStatus
+from neon_radar.domain.trading.backtest import TradeStatus
 
 
 @pytest.fixture
@@ -39,7 +39,7 @@ async def test_trade_backtester_empty_result(mock_exchange, scoring_config, empt
         symbol=Symbol("BTCUSDT"), timeframe="1d", candles=()
     )
 
-    report = await tester.run(
+    trades = await tester.run(
         start_date=date(2024, 1, 1),
         end_date=date(2024, 1, 10),
         symbols=[Symbol("BTCUSDT")],
@@ -47,9 +47,8 @@ async def test_trade_backtester_empty_result(mock_exchange, scoring_config, empt
         min_history_candles=5,
     )
 
-    assert isinstance(report, BacktestReport)
-    assert report.total_trades == 0
-    assert len(report.trades) == 0
+    assert isinstance(trades, tuple)
+    assert len(trades) == 0
 
 
 @pytest.mark.asyncio
@@ -125,7 +124,7 @@ async def test_trade_backtester_with_mocked_analysis(
         rules=empty_rules,
     )
 
-    report = await tester.run(
+    trades = await tester.run(
         start_date=date(2024, 1, 1),
         end_date=date(2024, 1, 10),
         symbols=[Symbol("BTCUSDT")],
@@ -133,15 +132,12 @@ async def test_trade_backtester_with_mocked_analysis(
         min_history_candles=5,
     )
 
-    assert report.total_trades == 1
-    trade = report.trades[0]
+    assert len(trades) == 1
+    trade = trades[0]
+    assert trade.symbol == Symbol("BTCUSDT")
     assert trade.direction == Bias.BULLISH
     assert trade.entry_price == 106.0
-    # On candle i=6 (the 7th candle):
-    # low=101.0, high=111.0
-    # Our setup: entry=106.0, SL=100.0, TP1=110.0
-    # The candle low (101.0) is not <= SL (100.0), so SL is NOT hit.
-    # The candle high (111.0) is >= TP1 (110.0), so TP1 IS hit.
-    # Therefore, status should be WIN.
+    assert trade.exit_price is not None
+    assert trade.status in (TradeStatus.WIN, TradeStatus.LOSS, TradeStatus.BREAK_EVEN)
     assert trade.status == TradeStatus.WIN
     assert trade.exit_price == 110.0

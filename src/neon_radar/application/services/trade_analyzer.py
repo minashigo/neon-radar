@@ -1,0 +1,102 @@
+"""Service for analyzing backtest results."""
+
+from collections.abc import Iterable
+
+from neon_radar.domain.trading.backtest import BacktestReport, Trade
+
+
+class TradeAnalyzer:
+    """Analyzes a series of trades and generates a BacktestReport.
+
+    This service encapsulates all the mathematical formulas for trading
+    metrics, keeping the simulation engine and domain models clean.
+    """
+
+    def analyze(self, trades_iter: Iterable[Trade]) -> BacktestReport:
+        """Compute metrics from an iterable of completed trades."""
+        trades = tuple(trades_iter)
+        total = len(trades)
+
+        if total == 0:
+            return BacktestReport(
+                total_trades=0,
+                win_rate=0.0,
+                wins=0,
+                losses=0,
+                avg_win_pct=0.0,
+                avg_loss_pct=0.0,
+                profit_factor=0.0,
+                expectancy=0.0,
+                max_consecutive_wins=0,
+                max_consecutive_losses=0,
+                avg_holding_time_ms=0.0,
+                trades=(),
+            )
+
+        wins = [t for t in trades if t.pnl_pct > 0]
+        losses = [t for t in trades if t.pnl_pct < 0]
+
+        n_wins = len(wins)
+        n_losses = len(losses)
+
+        sum_wins = sum(t.pnl_pct for t in wins)
+        sum_losses = sum(abs(t.pnl_pct) for t in losses)
+
+        avg_win = sum_wins / n_wins if n_wins > 0 else 0.0
+        avg_loss = sum_losses / n_losses if n_losses > 0 else 0.0
+
+        profit_factor = sum_wins / sum_losses if sum_losses > 0 else float("inf")
+        if n_losses == 0 and n_wins == 0:
+            profit_factor = 0.0
+
+        win_rate = n_wins / total
+        loss_rate = n_losses / total
+
+        expectancy = (win_rate * avg_win) - (loss_rate * avg_loss)
+
+        max_cons_wins = 0
+        max_cons_losses = 0
+        curr_cons_wins = 0
+        curr_cons_losses = 0
+
+        total_holding_time = 0.0
+        closed_trades_count = 0
+
+        for t in trades:
+            if t.pnl_pct > 0:
+                curr_cons_wins += 1
+                curr_cons_losses = 0
+                if curr_cons_wins > max_cons_wins:
+                    max_cons_wins = curr_cons_wins
+            elif t.pnl_pct < 0:
+                curr_cons_losses += 1
+                curr_cons_wins = 0
+                if curr_cons_losses > max_cons_losses:
+                    max_cons_losses = curr_cons_losses
+            else:
+                # Break-even stops streaks
+                curr_cons_wins = 0
+                curr_cons_losses = 0
+
+            if t.exit_time is not None:
+                total_holding_time += t.exit_time - t.entry_time
+                closed_trades_count += 1
+
+        avg_holding_time = (
+            total_holding_time / closed_trades_count if closed_trades_count > 0 else 0.0
+        )
+
+        return BacktestReport(
+            total_trades=total,
+            win_rate=win_rate,
+            wins=n_wins,
+            losses=n_losses,
+            avg_win_pct=avg_win,
+            avg_loss_pct=avg_loss,
+            profit_factor=profit_factor,
+            expectancy=expectancy,
+            max_consecutive_wins=max_cons_wins,
+            max_consecutive_losses=max_cons_losses,
+            avg_holding_time_ms=avg_holding_time,
+            trades=trades,
+        )
