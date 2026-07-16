@@ -75,18 +75,27 @@ class VolumeConfirmationRule(FactorRule):
         )
 
     def evaluate(self, state: MarketState) -> Signal | None:
-        ma = state.get_indicator_value(f"volume_ma_{self.period}")
+        ma_series = state.get_indicator(f"volume_ma_{self.period}")
+        if not ma_series or len(ma_series.snapshots) < 2:
+            return None
+
+        if len(state.primary_series.candles) < 2:
+            return None
+
+        # Use the last COMPLETED candle for volume analysis.
+        # A live candle (latest) has incomplete volume and would falsely trigger "weak volume".
+        prev_candle = state.primary_series.candles[-2]
+        prev_ma_snap = ma_series.snapshots[-2]
+
+        ma = prev_ma_snap.get("volume_ma")
         if ma is None or ma != ma or ma <= 0:  # NaN guard
             return None
 
-        latest = state.primary_series.latest()
-        if latest is None:
-            return None
-        ratio = latest.volume / ma
+        ratio = prev_candle.volume / ma
 
         if ratio >= self.strong_multiplier:
             # Strong volume - follow the candle direction.
-            candle_dir = 1.0 if latest.is_bullish else -1.0
+            candle_dir = 1.0 if prev_candle.is_bullish else -1.0
             return Signal(
                 name=self.name,
                 weight=self.weight,

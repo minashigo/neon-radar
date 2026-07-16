@@ -28,15 +28,17 @@ class TestMACDMomentumRule:
     def test_registered(self) -> None:
         assert RuleRegistry.is_registered("macd_momentum")
 
-    def test_bullish_crossover_returns_positive(self) -> None:
-        closes = [100.0] * 30 + [110.0] * 20
+    def test_bullish_state_returns_positive(self) -> None:
+        closes = [100.0] * 30 + [100.0 + i**2 for i in range(10)]
         sig = MACDMomentumRule().evaluate(_state(closes))
-        assert sig is None
+        assert sig is not None
+        assert sig.value > 0
 
-    def test_bearish_crossover_returns_negative(self) -> None:
-        closes = [110.0] * 20 + [100.0] * 30
+    def test_bearish_state_returns_negative(self) -> None:
+        closes = [200.0] * 30 + [200.0 - i**2 for i in range(10)]
         sig = MACDMomentumRule().evaluate(_state(closes))
-        assert sig is None
+        assert sig is not None
+        assert sig.value < 0
 
     def test_flat_or_unclear_returns_none(self) -> None:
         closes = [100.0] * 60

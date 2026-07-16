@@ -170,18 +170,18 @@ class TestRSIMomentumRule:
         assert sig.value < 0 or sig.confidence <= 0.5
 
     def test_overbought_neutral(self) -> None:
-        # Strict uptrend → RSI=100 → overbought → value=0, low confidence.
+        # Strict uptrend → RSI=100 → overbought → value=1, low confidence.
         closes = [100.0 + i for i in range(60)]
         sig = RSIMomentumRule().evaluate(_state(closes))
         assert sig is not None
-        assert sig.value == pytest.approx(0.0, abs=1e-9)
+        assert sig.value == pytest.approx(1.0, abs=1e-9)
         assert sig.confidence == pytest.approx(0.4)
 
     def test_oversold_neutral(self) -> None:
         closes = [200.0 - i for i in range(60)]
         sig = RSIMomentumRule().evaluate(_state(closes))
         assert sig is not None
-        assert sig.value == pytest.approx(0.0, abs=1e-9)
+        assert sig.value == pytest.approx(-1.0, abs=1e-9)
         assert sig.confidence == pytest.approx(0.4)
 
 
@@ -215,16 +215,17 @@ class TestVolumeConfirmationRule:
             VolumeConfirmationRule(period=0)
 
     def test_strong_volume_bullish_candle(self) -> None:
-        # 20 normal candles + 1 with 15x volume on a bullish candle.
-        closes = [100.0] * 19 + [110.0]
-        volumes = [1000.0] * 19 + [15_000.0]
+        # 19 normal candles + 1 with 15x volume on a bullish candle + 1 latest.
+        # Volume Confirmation uses the last completed candle (index -2)
+        closes = [100.0] * 19 + [110.0] + [115.0]
+        volumes = [1000.0] * 19 + [15_000.0] + [500.0]
         sig = VolumeConfirmationRule().evaluate(_state(closes, volumes=volumes))
         assert sig is not None
         assert sig.value > 0
 
     def test_low_volume_neutral(self) -> None:
-        closes = [100.0] * 20
-        volumes = [1000.0] * 19 + [100.0]  # 10% of avg
+        closes = [100.0] * 20 + [100.0]
+        volumes = [1000.0] * 19 + [100.0] + [50.0]  # 10% of avg at [-2]
         sig = VolumeConfirmationRule().evaluate(_state(closes, volumes=volumes))
         assert sig is not None
         assert sig.value == pytest.approx(0.0, abs=1e-9)

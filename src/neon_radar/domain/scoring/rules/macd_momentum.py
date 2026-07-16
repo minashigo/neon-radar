@@ -81,16 +81,16 @@ class MACDMomentumRule(FactorRule):
         if prev_macd != prev_macd or prev_signal != prev_signal or prev_histogram != prev_histogram:
             return None
 
-        if histogram == 0.0 or prev_histogram == 0.0:
-            return None
-
-        if prev_macd <= prev_signal and macd > signal:
+        if histogram > 0:
+            expanding = histogram > prev_histogram
+            confidence = 0.8 if expanding else 0.5
+            desc = "MACD bullish state (expanding)" if expanding else "MACD bullish state (contracting)"
             return Signal(
                 name=self.name,
                 weight=self.weight,
                 value=1.0,
-                confidence=0.8,
-                description="MACD crossed above signal line",
+                confidence=confidence,
+                description=desc,
                 evidence=(
                     EvidenceItem("macd", f"{macd:.4f}"),
                     EvidenceItem("signal", f"{signal:.4f}"),
@@ -98,13 +98,16 @@ class MACDMomentumRule(FactorRule):
                 ),
             )
 
-        if prev_macd >= prev_signal and macd < signal:
+        if histogram < 0:
+            expanding = histogram < prev_histogram
+            confidence = 0.8 if expanding else 0.5
+            desc = "MACD bearish state (expanding)" if expanding else "MACD bearish state (contracting)"
             return Signal(
                 name=self.name,
                 weight=self.weight,
                 value=-1.0,
-                confidence=0.8,
-                description="MACD crossed below signal line",
+                confidence=confidence,
+                description=desc,
                 evidence=(
                     EvidenceItem("macd", f"{macd:.4f}"),
                     EvidenceItem("signal", f"{signal:.4f}"),

@@ -87,20 +87,21 @@ class RSIMomentumRule(FactorRule):
             return None
 
         if rsi > self.bull_high:
-            # Overbought - neutral on direction.
+            # Overbought - trend is strong but risky.
             return Signal(
                 name=self.name,
                 weight=self.weight,
-                value=0.0,
+                value=1.0,
                 confidence=0.4,
                 description=f"RSI overbought ({rsi:.1f} > {self.bull_high:.0f})",
                 evidence=(EvidenceItem("rsi", f"{rsi:.2f}"),),
             )
         if rsi < self.bear_low:
+            # Oversold - trend is strong but risky.
             return Signal(
                 name=self.name,
                 weight=self.weight,
-                value=0.0,
+                value=-1.0,
                 confidence=0.4,
                 description=f"RSI oversold ({rsi:.1f} < {self.bear_low:.0f})",
                 evidence=(EvidenceItem("rsi", f"{rsi:.2f}"),),
