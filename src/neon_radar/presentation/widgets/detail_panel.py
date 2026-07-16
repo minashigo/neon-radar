@@ -71,6 +71,30 @@ class DetailPanel(QFrame):
         self._signals_value.setText(str(len(result.signals)))
         self._view_chart_btn.setEnabled(True)
 
+        # Trade Setup
+        if result.trade_setup:
+            ts = result.trade_setup
+            self._entry_val.setText(f"{ts.entry_price:.4g}")
+            self._sl_val.setText(f"{ts.stop_loss:.4g}")
+            self._tp1_val.setText(f"{ts.take_profit_1:.4g}")
+            self._tp2_val.setText(f"{ts.take_profit_2:.4g}")
+            
+            color = self._bias_color(ts.direction)
+            style = f"color: {color}; font-weight: bold;"
+            self._entry_val.setStyleSheet(style)
+            self._sl_val.setStyleSheet(style)
+            self._tp1_val.setStyleSheet(style)
+            self._tp2_val.setStyleSheet(style)
+        else:
+            self._entry_val.setText("—")
+            self._sl_val.setText("—")
+            self._tp1_val.setText("—")
+            self._tp2_val.setText("—")
+            self._entry_val.setStyleSheet("")
+            self._sl_val.setStyleSheet("")
+            self._tp1_val.setStyleSheet("")
+            self._tp2_val.setStyleSheet("")
+
         # Breakdown table.
         rows = list(result.breakdown())
         self._breakdown.setRowCount(len(rows))
@@ -100,6 +124,14 @@ class DetailPanel(QFrame):
         self._signals_value.setText("—")
         self._breakdown.setRowCount(0)
         self._view_chart_btn.setEnabled(False)
+        self._entry_val.setText("—")
+        self._sl_val.setText("—")
+        self._tp1_val.setText("—")
+        self._tp2_val.setText("—")
+        self._entry_val.setStyleSheet("")
+        self._sl_val.setStyleSheet("")
+        self._tp1_val.setStyleSheet("")
+        self._tp2_val.setStyleSheet("")
 
     # ------------------------------------------------------------------
     # UI construction
@@ -151,6 +183,31 @@ class DetailPanel(QFrame):
         summary_grid.addWidget(self._signals_value, 1, 3)
 
         layout.addLayout(summary_grid)
+
+        # Trade Setup section
+        setup_grid = QGridLayout()
+        setup_grid.setHorizontalSpacing(24)
+        
+        entry_lbl = self._make_label("ENTRY", dim=True)
+        sl_lbl = self._make_label("STOP LOSS", dim=True)
+        tp1_lbl = self._make_label("TP1", dim=True)
+        tp2_lbl = self._make_label("TP2", dim=True)
+        
+        self._entry_val = self._make_value_label()
+        self._sl_val = self._make_value_label()
+        self._tp1_val = self._make_value_label()
+        self._tp2_val = self._make_value_label()
+        
+        setup_grid.addWidget(entry_lbl, 0, 0)
+        setup_grid.addWidget(self._entry_val, 1, 0)
+        setup_grid.addWidget(sl_lbl, 0, 1)
+        setup_grid.addWidget(self._sl_val, 1, 1)
+        setup_grid.addWidget(tp1_lbl, 0, 2)
+        setup_grid.addWidget(self._tp1_val, 1, 2)
+        setup_grid.addWidget(tp2_lbl, 0, 3)
+        setup_grid.addWidget(self._tp2_val, 1, 3)
+        
+        layout.addLayout(setup_grid)
 
         # Breakdown table.
         self._breakdown = QTableWidget(0, 6)

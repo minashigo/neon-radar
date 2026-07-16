@@ -56,8 +56,22 @@ def analyze_series(
     open_interest: OpenInterest | None = None,
 ) -> AnalysisResult:
     """Run the complete analysis cycle for one candle series."""
+    from neon_radar.domain.trading.setup import TradeSetupEngine
+    from dataclasses import replace
+
+    setup_engine = TradeSetupEngine()
+
     rules_tuple = tuple(rules)
-    specs = collect_indicator_specs(rules_tuple)
+    
+    # Collect rule indicators and engine indicators
+    spec_map: dict[str, IndicatorSpec] = {}
+    for rule in rules_tuple:
+        for spec in rule.required_indicators():
+            spec_map.setdefault(spec.series_name, spec)
+    for spec in setup_engine.required_indicators():
+        spec_map.setdefault(spec.series_name, spec)
+    
+    specs = tuple(spec_map.values())
 
     primary_specs = [s for s in specs if s.target == "primary"]
     higher_specs = [s for s in specs if s.target == "higher_tf"]
@@ -77,7 +91,9 @@ def analyze_series(
         open_interest=open_interest,
     )
     engine = RuleBasedEngine(rules=rules_tuple, min_confidence=min_confidence)
-    return engine.evaluate(state)
+    result = engine.evaluate(state)
+    setup = setup_engine.build_setup(state, result.score)
+    return replace(result, trade_setup=setup)
 
 
 def _default_timestamp(series: KlineSeries) -> int:
