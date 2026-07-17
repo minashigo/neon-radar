@@ -210,6 +210,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Path to export the trade history to CSV",
     )
+    backtest.add_argument(
+        "--feature-analysis",
+        action="store_true",
+        help="Run Ablation Analysis to determine feature importance",
+    )
 
     return parser
 
@@ -413,30 +418,48 @@ async def _run_trade_backtest(args: argparse.Namespace) -> int:
             scoring_config=scoring_cfg,
             rules=rules,
         )
-        trades = await backtester.run(
-            start_date=args.start,
-            end_date=args.end,
-            symbols=symbols,
-            timeframe=args.timeframe,
-            min_history_candles=args.min_history,
-        )
 
-    from neon_radar.application.services.trade_analyzer import TradeAnalyzer
+        from neon_radar.application.services.trade_analyzer import TradeAnalyzer
+        analyzer = TradeAnalyzer()
 
-    analyzer = TradeAnalyzer()
-    report = analyzer.analyze(trades)
+        if args.feature_analysis:
+            from neon_radar.application.services.feature_analyzer import FeatureImportanceAnalyzer
+            feature_analyzer = FeatureImportanceAnalyzer(analyzer)
+            feature_report = await feature_analyzer.analyze(
+                baseline_tester=backtester,
+                start_date=args.start,
+                end_date=args.end,
+                symbols=symbols,
+                timeframe=args.timeframe,
+                min_history_candles=args.min_history,
+            )
+            report = feature_report.baseline
+            trades = report.trades
+
+            if args.output == "json":
+                print_result_json(feature_report)
+            else:
+                print_feature_importance_report(feature_report, use_color=_should_color(args))
+        else:
+            trades = await backtester.run(
+                start_date=args.start,
+                end_date=args.end,
+                symbols=symbols,
+                timeframe=args.timeframe,
+                min_history_candles=args.min_history,
+            )
+            report = analyzer.analyze(trades)
+
+            if args.output == "json":
+                print_result_json(report)
+            else:
+                print_trade_backtest_report(report, use_color=_should_color(args))
 
     if args.export_csv:
         from neon_radar.infrastructure.exporters.trade_exporter import export_trades_to_csv
-
         export_trades_to_csv(trades, args.export_csv)
         logger.info("Exported trades to %s", args.export_csv)
 
-    if args.output == "json":
-        # We can reuse the JSON dumper for BacktestReport
-        print_result_json(report)
-    else:
-        print_trade_backtest_report(report, use_color=_should_color(args))
     return 0
 
 
@@ -721,6 +744,59 @@ def print_trade_backtest_report(result, *, use_color: bool) -> None:
 
         row = f"{t.symbol!s:<10} {dir_name:<8} {status:<10} {reason:<12} {ep:<10} {xp:<10} {pnl}"
         print(_c(row, color, use_color))
+    print()
+
+
+def print_feature_importance_report(report, *, use_color: bool) -> None:
+    """Print the feature importance table from Ablation Analysis."""
+    from neon_radar.domain.trading.feature_importance import FeatureImportanceReport
+
+    if not isinstance(report, FeatureImportanceReport):
+        return
+
+    print(_c("=== Baseline Performance ===", "bold", use_color))
+    print(f"Total Trades:    {report.baseline.total_trades}")
+    print(f"Win Rate:        {report.baseline.win_rate:>7.1%}")
+    print(f"Profit Factor:   {report.baseline.profit_factor:>7.2f}")
+    print(f"Expectancy:      {report.baseline.expectancy:>+7.2%}")
+    print()
+
+    print(_c("=== Feature Importance ===", "bold", use_color))
+    if not report.features:
+        print("No rules evaluated.")
+        print()
+        return
+
+    max_len = max(len(f.rule_name) for f in report.features)
+    for f in report.features:
+        rating = f.rating_symbols
+        # Add color based on rating
+        if "-" in rating:
+            color = "red"
+        elif "+" in rating:
+            color = "green"
+        else:
+            color = "dim"
+
+        row = f"{f.rule_name:<{max_len}}   {rating}"
+        print(_c(row, color, use_color))
+
+    print()
+    print(_c("Detailed Deltas:", "dim", use_color))
+    header = f"{'RULE':<{max_len}} | {'dPF':>6} | {'dEXP':>7} | {'dSHARPE':>7} | {'dWR':>6} | {'dPROB_L':>7} | SCORE"
+    print(_c(header, "dim", use_color))
+
+    for f in report.features:
+        row = (
+            f"{f.rule_name:<{max_len}} | "
+            f"{f.delta_profit_factor:>+6.2f} | "
+            f"{f.delta_expectancy:>+7.2%} | "
+            f"{f.delta_sharpe_ratio:>+7.2f} | "
+            f"{f.delta_win_rate:>+6.1%} | "
+            f"{f.delta_probability_of_loss:>+7.1%} | "
+            f"{f.feature_score:+.2f}"
+        )
+        print(_c(row, "dim", use_color))
     print()
 
 

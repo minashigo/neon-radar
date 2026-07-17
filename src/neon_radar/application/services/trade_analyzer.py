@@ -27,6 +27,7 @@ class TradeAnalyzer:
                 avg_loss_pct=0.0,
                 profit_factor=0.0,
                 expectancy=0.0,
+                sharpe_ratio=0.0,
                 max_consecutive_wins=0,
                 max_consecutive_losses=0,
                 avg_holding_time_ms=0.0,
@@ -87,6 +88,18 @@ class TradeAnalyzer:
             total_holding_time / closed_trades_count if closed_trades_count > 0 else 0.0
         )
 
+        import numpy as np
+        if closed_trades_count > 1:
+            pnls = np.array([t.pnl_pct for t in trades if t.exit_time is not None], dtype=float)
+            if len(pnls) > 1:
+                mean_pnl = np.mean(pnls)
+                std_pnl = np.std(pnls, ddof=1)
+                sharpe_ratio = float(mean_pnl / std_pnl) if std_pnl > 0 else 0.0
+            else:
+                sharpe_ratio = 0.0
+        else:
+            sharpe_ratio = 0.0
+
         validation = self.calculate_statistical_validation(trades)
 
         return BacktestReport(
@@ -98,6 +111,7 @@ class TradeAnalyzer:
             avg_loss_pct=avg_loss,
             profit_factor=profit_factor,
             expectancy=expectancy,
+            sharpe_ratio=sharpe_ratio,
             max_consecutive_wins=max_cons_wins,
             max_consecutive_losses=max_cons_losses,
             avg_holding_time_ms=avg_holding_time,

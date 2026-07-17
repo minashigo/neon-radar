@@ -54,6 +54,16 @@ class TradeSetupEngine:
     It expects the necessary indicators (e.g., ATR) to be present in the
     MarketState. The pipeline is responsible for querying `required_indicators()`
     before computing the MarketState.
+
+    Confidence Integration
+    ----------------------
+    The engine requires the aggregated `Score.confidence` to be greater than
+    or equal to `min_confidence` to generate a trade.
+    
+    * **Як формується confidence:** Кожне правило (FactorRule) повертає власний `confidence` [0.0, 1.0]. `ScoringAggregator` розраховує середньозважений `confidence` усього скорингу, використовуючи вагу правил (weight).
+    * **Діапазон:** [0.0, 1.0]. Де 0.0 — повна невпевненість, 1.0 — абсолютна впевненість.
+    * **Чому цей поріг (наприклад, 0.5):** Базовий поріг 0.5 є логічним рубіконом — якщо зважена впевненість системи падає нижче 50%, торговий сигнал вважається шумовим і відхиляється. Це захищає від торгівлі в періоди хаосу (що детектує `volatility_filter`).
+    * **Оптимізація:** У майбутніх спринтах `min_confidence` може оптимізуватися за допомогою Walk-Forward Validation під конкретний ринковий режим або актив.
     """
 
     def __init__(
@@ -62,11 +72,13 @@ class TradeSetupEngine:
         sl_multiplier: float = 1.5,
         tp1_rr: float = 1.5,
         tp2_rr: float = 3.0,
+        min_confidence: float = 0.5,
     ) -> None:
         self.atr_period = atr_period
         self.sl_multiplier = sl_multiplier
         self.tp1_rr = tp1_rr
         self.tp2_rr = tp2_rr
+        self.min_confidence = min_confidence
 
     def required_indicators(self) -> tuple[IndicatorSpec, ...]:
         """Indicators required by this engine to formulate a setup."""
@@ -81,6 +93,9 @@ class TradeSetupEngine:
     def build_setup(self, state: MarketState, score: Score) -> TradeSetup | None:
         """Formulate a TradeSetup based on the given score and state."""
         if score.bias == Bias.NEUTRAL:
+            return None
+
+        if score.confidence < self.min_confidence:
             return None
 
         latest = state.primary_series.latest()

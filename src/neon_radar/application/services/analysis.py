@@ -61,7 +61,7 @@ def analyze_series(
 
     from neon_radar.domain.trading.setup import TradeSetupEngine
 
-    setup_engine = TradeSetupEngine()
+    setup_engine = TradeSetupEngine(min_confidence=min_confidence)
 
     rules_tuple = tuple(rules)
 

@@ -7,43 +7,68 @@ from trade execution (using candle T+1).
 
 from __future__ import annotations
 
-import logging
 from datetime import UTC, date, datetime, timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 
 from neon_radar.application.services.analysis import analyze_series
 from neon_radar.domain.enums import Bias
 from neon_radar.domain.models import KlineSeries, Symbol
+from neon_radar.domain.scoring.registry import RuleRegistry
 from neon_radar.domain.trading.backtest import Trade, TradeExitReason, TradeStatus
+from neon_radar.domain.trading.setup import TradeSetup
+from neon_radar.infrastructure.exchanges.base import ExchangeClient
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from neon_radar.config.models import TimeFrame
-    from neon_radar.config.scoring_models import ScoringRulesConfig
+    from neon_radar.config.models import ScoringRulesConfig, TimeFrame
+    from neon_radar.domain.funding import FundingRate
     from neon_radar.domain.scoring.factor_rule import FactorRule
-    from neon_radar.domain.trading.setup import TradeSetup
-    from neon_radar.infrastructure.exchanges.base import ExchangeClient
 
-logger = logging.getLogger(__name__)
+
+class HistoricalFundingProvider(Protocol):
+    """Provides historical funding rates for backtesting without look-ahead bias."""
+
+    async def prefetch(self, symbols: tuple[Symbol, ...], start_date: date, end_date: date) -> None:
+        """Prefetch all necessary historical funding data."""
+        ...
+
+    def get_funding_rate_at(self, symbol: Symbol, timestamp: int) -> FundingRate | None:
+        """Return the effective funding rate for the given timestamp."""
+        ...
 
 
 class TradeBacktester:
-    """Walk-forward trade simulation engine."""
+    """Historical backtester using the full Scoring Engine.
+
+    Architecture
+    ------------
+    1. Pre-fetches klines for all requested symbols and timeframes.
+    2. Sequentially steps through candles.
+    3. Triggers `analyze_series()` to generate trading signals exactly
+       as it would happen live.
+    4. Evaluates executions and generates Trade objects.
+    """
 
     def __init__(
         self,
-        *,
         exchange: ExchangeClient,
         scoring_config: ScoringRulesConfig,
         rules: tuple[FactorRule, ...] | None = None,
+        funding_provider: HistoricalFundingProvider | None = None,
+        preloaded_series: dict[tuple[str, str], KlineSeries] | None = None,
     ) -> None:
         self._exchange = exchange
         self._scoring_config = scoring_config
-        if rules is None:
-            raise ValueError("Pre-built rules are required.")
-        self._rules = rules
-        self._series_cache: dict[tuple[str, str], KlineSeries] = {}
+        # Allow injecting mocked/ablated rules, default to registry.
+        self._rules = rules if rules is not None else RuleRegistry.build_all(scoring_config)
+        self._funding_provider = funding_provider
+        self._series_cache: dict[tuple[str, str], KlineSeries] = preloaded_series or {}
+
+    @property
+    def cache(self) -> dict[tuple[str, str], KlineSeries]:
+        """Expose the series cache for advanced re-use (e.g. ablation analysis)."""
+        return self._series_cache
 
     async def run(
         self,
@@ -84,27 +109,40 @@ class TradeBacktester:
         from neon_radar.config.models import TimeFrame
 
         tf = TimeFrame(timeframe)
+        higher_tf = tf.higher_timeframe
+
+        tfs_to_fetch = [tf]
+        if higher_tf is not None:
+            tfs_to_fetch.append(higher_tf)
+
         fetch_end_dt = datetime.combine(
             end_date + timedelta(days=1), datetime.min.time(), tzinfo=UTC
         )
         fetch_end = int(fetch_end_dt.timestamp() * 1000)
         limit = 1500
 
-        for symbol in symbols:
-            key = (str(symbol), timeframe)
-            if key in self._series_cache:
-                continue
+        if self._funding_provider is not None:
             try:
-                series = await self._exchange.get_klines(
-                    symbol,
-                    tf,
-                    end_time=fetch_end,
-                    limit=limit,
-                )
-                self._series_cache[key] = series
+                await self._funding_provider.prefetch(symbols, start_date, end_date)
             except Exception as exc:
-                logger.warning(f"Failed to fetch klines for {symbol}: {exc}")
-                self._series_cache[key] = KlineSeries(symbol=symbol, timeframe=tf, candles=())
+                logger.warning(f"Failed to prefetch historical funding rates: {exc}")
+
+        for symbol in symbols:
+            for current_tf in tfs_to_fetch:
+                key = (str(symbol), current_tf.value)
+                if key in self._series_cache:
+                    continue
+                try:
+                    series = await self._exchange.get_klines(
+                        symbol,
+                        current_tf,
+                        end_time=fetch_end,
+                        limit=limit,
+                    )
+                    self._series_cache[key] = series
+                except Exception as exc:
+                    logger.warning(f"Failed to fetch klines for {symbol} on {current_tf.value}: {exc}")
+                    self._series_cache[key] = KlineSeries(symbol=symbol, timeframe=current_tf, candles=())
 
     def _simulate_symbol(
         self,
@@ -116,6 +154,14 @@ class TradeBacktester:
         min_history_candles: int,
     ) -> list[Trade]:
         """Simulate trades for a single symbol."""
+        from neon_radar.config.models import TimeFrame
+        tf_enum = TimeFrame(timeframe)
+        higher_tf = tf_enum.higher_timeframe
+
+        higher_full_series = None
+        if higher_tf is not None:
+            higher_full_series = self._series_cache.get((str(symbol), higher_tf.value))
+
         series = self._series_cache.get((str(symbol), timeframe))
         if series is None or len(series.candles) == 0:
             return []
@@ -222,12 +268,42 @@ class TradeBacktester:
                     symbol=series.symbol, timeframe=series.timeframe, candles=history
                 )
 
+                higher_history_series = None
+                if higher_full_series is not None:
+                    from neon_radar.config.models import TimeFrame
+                    base_tf_enum = TimeFrame(series.timeframe)
+                    htf_enum = TimeFrame(higher_full_series.timeframe)
+
+                    # current candle's logical close time
+                    current_close_time = candle.open_time + (base_tf_enum.seconds * 1000)
+
+                    htf_history = []
+                    for c in higher_full_series.candles:
+                        htf_close_time = c.open_time + (htf_enum.seconds * 1000)
+                        if htf_close_time <= current_close_time:
+                            htf_history.append(c)
+
+                    if htf_history:
+                        higher_history_series = KlineSeries(
+                            symbol=higher_full_series.symbol,
+                            timeframe=higher_full_series.timeframe,
+                            candles=tuple(htf_history)
+                        )
+
+                funding_val = None
+                if self._funding_provider is not None:
+                    funding_val = self._funding_provider.get_funding_rate_at(
+                        symbol, int(history[-1].open_time)
+                    )
+
                 try:
                     result = analyze_series(
                         history_series,
                         self._rules,
                         min_confidence=self._scoring_config.min_confidence,
                         timestamp=int(history[-1].open_time),
+                        higher_tf_series=higher_history_series,
+                        funding_rate=funding_val,
                     )
                     pending_setup = result.trade_setup
                 except Exception:

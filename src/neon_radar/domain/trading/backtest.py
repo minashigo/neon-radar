@@ -88,6 +88,7 @@ class BacktestReport:
     avg_loss_pct: float
     profit_factor: float
     expectancy: float
+    sharpe_ratio: float
     max_consecutive_wins: int
     max_consecutive_losses: int
     avg_holding_time_ms: float

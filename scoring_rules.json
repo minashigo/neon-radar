@@ -3,7 +3,7 @@
 
   "_comment": "Neon Radar scoring rules. Copy to scoring_rules.json and edit.",
 
-  "min_confidence": 0.0,
+  "min_confidence": 0.5,
 
   "rules": [
     {
