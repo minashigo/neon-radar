@@ -685,6 +685,25 @@ def print_trade_backtest_report(result, *, use_color: bool) -> None:
     print(f"Avg Holding Time:{ht:>7s}")
     print()
 
+    if result.validation and result.validation.is_valid:
+        print(_c("=== Statistical Validation ===", "bold", use_color))
+
+        pval_color = "green" if result.validation.p_value < 0.05 else "yellow"
+        pval_msg = "<0.05 -> Edge Detected" if result.validation.p_value < 0.05 else ">=0.05 -> Insufficient Edge"
+
+        print(f"P-Value (T-Test):       {_c(f'{result.validation.p_value:.4f} ({pval_msg})', pval_color, use_color)}")
+        print(f"T-Statistic:            {result.validation.t_statistic:.3f}")
+
+        ci_lower = result.validation.mc_expectancy_95_ci_lower
+        ci_upper = result.validation.mc_expectancy_95_ci_upper
+        ci_color = "green" if ci_lower > 0 else "yellow"
+        print(f"MC Expectancy 95% CI:   {_c(f'[{ci_lower:>+5.2%}, {ci_upper:>+5.2%}]', ci_color, use_color)}")
+
+        loss_prob = result.validation.mc_probability_of_loss
+        loss_color = "green" if loss_prob < 0.1 else ("yellow" if loss_prob < 0.3 else "red")
+        print(f"MC Probability of Loss: {_c(f'{loss_prob:.1%}', loss_color, use_color)}")
+        print()
+
     print(_c("=== Executed Trades ===", "bold", use_color))
     print(
         f"{'SYMBOL':<10} {'DIR':<8} {'STATUS':<10} {'REASON':<12} {'ENTRY':<10} {'EXIT':<10} {'PNL%':>8}"

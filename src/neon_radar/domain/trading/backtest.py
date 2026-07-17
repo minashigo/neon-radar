@@ -61,6 +61,18 @@ class Trade:
 
 
 @dataclass(slots=True, frozen=True)
+class StatisticalValidationReport:
+    """Results of statistical validation for a trading strategy."""
+
+    is_valid: bool  # True if the validation was performed
+    p_value: float
+    t_statistic: float
+    mc_expectancy_95_ci_lower: float
+    mc_expectancy_95_ci_upper: float
+    mc_probability_of_loss: float
+
+
+@dataclass(slots=True, frozen=True)
 class BacktestReport:
     """Aggregated statistics of a Trade-based backtest.
 
@@ -80,4 +92,5 @@ class BacktestReport:
     max_consecutive_losses: int
     avg_holding_time_ms: float
 
+    validation: StatisticalValidationReport | None = None
     trades: tuple[Trade, ...] = field(default_factory=tuple)

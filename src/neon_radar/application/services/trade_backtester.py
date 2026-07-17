@@ -20,7 +20,6 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
 
     from neon_radar.config.models import TimeFrame
-
     from neon_radar.config.scoring_models import ScoringRulesConfig
     from neon_radar.domain.scoring.factor_rule import FactorRule
     from neon_radar.domain.trading.setup import TradeSetup

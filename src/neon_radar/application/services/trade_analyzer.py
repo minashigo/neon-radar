@@ -2,7 +2,7 @@
 
 from collections.abc import Iterable
 
-from neon_radar.domain.trading.backtest import BacktestReport, Trade
+from neon_radar.domain.trading.backtest import BacktestReport, StatisticalValidationReport, Trade
 
 
 class TradeAnalyzer:
@@ -30,6 +30,7 @@ class TradeAnalyzer:
                 max_consecutive_wins=0,
                 max_consecutive_losses=0,
                 avg_holding_time_ms=0.0,
+                validation=StatisticalValidationReport(False, 1.0, 0.0, 0.0, 0.0, 1.0),
                 trades=(),
             )
 
@@ -86,6 +87,8 @@ class TradeAnalyzer:
             total_holding_time / closed_trades_count if closed_trades_count > 0 else 0.0
         )
 
+        validation = self.calculate_statistical_validation(trades)
+
         return BacktestReport(
             total_trades=total,
             win_rate=win_rate,
@@ -98,5 +101,69 @@ class TradeAnalyzer:
             max_consecutive_wins=max_cons_wins,
             max_consecutive_losses=max_cons_losses,
             avg_holding_time_ms=avg_holding_time,
+            validation=validation,
             trades=trades,
+        )
+
+    def calculate_statistical_validation(
+        self, trades: tuple[Trade, ...], mc_simulations: int = 10_000
+    ) -> StatisticalValidationReport:
+        """Calculate statistical significance and Monte Carlo bootstrap metrics."""
+        import math
+
+        import numpy as np
+
+        from neon_radar.domain.trading.backtest import StatisticalValidationReport
+
+        if len(trades) < 2:
+            return StatisticalValidationReport(False, 1.0, 0.0, 0.0, 0.0, 1.0)
+
+        pnls = np.array([t.pnl_pct for t in trades], dtype=float)
+        n = len(pnls)
+        mean_pnl = np.mean(pnls)
+        std_pnl = np.std(pnls, ddof=1)
+
+        # 1. T-Test (Statistical Significance)
+        # We use Normal approximation for the p-value.
+        if std_pnl > 0:
+            t_statistic = mean_pnl / (std_pnl / math.sqrt(n))
+        else:
+            t_statistic = 0.0 if mean_pnl == 0 else (float("inf") if mean_pnl > 0 else float("-inf"))
+
+        if math.isinf(t_statistic):
+            p_value = 0.0 if t_statistic > 0 else 1.0
+        else:
+            # One-tailed normal approximation: P(Z > t)
+            # CDF of standard normal: 0.5 * (1 + erf(x / sqrt(2)))
+            # We want 1 - CDF
+            p_value = 0.5 * (1.0 - math.erf(t_statistic / math.sqrt(2.0)))
+
+        # 2. Monte Carlo Bootstrap
+        # We resample the PnL array `mc_simulations` times with replacement.
+        # Each simulation is an array of size `n`.
+        # To save memory and time, we can generate a matrix of indices:
+        # shape: (mc_simulations, n)
+        # But for large n or mc_simulations, we can do it in batches or just let numpy handle it.
+        # Numpy `random.choice` is fast.
+        rng = np.random.default_rng(42)  # Fixed seed for reproducibility
+        resampled_indices = rng.integers(0, n, size=(mc_simulations, n))
+        resampled_pnls = pnls[resampled_indices]
+
+        # Calculate expectancy (mean) for each simulation
+        sim_expectancies = np.mean(resampled_pnls, axis=1)
+
+        # 95% Confidence Interval (2.5th and 97.5th percentiles)
+        ci_lower = float(np.percentile(sim_expectancies, 2.5))
+        ci_upper = float(np.percentile(sim_expectancies, 97.5))
+
+        # Probability of loss (fraction of simulations with expectancy < 0)
+        prob_loss = float(np.sum(sim_expectancies < 0) / mc_simulations)
+
+        return StatisticalValidationReport(
+            is_valid=True,
+            p_value=float(p_value),
+            t_statistic=float(t_statistic),
+            mc_expectancy_95_ci_lower=ci_lower,
+            mc_expectancy_95_ci_upper=ci_upper,
+            mc_probability_of_loss=prob_loss,
         )
