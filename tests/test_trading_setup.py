@@ -4,7 +4,7 @@ from neon_radar.config.models import TimeFrame
 from neon_radar.domain.enums import Bias
 from neon_radar.domain.market_state import MarketState
 from neon_radar.domain.models import OHLCV, KlineSeries, Symbol
-from neon_radar.domain.scoring.value_objects import Score
+from neon_radar.domain.scoring.value_objects import AnalysisResult, Score
 from neon_radar.domain.trading.setup import TradeSetup, TradeSetupEngine
 
 
@@ -58,9 +58,9 @@ def test_trade_setup_engine_bullish() -> None:
     )
 
     score = Score(0.5, 0.8, 0.5, 0.0, 2)  # Bullish > 0.2
-
+    result = AnalysisResult(score=score, signals=(), summary="", computed_at=0)
     engine = TradeSetupEngine(atr_period=14, sl_multiplier=1.5, tp1_rr=1.5, tp2_rr=3.0)
-    setup = engine.build_setup(state, score)
+    setup = engine.build_setup(state, result)
 
     assert setup is not None
     assert setup.direction == Bias.BULLISH
@@ -86,9 +86,10 @@ def test_trade_setup_engine_bearish() -> None:
     )
 
     score = Score(-0.5, 0.8, 0.0, 0.5, 2)  # Bearish < -0.2
+    result = AnalysisResult(score=score, signals=(), summary="", computed_at=0)
 
     engine = TradeSetupEngine(atr_period=14, sl_multiplier=2.0, tp1_rr=1.0, tp2_rr=2.0)
-    setup = engine.build_setup(state, score)
+    setup = engine.build_setup(state, result)
 
     assert setup is not None
     assert setup.direction == Bias.BEARISH
@@ -106,8 +107,9 @@ def test_trade_setup_engine_neutral_returns_none() -> None:
         symbol=Symbol("BTCUSDT"), timestamp=0, primary_series=series, indicator_series=()
     )
     score = Score(0.1, 0.5, 0.1, 0.0, 1)  # Neutral
+    result = AnalysisResult(score=score, signals=(), summary="", computed_at=0)
 
-    assert engine.build_setup(state, score) is None
+    assert engine.build_setup(state, result) is None
 
 
 def test_trade_setup_engine_missing_atr_returns_none() -> None:
@@ -117,5 +119,6 @@ def test_trade_setup_engine_missing_atr_returns_none() -> None:
         symbol=Symbol("BTCUSDT"), timestamp=0, primary_series=series, indicator_series=()
     )
     score = Score(0.5, 0.5, 0.5, 0.0, 1)  # Bullish
+    result = AnalysisResult(score=score, signals=(), summary="", computed_at=0)
 
-    assert engine.build_setup(state, score) is None
+    assert engine.build_setup(state, result) is None

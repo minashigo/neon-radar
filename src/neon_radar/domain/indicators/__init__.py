@@ -21,6 +21,7 @@ automatically.
 # Base abstractions (always available)
 # Built-in indicators — imported for side-effect registration.
 # Each decorator call below populates IndicatorRegistry._items.
+from neon_radar.domain.indicators.adx import ADXIndicator
 from neon_radar.domain.indicators.atr import ATR
 from neon_radar.domain.indicators.base import (
     Indicator,

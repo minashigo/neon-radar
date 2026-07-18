@@ -1,8 +1,6 @@
-import asyncio
-import subprocess
 import json
 import os
-from datetime import datetime
+import subprocess
 
 # Neon Radar Phase 1 Validation Execution Script
 
@@ -31,12 +29,12 @@ def run_backtest(name, start, end, tf):
         "--feature-analysis",
         "--output", "json"
     ]
-    
+
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
         print(f"Error running {name} on {tf}:\n{result.stderr}")
         return None
-        
+
     try:
         # Standard output might contain logging lines before the JSON output
         # So we search for the first '{'
@@ -53,7 +51,7 @@ def run_backtest(name, start, end, tf):
 
 def main():
     results = {}
-    
+
     for name, start, end in PERIODS:
         results[name] = {}
         for tf in TIMEFRAMES:
@@ -65,7 +63,7 @@ def main():
     os.makedirs("results", exist_ok=True)
     with open("results/phase1_raw.json", "w", encoding="utf-8") as f:
         json.dump(results, f, indent=2)
-        
+
     print("All backtests completed. Results saved to results/phase1_raw.json")
 
 if __name__ == "__main__":

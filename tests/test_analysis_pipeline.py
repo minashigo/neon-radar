@@ -31,11 +31,13 @@ class TestAnalyzeSeries:
         )
 
         assert result.market_state is not None
-        assert {i.name for i in result.market_state.indicator_series} == {
+        assert {i.name for i in result.market_state.indicator_series}.issuperset({
             "ema_12",
             "ema_26",
             "atr_14",
-        }
+            "adx_14",
+            "rsi_14",
+        })
         assert result.signal_count == 1
         assert result.signals[0].name == "ema_trend"
         assert result.score.value > 0
@@ -49,8 +51,9 @@ class TestAnalyzeSeries:
         )
 
         assert result.market_state is not None
-        assert len(result.market_state.indicator_series) == 1
-        assert result.market_state.indicator_series[0].name == "atr_14"
+        ind_names = {i.name for i in result.market_state.indicator_series}
+        assert "atr_14" in ind_names
+        assert "adx_14" in ind_names
         assert result.signal_count == 1
         assert result.signals[0].name == "funding_rate"
         assert result.score.value == pytest.approx(result.signals[0].value)

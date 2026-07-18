@@ -263,6 +263,7 @@ class TradeBacktester:
                         take_profit=pending_setup.take_profit_1,  # MVP: TP1 target
                         status=TradeStatus.OPEN,
                         exit_reason=TradeExitReason.NONE,
+                        diagnostics=pending_setup.diagnostics,
                     )
 
             # 2. Analysis Phase (generate signals for NEXT candle)

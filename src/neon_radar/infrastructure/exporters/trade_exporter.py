@@ -24,6 +24,7 @@ def export_trades_to_csv(trades: Iterable[Trade], filepath: Path) -> None:
                 "Exit Time",
                 "Entry Price",
                 "Exit Price",
+                "Entry Reason",
                 "Exit Reason",
                 "Gross PnL (%)",
                 "Fees (%)",
@@ -32,6 +33,14 @@ def export_trades_to_csv(trades: Iterable[Trade], filepath: Path) -> None:
                 "Execution Costs (%)",
                 "Net PnL (%)",
                 "Holding Time (ms)",
+                "ADX",
+                "ATR",
+                "RSI",
+                "EMA Spread (%)",
+                "HTF Trend",
+                "Confidence",
+                "Final Score",
+                "Triggered Rules",
             ]
         )
         for t in trades:
@@ -53,6 +62,16 @@ def export_trades_to_csv(trades: Iterable[Trade], filepath: Path) -> None:
 
             net_pnl = f"{t.net_pnl_pct * 100:.2f}"
 
+            entry_reason = t.diagnostics.entry_reason.value if t.diagnostics else "unknown"
+            adx_val = f"{t.diagnostics.adx:.2f}" if t.diagnostics and t.diagnostics.adx is not None else ""
+            atr_val = f"{t.diagnostics.atr:.4f}" if t.diagnostics and t.diagnostics.atr is not None else ""
+            rsi_val = f"{t.diagnostics.rsi:.2f}" if t.diagnostics and t.diagnostics.rsi is not None else ""
+            ema_spread = f"{t.diagnostics.ema_spread_pct:.2f}" if t.diagnostics and t.diagnostics.ema_spread_pct is not None else ""
+            htf_trend = f"{t.diagnostics.htf_trend:.2f}" if t.diagnostics and t.diagnostics.htf_trend is not None else ""
+            confidence = f"{t.diagnostics.confidence:.2f}" if t.diagnostics else ""
+            final_score = f"{t.diagnostics.final_score:.2f}" if t.diagnostics else ""
+            rules_str = t.diagnostics.triggered_rules if t.diagnostics else ""
+
             writer.writerow(
                 [
                     str(t.symbol),
@@ -61,6 +80,7 @@ def export_trades_to_csv(trades: Iterable[Trade], filepath: Path) -> None:
                     t.exit_time if t.exit_time else "",
                     ep,
                     xp,
+                    entry_reason,
                     t.exit_reason.value,
                     gross_pnl,
                     fees,
@@ -69,5 +89,13 @@ def export_trades_to_csv(trades: Iterable[Trade], filepath: Path) -> None:
                     total_costs,
                     net_pnl,
                     holding_time,
+                    adx_val,
+                    atr_val,
+                    rsi_val,
+                    ema_spread,
+                    htf_trend,
+                    confidence,
+                    final_score,
+                    rules_str,
                 ]
             )

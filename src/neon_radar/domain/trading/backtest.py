@@ -30,6 +30,28 @@ class TradeExitReason(StrEnum):
     FORCE_CLOSE = "force_close"
 
 
+class TradeEntryReason(StrEnum):
+    """The reason why a trade was entered."""
+
+    CONFIDENCE_THRESHOLD = "confidence_threshold"
+    MANUAL = "manual"
+
+
+@dataclass(slots=True, frozen=True)
+class TradeDiagnostics:
+    """Telemetry data collected at the moment the setup was generated."""
+
+    adx: float | None
+    atr: float | None
+    rsi: float | None
+    ema_spread_pct: float | None
+    htf_trend: float | None
+    confidence: float
+    final_score: float
+    triggered_rules: str  # e.g. "ema_trend:-0.40, rsi_momentum:0.25"
+    entry_reason: TradeEntryReason
+
+
 @dataclass(slots=True, frozen=True)
 class Trade:
     """A simulated trade execution."""
@@ -47,6 +69,7 @@ class Trade:
     status: TradeStatus = TradeStatus.OPEN
     exit_reason: TradeExitReason = TradeExitReason.NONE
     costs: TradeCosts | None = None
+    diagnostics: TradeDiagnostics | None = None
 
     @property
     def gross_pnl_pct(self) -> float:

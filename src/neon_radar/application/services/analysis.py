@@ -96,7 +96,7 @@ def analyze_series(
     )
     engine = RuleBasedEngine(rules=rules_tuple, min_confidence=min_confidence)
     result = engine.evaluate(state)
-    setup = setup_engine.build_setup(state, result.score)
+    setup = setup_engine.build_setup(state, result)
     return replace(result, trade_setup=setup)
 
 

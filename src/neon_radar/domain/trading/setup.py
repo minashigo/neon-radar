@@ -11,10 +11,11 @@ from typing import TYPE_CHECKING
 
 from neon_radar.application.services.indicator_pipeline import IndicatorSpec
 from neon_radar.domain.enums import Bias
+from neon_radar.domain.trading.backtest import TradeDiagnostics, TradeEntryReason
 
 if TYPE_CHECKING:
     from neon_radar.domain.market_state import MarketState
-    from neon_radar.domain.scoring.value_objects import Score
+    from neon_radar.domain.scoring.value_objects import AnalysisResult
 
 
 @dataclass(slots=True, frozen=True)
@@ -27,6 +28,7 @@ class TradeSetup:
     take_profit_1: float
     take_profit_2: float
     risk_reward: tuple[float, float]
+    diagnostics: TradeDiagnostics | None = None
 
     def __post_init__(self) -> None:
         if self.direction == Bias.NEUTRAL:
@@ -81,17 +83,23 @@ class TradeSetupEngine:
         self.min_confidence = min_confidence
 
     def required_indicators(self) -> tuple[IndicatorSpec, ...]:
-        """Indicators required by this engine to formulate a setup."""
+        """Indicators required by this engine to formulate a setup and telemetry."""
         return (
             IndicatorSpec(
                 name="atr",
                 params={"period": self.atr_period},
                 tag=str(self.atr_period),
             ),
+            # Telemetry indicators
+            IndicatorSpec(name="adx", params={"period": 14}, tag="14"),
+            IndicatorSpec(name="rsi", params={"period": 14}, tag="14"),
+            IndicatorSpec(name="ema", params={"period": 9}, tag="9"),
+            IndicatorSpec(name="ema", params={"period": 21}, tag="21"),
         )
 
-    def build_setup(self, state: MarketState, score: Score) -> TradeSetup | None:
-        """Formulate a TradeSetup based on the given score and state."""
+    def build_setup(self, state: MarketState, analysis_result: AnalysisResult) -> TradeSetup | None:
+        """Formulate a TradeSetup based on the given analysis result and state."""
+        score = analysis_result.score
         if score.bias == Bias.NEUTRAL:
             return None
 
@@ -132,6 +140,37 @@ class TradeSetupEngine:
         if tp2 <= 0:
             return None
 
+        # Extract Telemetry Diagnostics
+        adx_val = state.get_indicator_value("adx_14", "adx")
+        rsi_val = state.get_indicator_value("rsi_14")
+        ema_9 = state.get_indicator_value("ema_9")
+        ema_21 = state.get_indicator_value("ema_21")
+
+        ema_spread_pct = None
+        if ema_9 is not None and ema_21 is not None and ema_21 != 0:
+            ema_spread_pct = (ema_9 - ema_21) / ema_21 * 100
+
+        htf_sig = analysis_result.signals_by_name().get("higher_tf_trend")
+        htf_trend = htf_sig.value if htf_sig else None
+
+        triggered_rules_list = []
+        for s in analysis_result.signals:
+            if abs(s.value) > 0:
+                triggered_rules_list.append(f"{s.name}:{s.value * s.weight:.2f}")
+        triggered_rules = ", ".join(triggered_rules_list)
+
+        diagnostics = TradeDiagnostics(
+            adx=adx_val,
+            atr=atr_val,
+            rsi=rsi_val,
+            ema_spread_pct=ema_spread_pct,
+            htf_trend=htf_trend,
+            confidence=score.confidence,
+            final_score=score.value,
+            triggered_rules=triggered_rules,
+            entry_reason=TradeEntryReason.CONFIDENCE_THRESHOLD,
+        )
+
         return TradeSetup(
             direction=score.bias,
             entry_price=entry,
@@ -139,4 +178,5 @@ class TradeSetupEngine:
             take_profit_1=tp1,
             take_profit_2=tp2,
             risk_reward=(self.tp1_rr, self.tp2_rr),
+            diagnostics=diagnostics,
         )
