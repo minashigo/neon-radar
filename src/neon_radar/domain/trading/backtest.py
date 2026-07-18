@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from neon_radar.domain.enums import Bias
     from neon_radar.domain.models import Symbol
+    from neon_radar.domain.trading.execution import TradeCosts
 
 
 class TradeStatus(StrEnum):
@@ -45,10 +46,11 @@ class Trade:
     exit_price: float | None = None
     status: TradeStatus = TradeStatus.OPEN
     exit_reason: TradeExitReason = TradeExitReason.NONE
+    costs: TradeCosts | None = None
 
     @property
-    def pnl_pct(self) -> float:
-        """Percentage profit/loss of this trade."""
+    def gross_pnl_pct(self) -> float:
+        """Gross percentage profit/loss of this trade."""
         if self.exit_price is None:
             return 0.0
         if self.entry_price == 0:
@@ -58,6 +60,13 @@ class Trade:
         if self.direction.name == "BEARISH":
             return -raw_pnl
         return raw_pnl
+
+    @property
+    def net_pnl_pct(self) -> float:
+        """Net percentage profit/loss after execution costs."""
+        if self.costs is None:
+            return self.gross_pnl_pct
+        return self.gross_pnl_pct - self.costs.total_costs_pct
 
 
 @dataclass(slots=True, frozen=True)
@@ -84,11 +93,27 @@ class BacktestReport:
     win_rate: float
     wins: int
     losses: int
-    avg_win_pct: float
-    avg_loss_pct: float
-    profit_factor: float
-    expectancy: float
-    sharpe_ratio: float
+
+    # Gross metrics
+    gross_avg_win_pct: float
+    gross_avg_loss_pct: float
+    gross_profit_factor: float
+    gross_expectancy: float
+
+    # Net metrics
+    net_profit_pct: float
+    net_avg_win_pct: float
+    net_avg_loss_pct: float
+    net_profit_factor: float
+    net_expectancy: float
+    net_sharpe_ratio: float
+
+    # Cost metrics
+    avg_trade_cost_pct: float
+    avg_slippage_pct: float
+    total_fees_pct: float
+    total_funding_pct: float
+
     max_consecutive_wins: int
     max_consecutive_losses: int
     avg_holding_time_ms: float

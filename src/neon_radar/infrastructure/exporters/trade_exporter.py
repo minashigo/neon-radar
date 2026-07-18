@@ -11,7 +11,8 @@ def export_trades_to_csv(trades: Iterable[Trade], filepath: Path) -> None:
     """Export a list of trades to a CSV file.
 
     Columns: Symbol, Direction, Entry Time, Exit Time, Entry Price,
-    Exit Price, Exit Reason, PnL (%), Holding Time.
+    Exit Price, Exit Reason, Gross PnL (%), Fees (%), Slippage (%), 
+    Funding (%), Execution Costs (%), Net PnL (%), Holding Time.
     """
     with filepath.open(mode="w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
@@ -24,7 +25,12 @@ def export_trades_to_csv(trades: Iterable[Trade], filepath: Path) -> None:
                 "Entry Price",
                 "Exit Price",
                 "Exit Reason",
-                "PnL (%)",
+                "Gross PnL (%)",
+                "Fees (%)",
+                "Slippage (%)",
+                "Funding (%)",
+                "Execution Costs (%)",
+                "Net PnL (%)",
                 "Holding Time (ms)",
             ]
         )
@@ -35,7 +41,17 @@ def export_trades_to_csv(trades: Iterable[Trade], filepath: Path) -> None:
 
             ep = f"{t.entry_price:.4f}"
             xp = f"{t.exit_price:.4f}" if t.exit_price is not None else ""
-            pnl = f"{t.pnl_pct * 100:.2f}"
+            gross_pnl = f"{t.gross_pnl_pct * 100:.2f}"
+
+            if t.costs:
+                fees = f"{t.costs.fees_pct * 100:.3f}"
+                slippage = f"{t.costs.slippage_pct * 100:.3f}"
+                funding = f"{t.costs.funding_pct * 100:.3f}"
+                total_costs = f"{t.costs.total_costs_pct * 100:.3f}"
+            else:
+                fees = slippage = funding = total_costs = "0.000"
+
+            net_pnl = f"{t.net_pnl_pct * 100:.2f}"
 
             writer.writerow(
                 [
@@ -46,7 +62,12 @@ def export_trades_to_csv(trades: Iterable[Trade], filepath: Path) -> None:
                     ep,
                     xp,
                     t.exit_reason.value,
-                    pnl,
+                    gross_pnl,
+                    fees,
+                    slippage,
+                    funding,
+                    total_costs,
+                    net_pnl,
                     holding_time,
                 ]
             )

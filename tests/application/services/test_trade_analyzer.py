@@ -24,7 +24,8 @@ def test_trade_analyzer_empty():
     analyzer = TradeAnalyzer()
     report = analyzer.analyze([])
     assert report.total_trades == 0
-    assert report.expectancy == 0.0
+    assert report.gross_expectancy == 0.0
+    assert report.net_expectancy == 0.0
     assert report.validation.is_valid is False
 
 def test_trade_analyzer_edge(base_trade):
@@ -68,7 +69,8 @@ def test_trade_analyzer_edge(base_trade):
     assert report.win_rate == 0.6
     assert report.wins == 60
     assert report.losses == 40
-    assert report.expectancy > 0.03  # 0.6 * 0.1 - 0.4 * 0.05 = 0.06 - 0.02 = 0.04
+    assert report.net_expectancy > 0.03  # 0.6 * 0.1 - 0.4 * 0.05 = 0.06 - 0.02 = 0.04
+    assert report.gross_expectancy > 0.03
 
     val = report.validation
     assert val.is_valid

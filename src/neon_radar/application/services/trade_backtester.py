@@ -15,8 +15,12 @@ from neon_radar.domain.enums import Bias
 from neon_radar.domain.models import KlineSeries, Symbol
 from neon_radar.domain.scoring.registry import RuleRegistry
 from neon_radar.domain.trading.backtest import Trade, TradeExitReason, TradeStatus
+from neon_radar.domain.trading.execution import CostModel, ExecutionType
 from neon_radar.domain.trading.setup import TradeSetup
 from neon_radar.infrastructure.exchanges.base import ExchangeClient
+from neon_radar.utils.logging import get_logger
+
+logger = get_logger(__name__)
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -57,13 +61,14 @@ class TradeBacktester:
         rules: tuple[FactorRule, ...] | None = None,
         funding_provider: HistoricalFundingProvider | None = None,
         preloaded_series: dict[tuple[str, str], KlineSeries] | None = None,
+        cost_model: CostModel | None = None,
     ) -> None:
         self._exchange = exchange
         self._scoring_config = scoring_config
-        # Allow injecting mocked/ablated rules, default to registry.
         self._rules = rules if rules is not None else RuleRegistry.build_all(scoring_config)
         self._funding_provider = funding_provider
         self._series_cache: dict[tuple[str, str], KlineSeries] = preloaded_series or {}
+        self._cost_model = cost_model or CostModel()
 
     @property
     def cache(self) -> dict[tuple[str, str], KlineSeries]:
@@ -191,7 +196,6 @@ class TradeBacktester:
 
             # 1. Execution Phase (process active trade or pending setup)
             if active_trade is not None:
-                # Check pessimistic SL first
                 closed = False
                 if active_trade.direction == Bias.BULLISH:
                     if candle.low <= active_trade.stop_loss:
@@ -201,6 +205,7 @@ class TradeBacktester:
                             candle.open_time,
                             TradeStatus.LOSS,
                             TradeExitReason.STOP_LOSS,
+                            ExecutionType.TAKER,
                         )
                         trades.append(active_trade)
                         active_trade = None
@@ -212,6 +217,7 @@ class TradeBacktester:
                             candle.open_time,
                             TradeStatus.WIN,
                             TradeExitReason.TAKE_PROFIT,
+                            ExecutionType.MAKER,
                         )
                         trades.append(active_trade)
                         active_trade = None
@@ -224,6 +230,7 @@ class TradeBacktester:
                             candle.open_time,
                             TradeStatus.LOSS,
                             TradeExitReason.STOP_LOSS,
+                            ExecutionType.TAKER,
                         )
                         trades.append(active_trade)
                         active_trade = None
@@ -235,6 +242,7 @@ class TradeBacktester:
                             candle.open_time,
                             TradeStatus.WIN,
                             TradeExitReason.TAKE_PROFIT,
+                            ExecutionType.MAKER,
                         )
                         trades.append(active_trade)
                         active_trade = None
@@ -256,12 +264,8 @@ class TradeBacktester:
                         status=TradeStatus.OPEN,
                         exit_reason=TradeExitReason.NONE,
                     )
-                # In this MVP, setup expires if not triggered on the very next candle, or it persists?
-                # Usually we let it expire if a new setup overrides it.
-                # To be strict, let's keep it until overridden or active trade created.
 
             # 2. Analysis Phase (generate signals for NEXT candle)
-            # We provide history inclusive of current candle
             if active_trade is None:
                 history = series.candles[: i + 1]
                 history_series = KlineSeries(
@@ -274,9 +278,7 @@ class TradeBacktester:
                     base_tf_enum = TimeFrame(series.timeframe)
                     htf_enum = TimeFrame(higher_full_series.timeframe)
 
-                    # current candle's logical close time
                     current_close_time = candle.open_time + (base_tf_enum.seconds * 1000)
-
                     htf_history = []
                     for c in higher_full_series.candles:
                         htf_close_time = c.open_time + (htf_enum.seconds * 1000)
@@ -311,10 +313,9 @@ class TradeBacktester:
 
         # Clean up any open trade at the end
         if active_trade is not None:
-            # Force close at the last close price
             last_candle = series.candles[-1]
-            status = TradeStatus.WIN if active_trade.pnl_pct > 0 else TradeStatus.LOSS
-            if active_trade.pnl_pct == 0:
+            status = TradeStatus.WIN if active_trade.gross_pnl_pct > 0 else TradeStatus.LOSS
+            if active_trade.gross_pnl_pct == 0:
                 status = TradeStatus.BREAK_EVEN
             active_trade = self._close_trade(
                 active_trade,
@@ -322,20 +323,32 @@ class TradeBacktester:
                 last_candle.open_time,
                 status,
                 TradeExitReason.FORCE_CLOSE,
+                ExecutionType.TAKER,
             )
             trades.append(active_trade)
 
-        return tuple(trades)
+        return trades
 
-    @staticmethod
     def _close_trade(
+        self,
         trade: Trade,
         exit_price: float,
         exit_time: int,
         status: TradeStatus,
         exit_reason: TradeExitReason,
+        exit_type: ExecutionType,
     ) -> Trade:
         from dataclasses import replace
+
+        costs = self._cost_model.calculate_costs(
+            symbol=trade.symbol,
+            direction=trade.direction,
+            entry_type=ExecutionType.MAKER,  # Entry is assumed MAKER per defaults
+            exit_type=exit_type,
+            entry_time=trade.entry_time,
+            exit_time=exit_time,
+            funding_provider=self._funding_provider,
+        )
 
         return replace(
             trade,
@@ -343,4 +356,5 @@ class TradeBacktester:
             exit_time=exit_time,
             status=status,
             exit_reason=exit_reason,
+            costs=costs,
         )

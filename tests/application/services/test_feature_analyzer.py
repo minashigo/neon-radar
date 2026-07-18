@@ -31,11 +31,20 @@ def _make_report(pf, exp, sharpe, wr, prob_loss, pval):
         win_rate=wr,
         wins=int(100 * wr),
         losses=100 - int(100 * wr),
-        avg_win_pct=0.05,
-        avg_loss_pct=0.05,
-        profit_factor=pf,
-        expectancy=exp,
-        sharpe_ratio=sharpe,
+        gross_avg_win_pct=0.05,
+        gross_avg_loss_pct=0.05,
+        gross_profit_factor=pf,
+        gross_expectancy=exp,
+        net_profit_pct=0.0,
+        net_avg_win_pct=0.05,
+        net_avg_loss_pct=0.05,
+        net_profit_factor=pf,
+        net_expectancy=exp,
+        net_sharpe_ratio=sharpe,
+        avg_trade_cost_pct=0.0,
+        avg_slippage_pct=0.0,
+        total_fees_pct=0.0,
+        total_funding_pct=0.0,
         max_consecutive_wins=5,
         max_consecutive_losses=5,
         avg_holding_time_ms=1000.0,
@@ -82,7 +91,7 @@ async def test_feature_importance_analyzer(mock_rule_a, mock_rule_b):
             symbols=[Symbol("BTCUSDT")],
         )
 
-        assert report.baseline.profit_factor == 1.5
+        assert report.baseline.net_profit_factor == 1.5
         assert len(report.features) == 2
 
         # Rule A was good. Removing it made PF drop from 1.5 to 1.0. Delta = 1.5 - 1.0 = +0.5

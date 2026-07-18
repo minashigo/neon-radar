@@ -1,6 +1,9 @@
 """Service for analyzing backtest results."""
 
+import math
 from collections.abc import Iterable
+
+import numpy as np
 
 from neon_radar.domain.trading.backtest import BacktestReport, StatisticalValidationReport, Trade
 
@@ -23,11 +26,20 @@ class TradeAnalyzer:
                 win_rate=0.0,
                 wins=0,
                 losses=0,
-                avg_win_pct=0.0,
-                avg_loss_pct=0.0,
-                profit_factor=0.0,
-                expectancy=0.0,
-                sharpe_ratio=0.0,
+                gross_avg_win_pct=0.0,
+                gross_avg_loss_pct=0.0,
+                gross_profit_factor=0.0,
+                gross_expectancy=0.0,
+                net_profit_pct=0.0,
+                net_avg_win_pct=0.0,
+                net_avg_loss_pct=0.0,
+                net_profit_factor=0.0,
+                net_expectancy=0.0,
+                net_sharpe_ratio=0.0,
+                avg_trade_cost_pct=0.0,
+                avg_slippage_pct=0.0,
+                total_fees_pct=0.0,
+                total_funding_pct=0.0,
                 max_consecutive_wins=0,
                 max_consecutive_losses=0,
                 avg_holding_time_ms=0.0,
@@ -35,27 +47,57 @@ class TradeAnalyzer:
                 trades=(),
             )
 
-        wins = [t for t in trades if t.pnl_pct > 0]
-        losses = [t for t in trades if t.pnl_pct < 0]
+        # Net is the primary determiner for Win/Loss state now
+        # but to keep `wins` consistent with old definition, we can use net_pnl_pct
+        wins = [t for t in trades if t.net_pnl_pct > 0]
+        losses = [t for t in trades if t.net_pnl_pct < 0]
 
         n_wins = len(wins)
         n_losses = len(losses)
 
-        sum_wins = sum(t.pnl_pct for t in wins)
-        sum_losses = sum(abs(t.pnl_pct) for t in losses)
+        # Gross metrics
+        gross_wins = [t for t in trades if t.gross_pnl_pct > 0]
+        gross_losses = [t for t in trades if t.gross_pnl_pct < 0]
+        sum_gross_wins = sum(t.gross_pnl_pct for t in gross_wins)
+        sum_gross_losses = sum(abs(t.gross_pnl_pct) for t in gross_losses)
+        gross_avg_win = sum_gross_wins / len(gross_wins) if gross_wins else 0.0
+        gross_avg_loss = sum_gross_losses / len(gross_losses) if gross_losses else 0.0
+        gross_profit_factor = sum_gross_wins / sum_gross_losses if sum_gross_losses > 0 else float("inf")
+        if len(gross_losses) == 0 and len(gross_wins) == 0:
+            gross_profit_factor = 0.0
+        gross_expectancy = (sum_gross_wins - sum_gross_losses) / total if total > 0 else 0.0
 
-        avg_win = sum_wins / n_wins if n_wins > 0 else 0.0
-        avg_loss = sum_losses / n_losses if n_losses > 0 else 0.0
-
-        profit_factor = sum_wins / sum_losses if sum_losses > 0 else float("inf")
+        # Net metrics
+        sum_net_wins = sum(t.net_pnl_pct for t in wins)
+        sum_net_losses = sum(abs(t.net_pnl_pct) for t in losses)
+        net_avg_win = sum_net_wins / n_wins if n_wins > 0 else 0.0
+        net_avg_loss = sum_net_losses / n_losses if n_losses > 0 else 0.0
+        net_profit_factor = sum_net_wins / sum_net_losses if sum_net_losses > 0 else float("inf")
         if n_losses == 0 and n_wins == 0:
-            profit_factor = 0.0
+            net_profit_factor = 0.0
 
         win_rate = n_wins / total
         loss_rate = n_losses / total
+        net_expectancy = (win_rate * net_avg_win) - (loss_rate * net_avg_loss)
+        net_profit_pct = sum(t.net_pnl_pct for t in trades)
 
-        expectancy = (win_rate * avg_win) - (loss_rate * avg_loss)
+        # Cost metrics
+        total_costs = 0.0
+        total_fees = 0.0
+        total_slippage = 0.0
+        total_funding = 0.0
 
+        for t in trades:
+            if t.costs:
+                total_costs += t.costs.total_costs_pct
+                total_fees += t.costs.fees_pct
+                total_slippage += t.costs.slippage_pct
+                total_funding += t.costs.funding_pct
+
+        avg_trade_cost = total_costs / total
+        avg_slippage = total_slippage / total
+
+        # Consecutive stats & holding time
         max_cons_wins = 0
         max_cons_losses = 0
         curr_cons_wins = 0
@@ -65,18 +107,17 @@ class TradeAnalyzer:
         closed_trades_count = 0
 
         for t in trades:
-            if t.pnl_pct > 0:
+            if t.net_pnl_pct > 0:
                 curr_cons_wins += 1
                 curr_cons_losses = 0
                 if curr_cons_wins > max_cons_wins:
                     max_cons_wins = curr_cons_wins
-            elif t.pnl_pct < 0:
+            elif t.net_pnl_pct < 0:
                 curr_cons_losses += 1
                 curr_cons_wins = 0
                 if curr_cons_losses > max_cons_losses:
                     max_cons_losses = curr_cons_losses
             else:
-                # Break-even stops streaks
                 curr_cons_wins = 0
                 curr_cons_losses = 0
 
@@ -88,17 +129,16 @@ class TradeAnalyzer:
             total_holding_time / closed_trades_count if closed_trades_count > 0 else 0.0
         )
 
-        import numpy as np
         if closed_trades_count > 1:
-            pnls = np.array([t.pnl_pct for t in trades if t.exit_time is not None], dtype=float)
+            pnls = np.array([t.net_pnl_pct for t in trades if t.exit_time is not None], dtype=float)
             if len(pnls) > 1:
                 mean_pnl = np.mean(pnls)
                 std_pnl = np.std(pnls, ddof=1)
-                sharpe_ratio = float(mean_pnl / std_pnl) if std_pnl > 0 else 0.0
+                net_sharpe_ratio = float(mean_pnl / std_pnl) if std_pnl > 0 else 0.0
             else:
-                sharpe_ratio = 0.0
+                net_sharpe_ratio = 0.0
         else:
-            sharpe_ratio = 0.0
+            net_sharpe_ratio = 0.0
 
         validation = self.calculate_statistical_validation(trades)
 
@@ -107,11 +147,20 @@ class TradeAnalyzer:
             win_rate=win_rate,
             wins=n_wins,
             losses=n_losses,
-            avg_win_pct=avg_win,
-            avg_loss_pct=avg_loss,
-            profit_factor=profit_factor,
-            expectancy=expectancy,
-            sharpe_ratio=sharpe_ratio,
+            gross_avg_win_pct=gross_avg_win,
+            gross_avg_loss_pct=gross_avg_loss,
+            gross_profit_factor=gross_profit_factor,
+            gross_expectancy=gross_expectancy,
+            net_profit_pct=net_profit_pct,
+            net_avg_win_pct=net_avg_win,
+            net_avg_loss_pct=net_avg_loss,
+            net_profit_factor=net_profit_factor,
+            net_expectancy=net_expectancy,
+            net_sharpe_ratio=net_sharpe_ratio,
+            avg_trade_cost_pct=avg_trade_cost,
+            avg_slippage_pct=avg_slippage,
+            total_fees_pct=total_fees,
+            total_funding_pct=total_funding,
             max_consecutive_wins=max_cons_wins,
             max_consecutive_losses=max_cons_losses,
             avg_holding_time_ms=avg_holding_time,
@@ -122,23 +171,15 @@ class TradeAnalyzer:
     def calculate_statistical_validation(
         self, trades: tuple[Trade, ...], mc_simulations: int = 10_000
     ) -> StatisticalValidationReport:
-        """Calculate statistical significance and Monte Carlo bootstrap metrics."""
-        import math
-
-        import numpy as np
-
-        from neon_radar.domain.trading.backtest import StatisticalValidationReport
-
+        """Calculate statistical significance and Monte Carlo bootstrap metrics based on NET PnL."""
         if len(trades) < 2:
             return StatisticalValidationReport(False, 1.0, 0.0, 0.0, 0.0, 1.0)
 
-        pnls = np.array([t.pnl_pct for t in trades], dtype=float)
+        pnls = np.array([t.net_pnl_pct for t in trades], dtype=float)
         n = len(pnls)
         mean_pnl = np.mean(pnls)
         std_pnl = np.std(pnls, ddof=1)
 
-        # 1. T-Test (Statistical Significance)
-        # We use Normal approximation for the p-value.
         if std_pnl > 0:
             t_statistic = mean_pnl / (std_pnl / math.sqrt(n))
         else:
@@ -147,30 +188,17 @@ class TradeAnalyzer:
         if math.isinf(t_statistic):
             p_value = 0.0 if t_statistic > 0 else 1.0
         else:
-            # One-tailed normal approximation: P(Z > t)
-            # CDF of standard normal: 0.5 * (1 + erf(x / sqrt(2)))
-            # We want 1 - CDF
             p_value = 0.5 * (1.0 - math.erf(t_statistic / math.sqrt(2.0)))
 
-        # 2. Monte Carlo Bootstrap
-        # We resample the PnL array `mc_simulations` times with replacement.
-        # Each simulation is an array of size `n`.
-        # To save memory and time, we can generate a matrix of indices:
-        # shape: (mc_simulations, n)
-        # But for large n or mc_simulations, we can do it in batches or just let numpy handle it.
-        # Numpy `random.choice` is fast.
-        rng = np.random.default_rng(42)  # Fixed seed for reproducibility
+        rng = np.random.default_rng(42)
         resampled_indices = rng.integers(0, n, size=(mc_simulations, n))
         resampled_pnls = pnls[resampled_indices]
 
-        # Calculate expectancy (mean) for each simulation
         sim_expectancies = np.mean(resampled_pnls, axis=1)
 
-        # 95% Confidence Interval (2.5th and 97.5th percentiles)
         ci_lower = float(np.percentile(sim_expectancies, 2.5))
         ci_upper = float(np.percentile(sim_expectancies, 97.5))
 
-        # Probability of loss (fraction of simulations with expectancy < 0)
         prob_loss = float(np.sum(sim_expectancies < 0) / mc_simulations)
 
         return StatisticalValidationReport(

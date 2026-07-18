@@ -58,9 +58,9 @@ class FeatureImportanceAnalyzer:
         )
         baseline_report = self._analyzer.analyze(baseline_trades)
 
-        b_pf = baseline_report.profit_factor
-        b_exp = baseline_report.expectancy
-        b_sharpe = baseline_report.sharpe_ratio
+        b_pf = baseline_report.net_profit_factor
+        b_exp = baseline_report.net_expectancy
+        b_sharpe = baseline_report.net_sharpe_ratio
         b_wr = baseline_report.win_rate
         b_prob_loss = baseline_report.validation.mc_probability_of_loss if baseline_report.validation else 1.0
         b_pval = baseline_report.validation.p_value if baseline_report.validation else 1.0
@@ -97,9 +97,9 @@ class FeatureImportanceAnalyzer:
 
             ablated_report = self._analyzer.analyze(ablated_trades)
 
-            a_pf = ablated_report.profit_factor
-            a_exp = ablated_report.expectancy
-            a_sharpe = ablated_report.sharpe_ratio
+            a_pf = ablated_report.net_profit_factor
+            a_exp = ablated_report.net_expectancy
+            a_sharpe = ablated_report.net_sharpe_ratio
             a_wr = ablated_report.win_rate
             a_prob_loss = ablated_report.validation.mc_probability_of_loss if ablated_report.validation else 1.0
             a_pval = ablated_report.validation.p_value if ablated_report.validation else 1.0
