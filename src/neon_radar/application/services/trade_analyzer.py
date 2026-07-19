@@ -42,6 +42,7 @@ class TradeAnalyzer:
                 total_funding_pct=0.0,
                 max_consecutive_wins=0,
                 max_consecutive_losses=0,
+                max_drawdown_pct=0.0,
                 avg_holding_time_ms=0.0,
                 validation=StatisticalValidationReport(False, 1.0, 0.0, 0.0, 0.0, 1.0),
                 trades=(),
@@ -140,6 +141,13 @@ class TradeAnalyzer:
         else:
             net_sharpe_ratio = 0.0
 
+        max_drawdown_pct = 0.0
+        if trades:
+            equity_curve = np.cumsum([t.net_pnl_pct for t in trades], dtype=float)
+            peaks = np.maximum.accumulate(equity_curve)
+            drawdowns = peaks - equity_curve
+            max_drawdown_pct = float(np.max(drawdowns))
+
         validation = self.calculate_statistical_validation(trades)
 
         return BacktestReport(
@@ -163,6 +171,7 @@ class TradeAnalyzer:
             total_funding_pct=total_funding,
             max_consecutive_wins=max_cons_wins,
             max_consecutive_losses=max_cons_losses,
+            max_drawdown_pct=max_drawdown_pct,
             avg_holding_time_ms=avg_holding_time,
             validation=validation,
             trades=trades,

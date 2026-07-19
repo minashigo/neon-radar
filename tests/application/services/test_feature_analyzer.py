@@ -47,6 +47,7 @@ def _make_report(pf, exp, sharpe, wr, prob_loss, pval):
         total_funding_pct=0.0,
         max_consecutive_wins=5,
         max_consecutive_losses=5,
+        max_drawdown_pct=0.0,
         avg_holding_time_ms=1000.0,
         validation=StatisticalValidationReport(True, pval, 2.0, 0.01, 0.05, prob_loss),
         trades=(),

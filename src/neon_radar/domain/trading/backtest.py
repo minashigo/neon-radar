@@ -139,6 +139,7 @@ class BacktestReport:
 
     max_consecutive_wins: int
     max_consecutive_losses: int
+    max_drawdown_pct: float
     avg_holding_time_ms: float
 
     validation: StatisticalValidationReport | None = None

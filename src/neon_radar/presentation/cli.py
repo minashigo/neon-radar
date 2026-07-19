@@ -215,6 +215,35 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Run Ablation Analysis to determine feature importance",
     )
+    backtest.add_argument(
+        "--bootstrap",
+        action="store_true",
+        help="Run Block Bootstrap statistical validation on the backtest results",
+    )
+    backtest.add_argument(
+        "--bootstrap-block-size",
+        type=int,
+        default=20,
+        help="Block size for bootstrap resampling (default: 20)",
+    )
+    backtest.add_argument(
+        "--bootstrap-iterations",
+        type=int,
+        default=1000,
+        help="Number of bootstrap iterations (default: 1000)",
+    )
+    backtest.add_argument(
+        "--export-bootstrap-json",
+        type=Path,
+        default=None,
+        help="Path to export the full bootstrap report to JSON",
+    )
+    backtest.add_argument(
+        "--export-bootstrap-csv",
+        type=Path,
+        default=None,
+        help="Path to export the bootstrap summary metrics to CSV",
+    )
 
     return parser
 
@@ -455,6 +484,28 @@ async def _run_trade_backtest(args: argparse.Namespace) -> int:
             else:
                 print_trade_backtest_report(report, use_color=_should_color(args))
 
+            if args.bootstrap:
+                from neon_radar.application.services.bootstrap_analyzer import BootstrapAnalyzer
+                boot_analyzer = BootstrapAnalyzer(analyzer.analyze)
+                boot_report = boot_analyzer.run(
+                    trades,
+                    block_size=args.bootstrap_block_size,
+                    iterations=args.bootstrap_iterations,
+                )
+                if boot_report:
+                    if args.output == "json":
+                        print_result_json(boot_report)
+                    else:
+                        print_bootstrap_report(boot_report, use_color=_should_color(args))
+
+                    if args.export_bootstrap_json:
+                        _export_bootstrap_json(boot_report, args.export_bootstrap_json)
+                        logger.info("Exported bootstrap JSON to %s", args.export_bootstrap_json)
+
+                    if args.export_bootstrap_csv:
+                        _export_bootstrap_csv(boot_report, args.export_bootstrap_csv)
+                        logger.info("Exported bootstrap CSV to %s", args.export_bootstrap_csv)
+
     if args.export_csv:
         from neon_radar.infrastructure.exporters.trade_exporter import export_trades_to_csv
         export_trades_to_csv(trades, args.export_csv)
@@ -467,6 +518,41 @@ def _read_json(path: Path) -> dict:
     import json
 
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _export_bootstrap_json(report, path: Path) -> None:
+    import dataclasses
+    import json
+
+    def _to_dict(obj):
+        if dataclasses.is_dataclass(obj):
+            return {k: _to_dict(v) for k, v in dataclasses.asdict(obj).items()}
+        if isinstance(obj, dict):
+            return {str(k): _to_dict(v) for k, v in obj.items()}
+        if isinstance(obj, (list, tuple)):
+            return [_to_dict(v) for v in obj]
+        return obj
+
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(_to_dict(report), f, indent=2)
+
+
+def _export_bootstrap_csv(report, path: Path) -> None:
+    import csv
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["Metric", "Mean", "Median", "StdDev", "Min", "Max", "95% CI Lower", "95% CI Upper"])
+        for name, dist in report.metrics.items():
+            writer.writerow([
+                name,
+                f"{dist.mean:.4f}",
+                f"{dist.median:.4f}",
+                f"{dist.std_dev:.4f}",
+                f"{dist.min_val:.4f}",
+                f"{dist.max_val:.4f}",
+                f"{dist.ci_lower_95:.4f}",
+                f"{dist.ci_upper_95:.4f}",
+            ])
 
 
 def _strip_meta(data):
@@ -798,6 +884,26 @@ def print_feature_importance_report(report, *, use_color: bool) -> None:
         )
         print(_c(row, "dim", use_color))
     print()
+
+
+def print_bootstrap_report(report, *, use_color: bool) -> None:
+    """Print the bootstrap validation summary."""
+    from neon_radar.domain.trading.bootstrap import BootstrapReport
+
+    if not isinstance(report, BootstrapReport):
+        return
+
+    print(_c("=== Bootstrap Summary ===", "bold", use_color))
+    print(f"Iterations: {report.iterations}")
+    print(f"Block Size: {report.block_size}")
+    print()
+
+    for name, dist in report.metrics.items():
+        print(_c(f"{name}:", "bold", use_color))
+        print(f"  mean:         {dist.mean:.4f}")
+        print(f"  median:       {dist.median:.4f}")
+        print(f"  95% CI:       [{dist.ci_lower_95:.4f}, {dist.ci_upper_95:.4f}]")
+        print()
 
 
 def print_result_json(result) -> None:
