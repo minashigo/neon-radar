@@ -244,6 +244,29 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Path to export the bootstrap summary metrics to CSV",
     )
+    backtest.add_argument(
+        "--walk-forward",
+        action="store_true",
+        help="Run Walk-Forward Analysis (Rolling Window Optimization + OOS test)",
+    )
+    backtest.add_argument(
+        "--wf-is-window",
+        type=int,
+        default=12,
+        help="In-Sample window size in months for Walk-Forward Analysis (default: 12)",
+    )
+    backtest.add_argument(
+        "--wf-oos-window",
+        type=int,
+        default=3,
+        help="Out-Of-Sample window size in months for Walk-Forward Analysis (default: 3)",
+    )
+    backtest.add_argument(
+        "--wf-step",
+        type=int,
+        default=3,
+        help="Step size in months to roll the Walk-Forward window (default: 3)",
+    )
 
     return parser
 
@@ -451,7 +474,34 @@ async def _run_trade_backtest(args: argparse.Namespace) -> int:
         from neon_radar.application.services.trade_analyzer import TradeAnalyzer
         analyzer = TradeAnalyzer()
 
-        if args.feature_analysis:
+        if args.walk_forward:
+            from neon_radar.application.services.parameter_optimizer import GridSearchOptimizer
+            from neon_radar.application.services.walk_forward_analyzer import WalkForwardAnalyzer
+
+            optimizer = GridSearchOptimizer()
+            wfa = WalkForwardAnalyzer(optimizer)
+            report = await wfa.run(
+                base_backtester=backtester,
+                start_date=args.start,
+                end_date=args.end,
+                symbols=symbols,
+                timeframe=args.timeframe,
+                is_window_months=args.wf_is_window,
+                oos_window_months=args.wf_oos_window,
+                step_months=args.wf_step,
+            )
+
+            if args.output == "json":
+                print_result_json(report)
+            else:
+                print_walk_forward_report(report, use_color=_should_color(args))
+
+            trades = []
+            for cycle in report.cycles:
+                if hasattr(cycle.oos_report, "trades"):
+                    trades.extend(cycle.oos_report.trades)
+
+        elif args.feature_analysis:
             from neon_radar.application.services.feature_analyzer import FeatureImportanceAnalyzer
             feature_analyzer = FeatureImportanceAnalyzer(analyzer)
             feature_report = await feature_analyzer.analyze(
@@ -775,6 +825,8 @@ def print_trade_backtest_report(result, *, use_color: bool) -> None:
     print(f"Total Trades:  {result.total_trades}")
     print(f"Win Rate:        {result.win_rate:>7.1%}")
     print(f"Wins:          {result.wins}")
+
+
     print(f"Losses:        {result.losses}")
     print(f"Avg Win:       {result.net_avg_win_pct:>+7.2%}")
     print(f"Avg Loss:      {result.net_avg_loss_pct:>+7.2%}")
@@ -949,6 +1001,52 @@ def main(argv: list[str] | None = None) -> int:
 
     parser.print_help()
     return 1
+
+
+def print_walk_forward_report(report, *, use_color: bool) -> None:
+    """Human-readable Walk-Forward Analysis output."""
+    if not report.is_valid:
+        print(_c("No valid Walk-Forward cycles produced.", "yellow", use_color))
+        return
+
+    print(_c("=== Walk-Forward Analysis Summary ===", "bold", use_color))
+    print(f"Total Cycles:     {len(report.cycles)}")
+    print(f"Profitable OOS %: {report.profitable_cycles_pct:>7.1%}")
+    print(f"Avg OOS Win Rate: {report.avg_oos_win_rate:>7.1%}")
+    print(f"Avg OOS Exp.:     {report.avg_oos_expectancy:>+7.2%}")
+    print(f"Avg OOS Profit F.:{report.avg_oos_profit_factor:>7.2f}")
+    print(f"Avg OOS Sharpe:   {report.avg_oos_sharpe:>7.2f}")
+    print(f"Avg OOS Max DD:   {report.avg_oos_max_drawdown:>+7.2%}")
+    print(f"Total OOS Trades: {report.total_oos_trades}")
+    print()
+
+    print(_c("=== Walk-Forward Cycles ===", "bold", use_color))
+    header = f"{'IS Period':<24} {'OOS Period':<24} {'min_conf':>8} {'OOS Exp.':>10} {'OOS PF':>8} {'Trades':>6}"
+    print(header)
+    print("-" * len(header))
+
+    for i, cycle in enumerate(report.cycles, 1):
+        is_period = f"{cycle.is_start} to {cycle.is_end}"
+        oos_period = f"{cycle.oos_start} to {cycle.oos_end}"
+        conf = f"{cycle.optimized_config.min_confidence:.2f}"
+        oos_exp = f"{cycle.oos_report.net_expectancy:+.2%}"
+        oos_pf = f"{cycle.oos_report.net_profit_factor:.2f}"
+        trades = f"{cycle.oos_report.total_trades}"
+
+        line = f"{is_period:<24} {oos_period:<24} {conf:>8} {oos_exp:>10} {oos_pf:>8} {trades:>6}"
+        if cycle.oos_report.net_expectancy > 0:
+            print(_c(line, "green", use_color))
+        else:
+            print(_c(line, "red", use_color))
+
+    print()
+    if report.best_cycle:
+        best = report.best_cycle
+        print(_c("Best Cycle:", "bold", use_color) + f" OOS {best.oos_start} to {best.oos_end} (Exp: {best.oos_report.net_expectancy:+.2%})")
+    if report.worst_cycle:
+        worst = report.worst_cycle
+        print(_c("Worst Cycle:", "bold", use_color) + f" OOS {worst.oos_start} to {worst.oos_end} (Exp: {worst.oos_report.net_expectancy:+.2%})")
+    print()
 
 
 if __name__ == "__main__":
