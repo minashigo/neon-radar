@@ -27,6 +27,7 @@ if TYPE_CHECKING:
     from neon_radar.domain.funding import FundingRate, OpenInterest
     from neon_radar.domain.models import KlineSeries, TickerStats
     from neon_radar.domain.scoring.factor_rule import FactorRule
+    from neon_radar.domain.trading.regime import RegimeClassifier, RegimeFilterConfig
 
 
 def collect_indicator_specs(rules: Iterable[FactorRule]) -> tuple[IndicatorSpec, ...]:
@@ -55,13 +56,19 @@ def analyze_series(
     funding_rate: FundingRate | None = None,
     open_interest: OpenInterest | None = None,
     extra_indicators: Iterable[IndicatorSpec] = (),
+    regime_classifier: RegimeClassifier | None = None,
+    regime_config: RegimeFilterConfig | None = None,
 ) -> AnalysisResult:
     """Run the complete analysis cycle for one candle series."""
     from dataclasses import replace
 
     from neon_radar.domain.trading.setup import TradeSetupEngine
 
-    setup_engine = TradeSetupEngine(min_confidence=min_confidence)
+    setup_engine = TradeSetupEngine(
+        min_confidence=min_confidence,
+        regime_classifier=regime_classifier,
+        regime_config=regime_config,
+    )
 
     rules_tuple = tuple(rules)
 

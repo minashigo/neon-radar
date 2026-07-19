@@ -67,6 +67,10 @@ class ScoringRulesConfig(BaseModel):
             "e.g. 0.3 to ignore very uncertain votes."
         ),
     )
+    regime_filter: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Configuration for the Regime Filter.",
+    )
 
     def enabled_rules(self) -> list[RuleSpec]:
         """Return only rules with ``enabled=True``."""

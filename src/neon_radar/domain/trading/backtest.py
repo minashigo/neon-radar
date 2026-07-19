@@ -50,6 +50,8 @@ class TradeDiagnostics:
     final_score: float
     triggered_rules: str  # e.g. "ema_trend:-0.40, rsi_momentum:0.25"
     entry_reason: TradeEntryReason
+    regime: str | None = None
+    regime_reason: str | None = None
 
 
 @dataclass(slots=True, frozen=True)

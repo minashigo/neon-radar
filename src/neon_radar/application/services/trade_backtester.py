@@ -69,6 +69,16 @@ class TradeBacktester:
         self._funding_provider = funding_provider
         self._series_cache: dict[tuple[str, str], KlineSeries] = preloaded_series or {}
         self._cost_model = cost_model or CostModel()
+        
+        self._regime_config = None
+        self._regime_classifier = None
+        
+        if scoring_config.regime_filter:
+            from neon_radar.domain.trading.regime import RegimeFilterConfig
+            from neon_radar.application.services.regime_classifier import RuleBasedRegimeClassifier
+            
+            self._regime_config = RegimeFilterConfig(**scoring_config.regime_filter)
+            self._regime_classifier = RuleBasedRegimeClassifier(self._regime_config)
 
     @property
     def cache(self) -> dict[tuple[str, str], KlineSeries]:
@@ -307,6 +317,8 @@ class TradeBacktester:
                         timestamp=int(history[-1].open_time),
                         higher_tf_series=higher_history_series,
                         funding_rate=funding_val,
+                        regime_classifier=self._regime_classifier,
+                        regime_config=self._regime_config,
                     )
                     pending_setup = result.trade_setup
                 except Exception:

@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 from neon_radar.application.services.indicator_pipeline import IndicatorSpec
 from neon_radar.domain.enums import Bias
 from neon_radar.domain.trading.backtest import TradeDiagnostics, TradeEntryReason
+from neon_radar.domain.trading.regime import MarketRegime, RegimeClassifier, RegimeFilterConfig
 
 if TYPE_CHECKING:
     from neon_radar.domain.market_state import MarketState
@@ -75,16 +76,20 @@ class TradeSetupEngine:
         tp1_rr: float = 1.5,
         tp2_rr: float = 3.0,
         min_confidence: float = 0.5,
+        regime_classifier: RegimeClassifier | None = None,
+        regime_config: RegimeFilterConfig | None = None,
     ) -> None:
         self.atr_period = atr_period
         self.sl_multiplier = sl_multiplier
         self.tp1_rr = tp1_rr
         self.tp2_rr = tp2_rr
         self.min_confidence = min_confidence
+        self.regime_classifier = regime_classifier
+        self.regime_config = regime_config
 
     def required_indicators(self) -> tuple[IndicatorSpec, ...]:
         """Indicators required by this engine to formulate a setup and telemetry."""
-        return (
+        specs = [
             IndicatorSpec(
                 name="atr",
                 params={"period": self.atr_period},
@@ -95,7 +100,10 @@ class TradeSetupEngine:
             IndicatorSpec(name="rsi", params={"period": 14}, tag="14"),
             IndicatorSpec(name="ema", params={"period": 9}, tag="9"),
             IndicatorSpec(name="ema", params={"period": 21}, tag="21"),
-        )
+        ]
+        if self.regime_classifier:
+            specs.extend(self.regime_classifier.required_indicators())
+        return tuple(specs)
 
     def build_setup(self, state: MarketState, analysis_result: AnalysisResult) -> TradeSetup | None:
         """Formulate a TradeSetup based on the given analysis result and state."""
@@ -105,6 +113,21 @@ class TradeSetupEngine:
 
         if score.confidence < self.min_confidence:
             return None
+
+        # Regime Evaluation
+        detected_regime = MarketRegime.UNKNOWN
+        regime_reason = "No classifier"
+        if self.regime_classifier and self.regime_config and self.regime_config.enabled:
+            classification = self.regime_classifier.classify(state)
+            detected_regime = classification.regime
+            regime_reason = classification.reason
+
+            if score.bias == Bias.BULLISH:
+                if detected_regime not in self.regime_config.allowed_long_regimes:
+                    return None
+            else:
+                if detected_regime not in self.regime_config.allowed_short_regimes:
+                    return None
 
         latest = state.primary_series.latest()
         if latest is None:
@@ -169,6 +192,8 @@ class TradeSetupEngine:
             final_score=score.value,
             triggered_rules=triggered_rules,
             entry_reason=TradeEntryReason.CONFIDENCE_THRESHOLD,
+            regime=detected_regime.value,
+            regime_reason=regime_reason,
         )
 
         return TradeSetup(
