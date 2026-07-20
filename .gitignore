@@ -35,6 +35,8 @@ coverage.xml
 logs/
 *.log
 .cache/
+paper_trades.csv
+portfolio.json
 
 # Application
 config.json
