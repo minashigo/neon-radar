@@ -249,6 +249,50 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Run Walk-Forward Analysis (Rolling Window Optimization + OOS test)",
     )
+
+    # ---- paper-trade ----
+    paper = sub.add_parser("paper-trade", help="Run live paper trading")
+    paper.add_argument(
+        "--symbols",
+        default=None,
+        help="Comma-separated symbols (default: all enabled in config.json)",
+    )
+    paper.add_argument(
+        "--timeframe",
+        default="1d",
+        help="Timeframe (default: 1d)",
+    )
+    paper.add_argument(
+        "--balance",
+        type=float,
+        default=10000.0,
+        help="Starting balance in quote asset (default: 10000.0)",
+    )
+    paper.add_argument(
+        "--risk",
+        type=float,
+        default=0.01,
+        help="Risk per trade as decimal (default: 0.01 = 1%)",
+    )
+    paper.add_argument(
+        "--portfolio",
+        type=Path,
+        default=Path("portfolio.json"),
+        help="Path to save/load virtual portfolio state",
+    )
+    paper.add_argument(
+        "--trades-csv",
+        type=Path,
+        default=Path("paper_trades.csv"),
+        help="Path to export closed virtual trades",
+    )
+    paper.add_argument(
+        "--poll-interval",
+        type=int,
+        default=60,
+        help="How often to fetch new data in seconds (default: 60)",
+    )
+
     backtest.add_argument(
         "--wf-is-window",
         type=int,
@@ -998,6 +1042,8 @@ def main(argv: list[str] | None = None) -> int:
         return asyncio.run(_run_backtest(args))
     if args.command == "backtest":
         return asyncio.run(_run_trade_backtest(args))
+    if args.command == "paper-trade":
+        return asyncio.run(_run_paper_trade(args))
 
     parser.print_help()
     return 1
