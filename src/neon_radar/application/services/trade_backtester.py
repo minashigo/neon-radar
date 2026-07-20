@@ -69,14 +69,14 @@ class TradeBacktester:
         self._funding_provider = funding_provider
         self._series_cache: dict[tuple[str, str], KlineSeries] = preloaded_series or {}
         self._cost_model = cost_model or CostModel()
-        
+
         self._regime_config = None
         self._regime_classifier = None
-        
+
         if scoring_config.regime_filter:
-            from neon_radar.domain.trading.regime import RegimeFilterConfig
             from neon_radar.application.services.regime_classifier import RuleBasedRegimeClassifier
-            
+            from neon_radar.domain.trading.regime import RegimeFilterConfig
+
             self._regime_config = RegimeFilterConfig(**scoring_config.regime_filter)
             self._regime_classifier = RuleBasedRegimeClassifier(self._regime_config)
 

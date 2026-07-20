@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+from pathlib import Path
 
 from neon_radar.application.services.bootstrap_analyzer import BootstrapAnalyzer
 from neon_radar.application.services.trade_analyzer import TradeAnalyzer
@@ -29,7 +30,7 @@ async def main():
     from neon_radar.config.loader import _strip_meta
     scoring_raw = json.loads(Path("scoring_rules.json").read_text(encoding="utf-8"))
     scoring_cfg = ScoringRulesConfig.model_validate(_strip_meta(scoring_raw))
-    rules = tuple(load_rules("scoring_rules.json"))
+    rules = tuple(load_rules(Path("scoring_rules.json")))
 
     analyzer = TradeAnalyzer()
     boot_analyzer = BootstrapAnalyzer(analyzer.analyze)
@@ -44,7 +45,10 @@ async def main():
             rules=rules
         )
 
-        for name, (start, end) in PERIODS.items():
+        for name, (start_str, end_str) in PERIODS.items():
+            from datetime import date
+            start = date.fromisoformat(start_str)
+            end = date.fromisoformat(end_str)
             summary[name] = {}
             for tf in TIMEFRAMES:
                 print(f"Running Bootstrap for {name} on {tf}...")

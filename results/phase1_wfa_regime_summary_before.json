@@ -1,0 +1,128 @@
+{
+  "Bull 1 (2020-2021)": {
+    "1d": {
+      "total_trades": 188,
+      "win_rate": 0.574468085106383,
+      "net_profit_factor": 1.3075798732225974,
+      "net_expectancy": 0.1481650243949849,
+      "net_sharpe_ratio": 0.021625110215177844,
+      "max_drawdown_pct": 79.59739912134847
+    },
+    "4h": {
+      "total_trades": 0,
+      "win_rate": 0.0,
+      "net_profit_factor": 0.0,
+      "net_expectancy": 0.0,
+      "net_sharpe_ratio": 0.0,
+      "max_drawdown_pct": 0.0
+    }
+  },
+  "Bear (2021-2022)": {
+    "1d": {
+      "total_trades": 203,
+      "win_rate": 0.33004926108374383,
+      "net_profit_factor": 0.21705198378069704,
+      "net_expectancy": -0.206879475079453,
+      "net_sharpe_ratio": -0.2112159627610215,
+      "max_drawdown_pct": 42.325636989956806
+    },
+    "4h": {
+      "total_trades": 0,
+      "win_rate": 0.0,
+      "net_profit_factor": 0.0,
+      "net_expectancy": 0.0,
+      "net_sharpe_ratio": 0.0,
+      "max_drawdown_pct": 0.0
+    }
+  },
+  "Chop (2023)": {
+    "1d": {
+      "total_trades": 80,
+      "win_rate": 0.3125,
+      "net_profit_factor": 0.2509727438975168,
+      "net_expectancy": -0.15935532227932414,
+      "net_sharpe_ratio": -0.17482126582862598,
+      "max_drawdown_pct": 13.012262265663441
+    },
+    "4h": {
+      "total_trades": 151,
+      "win_rate": 0.39072847682119205,
+      "net_profit_factor": 0.8319871750247523,
+      "net_expectancy": -0.0024676033544642987,
+      "net_sharpe_ratio": -0.08380587256360388,
+      "max_drawdown_pct": 0.584990138182474
+    }
+  },
+  "Bull 2 (2023-2024)": {
+    "1d": {
+      "total_trades": 151,
+      "win_rate": 0.48344370860927155,
+      "net_profit_factor": 1.812004052337892,
+      "net_expectancy": 0.039923416615812134,
+      "net_sharpe_ratio": 0.15190456577864656,
+      "max_drawdown_pct": 1.678035980429781
+    },
+    "4h": {
+      "total_trades": 613,
+      "win_rate": 0.4893964110929853,
+      "net_profit_factor": 1.6029981164418379,
+      "net_expectancy": 0.013233619318507014,
+      "net_sharpe_ratio": 0.09865467003336299,
+      "max_drawdown_pct": 1.8188317759309744
+    }
+  },
+  "COVID Crash (2020)": {
+    "1d": {
+      "total_trades": 4,
+      "win_rate": 0.0,
+      "net_profit_factor": 0.0,
+      "net_expectancy": -0.11713249310344573,
+      "net_sharpe_ratio": -7.602569137881557,
+      "max_drawdown_pct": 0.3647005539972047
+    },
+    "4h": {
+      "total_trades": 0,
+      "win_rate": 0.0,
+      "net_profit_factor": 0.0,
+      "net_expectancy": 0.0,
+      "net_sharpe_ratio": 0.0,
+      "max_drawdown_pct": 0.0
+    }
+  },
+  "FTX Crash (2022)": {
+    "1d": {
+      "total_trades": 33,
+      "win_rate": 0.45454545454545453,
+      "net_profit_factor": 0.11352929303745163,
+      "net_expectancy": -0.51457250471561,
+      "net_sharpe_ratio": -0.24622752943787712,
+      "max_drawdown_pct": 17.90258971762354
+    },
+    "4h": {
+      "total_trades": 0,
+      "win_rate": 0.0,
+      "net_profit_factor": 0.0,
+      "net_expectancy": 0.0,
+      "net_sharpe_ratio": 0.0,
+      "max_drawdown_pct": 0.0
+    }
+  },
+  "Overall": {
+    "1d": {
+      "total_trades": 859,
+      "win_rate": 0.4470314318975553,
+      "net_profit_factor": 1.251858567643489,
+      "net_expectancy": 0.05884806433978046,
+      "net_sharpe_ratio": 0.016835021037373662,
+      "max_drawdown_pct": 79.59739912134846
+    },
+    "4h": {
+      "total_trades": 773,
+      "win_rate": 0.4670116429495472,
+      "net_profit_factor": 1.4679147308169944,
+      "net_expectancy": 0.009682992747778035,
+      "net_sharpe_ratio": 0.08035595852472714,
+      "max_drawdown_pct": 1.8188317759309744
+    }
+  }
+}

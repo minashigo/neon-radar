@@ -1,17 +1,17 @@
 import asyncio
 import json
 import os
+from datetime import UTC, date
 from pathlib import Path
 
+from neon_radar.application.services.parameter_optimizer import GridSearchOptimizer
 from neon_radar.application.services.trade_analyzer import TradeAnalyzer
 from neon_radar.application.services.trade_backtester import TradeBacktester
-from neon_radar.application.services.parameter_optimizer import GridSearchOptimizer
 from neon_radar.application.services.walk_forward_analyzer import WalkForwardAnalyzer
 from neon_radar.config.loader import load_config
 from neon_radar.config.scoring_loader import load_rules
 from neon_radar.config.scoring_models import ScoringRulesConfig
 from neon_radar.infrastructure.exchanges.binance.client import BinanceClient
-from datetime import date
 
 PERIODS = {
     "Bull 1 (2020-2021)": ("2020-10-01", "2021-05-01"),
@@ -27,6 +27,8 @@ MIN_HISTORY = 100
 
 async def main():
     print("Loading config...")
+    from neon_radar.utils.logging import configure_logging
+    configure_logging(level="INFO", console=True)
     cfg = load_config()
     from neon_radar.config.loader import _strip_meta
     scoring_raw = json.loads(Path("scoring_rules.json").read_text(encoding="utf-8"))
@@ -64,7 +66,7 @@ async def main():
                     step_months=2,
                 )
                 global_reports[tf] = report
-                
+
                 # Aggregate all OOS trades
                 for cycle in report.cycles:
                     global_trades[tf].extend(cycle.oos_report.trades)
@@ -76,23 +78,23 @@ async def main():
         for name, (start_str, end_str) in PERIODS.items():
             summary[name] = {}
             # Convert to ms
-            from datetime import datetime, timezone
-            start_ms = datetime.strptime(start_str, "%Y-%m-%d").replace(tzinfo=timezone.utc).timestamp() * 1000
-            end_ms = datetime.strptime(end_str, "%Y-%m-%d").replace(tzinfo=timezone.utc).timestamp() * 1000
+            from datetime import datetime
+            start_ms = datetime.strptime(start_str, "%Y-%m-%d").replace(tzinfo=UTC).timestamp() * 1000
+            end_ms = datetime.strptime(end_str, "%Y-%m-%d").replace(tzinfo=UTC).timestamp() * 1000
 
             for tf in ["1d", "4h"]:
                 if tf not in global_trades:
                     continue
-                
+
                 # Filter trades for this regime
                 regime_trades = [
-                    t for t in global_trades[tf] 
+                    t for t in global_trades[tf]
                     if start_ms <= t.entry_time <= end_ms
                 ]
-                
+
                 # Analyze them
                 report = analyzer.analyze(regime_trades)
-                
+
                 summary[name][tf] = {
                     "total_trades": report.total_trades,
                     "win_rate": report.win_rate,
@@ -119,7 +121,39 @@ async def main():
         with open("results/phase1_wfa_regime_summary.json", "w", encoding="utf-8") as f:
             json.dump(summary, f, indent=2)
 
-    print("WFA regime analysis completed. Results saved to results/phase1_wfa_regime_summary.json")
+        # Export all trades to CSV for analysis
+        import csv
+        with open("results/trades_export.csv", "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow([
+                "Timeframe", "Symbol", "Direction", "Entry Time", "Exit Time",
+                "Entry Price", "Exit Price", "Gross PnL %", "Net PnL %",
+                "Status", "Exit Reason", "Regime", "Regime Reason", "Triggered Rules"
+            ])
+            for tf, trades in global_trades.items():
+                for t in trades:
+                    regime = t.diagnostics.regime if t.diagnostics and hasattr(t.diagnostics, "regime") else "UNKNOWN"
+                    reason = t.diagnostics.regime_reason if t.diagnostics and hasattr(t.diagnostics, "regime_reason") else ""
+                    rules = t.diagnostics.triggered_rules if t.diagnostics else ""
+
+                    writer.writerow([
+                        tf,
+                        t.symbol,
+                        t.direction.value,
+                        datetime.fromtimestamp(t.entry_time / 1000, tz=UTC).isoformat(),
+                        datetime.fromtimestamp(t.exit_time / 1000, tz=UTC).isoformat() if t.exit_time else "",
+                        t.entry_price,
+                        t.exit_price,
+                        f"{t.gross_pnl_pct * 100:.2f}",
+                        f"{t.net_pnl_pct * 100:.2f}",
+                        t.status.value,
+                        t.exit_reason.value,
+                        regime,
+                        reason,
+                        rules
+                    ])
+
+    print("WFA regime analysis completed. Results saved to results/phase1_wfa_regime_summary.json and results/trades_export.csv")
 
 if __name__ == "__main__":
     asyncio.run(main())

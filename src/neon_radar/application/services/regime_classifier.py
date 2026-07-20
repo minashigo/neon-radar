@@ -17,7 +17,7 @@ class RuleBasedRegimeClassifier:
         """Indicators required to classify the regime."""
         if not self._config.enabled:
             return ()
-            
+
         return (
             IndicatorSpec(
                 name="adx",
@@ -49,7 +49,7 @@ class RuleBasedRegimeClassifier:
         # 1. Volatility Crash Check (Priority 1)
         atr_val = state.get_indicator_value(f"atr_{self._config.atr_period}")
         latest = state.primary_series.latest()
-        
+
         if atr_val is not None and latest is not None and latest.close > 0:
             atr_pct = atr_val / latest.close
             if atr_pct > self._config.atr_crash_threshold_pct:
@@ -66,11 +66,11 @@ class RuleBasedRegimeClassifier:
                     regime=MarketRegime.CHOP,
                     reason=f"ADX {adx_val:.2f} < {self._config.adx_chop_threshold:.2f}"
                 )
-        
+
         # 3. EMA Trend Check (Priority 3)
         ema_fast = state.get_indicator_value(f"ema_{self._config.ema_fast_period}")
         ema_slow = state.get_indicator_value(f"ema_{self._config.ema_slow_period}")
-        
+
         if ema_fast is not None and ema_slow is not None:
             if ema_fast > ema_slow:
                 reason = f"EMA({self._config.ema_fast_period}) > EMA({self._config.ema_slow_period})"
@@ -91,6 +91,6 @@ class RuleBasedRegimeClassifier:
 
         # Fallback
         return RegimeClassification(
-            regime=MarketRegime.UNKNOWN, 
+            regime=MarketRegime.UNKNOWN,
             reason="Missing indicator data"
         )
