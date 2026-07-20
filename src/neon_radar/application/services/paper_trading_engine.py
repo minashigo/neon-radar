@@ -37,6 +37,7 @@ class PaperTradingEngine:
         portfolio: VirtualPortfolio,
         scoring_config: ScoringRulesConfig,
         trades_csv_path: Path | None = None,
+        rules: tuple | None = None,
     ) -> None:
         self.portfolio = portfolio
         self.scoring_config = scoring_config
@@ -44,7 +45,7 @@ class PaperTradingEngine:
         self._last_eval_time: dict[str, int] = {}
 
         # Build rules and setup engine
-        self._rules = RuleRegistry.build_all(scoring_config)
+        self._rules = rules if rules is not None else ()
         self._setup_engine = TradeSetupEngine(
             min_confidence=0.5,  # Could be pulled from config if available
             regime_classifier=None,  # Will configure below
@@ -145,7 +146,26 @@ class PaperTradingEngine:
         self._last_eval_time[sym_str] = last_closed_candle.open_time
 
         analysis = analyze_series(closed_series, self._rules)
-        setup = self._setup_engine.evaluate(analysis)
+        setup = self._setup_engine.build_setup(analysis.market_state, analysis)
+
+        score_val = analysis.score.value
+        conf_val = analysis.score.confidence
+        bias_str = analysis.score.bias.name
+        
+        setup_status = "YES" if setup else "NO"
+        reason = ""
+        if not setup:
+            if bias_str == "NEUTRAL":
+                reason = "Neutral Bias"
+            elif conf_val < self._setup_engine.min_confidence:
+                reason = f"Low Conf ({conf_val:.2f} < {self._setup_engine.min_confidence:.2f})"
+            else:
+                reason = "Regime/ATR Filter"
+                
+        msg_log = f"[{sym_str}] Score: {score_val:+.2f} (Conf: {conf_val:.2f}) | Dir: {bias_str} | Setup: {setup_status}"
+        if reason:
+            msg_log += f" | Reason: {reason}"
+        paper_logger.info(msg_log)
 
         if setup:
             # We enter at market, which is effectively the latest_kline's current price (close)

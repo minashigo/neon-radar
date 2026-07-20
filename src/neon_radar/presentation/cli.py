@@ -1095,5 +1095,58 @@ def print_walk_forward_report(report, *, use_color: bool) -> None:
     print()
 
 
+async def _run_paper_trade(args: argparse.Namespace) -> int:
+    import signal
+    from neon_radar.config.models import TimeFrame
+    from neon_radar.domain.trading.paper import VirtualPortfolio
+    from neon_radar.application.services.paper_trading_engine import PaperTradingEngine
+    from neon_radar.application.services.live_data_fetcher import LiveDataFetcher
+    from neon_radar.infrastructure.exchanges.binance import BinanceClient
+    from neon_radar.config.loader import ConfigLoader
+    from neon_radar.domain.models import Symbol
+    from neon_radar.config.scoring_loader import ScoringRulesConfig
+    from neon_radar.config.scoring_loader import load_rules
+
+    config = ConfigLoader(args.config).load()
+    scoring_cfg = ScoringRulesConfig.model_validate(_strip_meta(_read_json(args.scoring)))
+    rules = tuple(load_rules(args.scoring))
+    
+    if args.symbols:
+        symbols = [Symbol.from_str(s.strip()) for s in args.symbols.split(",")]
+    else:
+        symbols = [Symbol(s.symbol) for s in config.enabled_symbols()]
+        
+    tf = TimeFrame(args.timeframe)
+    
+    portfolio = VirtualPortfolio.load(args.portfolio, default_balance=args.balance, risk_per_trade=args.risk)
+    
+    engine = PaperTradingEngine(
+        portfolio=portfolio,
+        scoring_config=scoring_cfg,
+        trades_csv_path=args.trades_csv,
+        rules=rules,
+    )
+    
+    client = BinanceClient(config.api)
+    fetcher = LiveDataFetcher(exchange=client, engine=engine, poll_interval_seconds=args.poll_interval)
+    
+    def handle_shutdown(*_):
+        print("\nShutting down Paper Trading...")
+        portfolio.save()
+        fetcher.stop()
+        
+    try:
+        signal.signal(signal.SIGINT, handle_shutdown)
+        signal.signal(signal.SIGTERM, handle_shutdown)
+    except Exception:
+        pass
+        
+    async with client:
+        print(f"Starting Paper Trading on {len(symbols)} symbols. Balance: {portfolio.balance:.2f} USDT. Risk: {args.risk:.2%}")
+        await fetcher.run(symbols, tf)
+        
+    return 0
+
+
 if __name__ == "__main__":
     raise SystemExit(main())
