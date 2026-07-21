@@ -7,12 +7,10 @@ from __future__ import annotations
 
 import csv
 import logging
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from neon_radar.application.services.analysis import analyze_series
-from neon_radar.domain.scoring.registry import RuleRegistry
 from neon_radar.domain.trading.paper import VirtualPortfolio, VirtualPosition
 from neon_radar.domain.trading.setup import TradeSetupEngine
 from neon_radar.utils.logging import get_logger
@@ -43,7 +41,7 @@ class PaperTradingEngine:
         self.scoring_config = scoring_config
         self.trades_csv_path = trades_csv_path
         self._last_eval_time: dict[str, int] = {}
-        
+
         # New Evaluator
         from neon_radar.domain.trading.evaluator import TradeOutcomeEvaluator
         self.evaluator = TradeOutcomeEvaluator()
@@ -73,13 +71,13 @@ class PaperTradingEngine:
             return
 
         from neon_radar.domain.trading.evaluator import TradeEvaluation
-        
+
         if not self.trades_csv_path.exists():
             self.trades_csv_path.parent.mkdir(parents=True, exist_ok=True)
             with open(self.trades_csv_path, "w", newline="", encoding="utf-8") as f:
                 writer = csv.writer(f)
                 writer.writerow(TradeEvaluation.csv_header())
-                
+
         equity_csv = self.trades_csv_path.parent / "equity_curve.csv"
         if not equity_csv.exists():
             with open(equity_csv, "w", newline="", encoding="utf-8") as f:
@@ -104,7 +102,7 @@ class PaperTradingEngine:
         with open(self.trades_csv_path, "a", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
             writer.writerow(evaluation.to_csv_row())
-            
+
         equity_csv = self.trades_csv_path.parent / "equity_curve.csv"
         with open(equity_csv, "a", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
@@ -116,14 +114,14 @@ class PaperTradingEngine:
                 f"{net_pnl:.4f}",
                 f"{evaluation.profit_r:.2f}"
             ])
-            
+
     def generate_summary_report(self) -> None:
         if not self.trades_csv_path:
             return
-            
+
         summary = self.evaluator.generate_summary()
         summary_csv = self.trades_csv_path.parent / "paper_trade_summary.csv"
-        
+
         with open(summary_csv, "w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
             writer.writerow(summary.csv_header())
@@ -182,7 +180,7 @@ class PaperTradingEngine:
         score_val = analysis.score.value
         conf_val = analysis.score.confidence
         bias_str = analysis.score.bias.name
-        
+
         setup_status = "YES" if setup else "NO"
         reason = ""
         if not setup:
@@ -192,7 +190,7 @@ class PaperTradingEngine:
                 reason = f"Low Conf ({conf_val:.2f} < {self._setup_engine.min_confidence:.2f})"
             else:
                 reason = "Regime/ATR Filter"
-                
+
         msg_log = f"[{sym_str}] Score: {score_val:+.2f} (Conf: {conf_val:.2f}) | Dir: {bias_str} | Setup: {setup_status}"
         if reason:
             msg_log += f" | Reason: {reason}"
@@ -215,7 +213,7 @@ class PaperTradingEngine:
                     risk_reward=setup.risk_reward,
                     diagnostics=setup.diagnostics
                 )
-                
+
                 # Build snapshot for analysis
                 factors = {}
                 if setup.diagnostics and setup.diagnostics.triggered_rules:
@@ -229,7 +227,7 @@ class PaperTradingEngine:
                                 factors[k.strip()] = float(v.strip())
                             except ValueError:
                                 factors[k.strip()] = v.strip()
-                
+
                 analysis_snapshot = {
                     "score": score_val,
                     "confidence": conf_val,

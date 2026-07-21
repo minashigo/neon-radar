@@ -16,8 +16,8 @@ from neon_radar.utils.logging import get_logger
 
 if TYPE_CHECKING:
     from neon_radar.domain.models import Kline
-    from neon_radar.domain.trading.setup import TradeSetup
     from neon_radar.domain.trading.backtest import TradeDiagnostics
+    from neon_radar.domain.trading.setup import TradeSetup
 
 logger = get_logger(__name__)
 
