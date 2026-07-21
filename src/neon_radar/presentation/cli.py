@@ -1132,6 +1132,7 @@ async def _run_paper_trade(args: argparse.Namespace) -> int:
     
     def handle_shutdown(*_):
         print("\nShutting down Paper Trading...")
+        engine.generate_summary_report()
         portfolio.save()
         fetcher.stop()
         

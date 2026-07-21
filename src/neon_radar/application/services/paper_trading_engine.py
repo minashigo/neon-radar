@@ -43,6 +43,10 @@ class PaperTradingEngine:
         self.scoring_config = scoring_config
         self.trades_csv_path = trades_csv_path
         self._last_eval_time: dict[str, int] = {}
+        
+        # New Evaluator
+        from neon_radar.domain.trading.evaluator import TradeOutcomeEvaluator
+        self.evaluator = TradeOutcomeEvaluator()
 
         # Build rules and setup engine
         self._rules = rules if rules is not None else ()
@@ -64,40 +68,67 @@ class PaperTradingEngine:
         self._ensure_csv_headers()
 
     def _ensure_csv_headers(self) -> None:
-        """Initialize the trades CSV if it doesn't exist."""
+        """Initialize the trades CSV and equity CSV if they don't exist."""
         if not self.trades_csv_path:
             return
 
+        from neon_radar.domain.trading.evaluator import TradeEvaluation
+        
         if not self.trades_csv_path.exists():
             self.trades_csv_path.parent.mkdir(parents=True, exist_ok=True)
             with open(self.trades_csv_path, "w", newline="", encoding="utf-8") as f:
                 writer = csv.writer(f)
-                writer.writerow([
-                    "Symbol", "Direction", "EntryTime", "ExitTime",
-                    "EntryPrice", "ExitPrice", "Quantity", "ExitReason", "NetPnL", "NewBalance"
-                ])
+                writer.writerow(TradeEvaluation.csv_header())
+                
+        equity_csv = self.trades_csv_path.parent / "equity_curve.csv"
+        if not equity_csv.exists():
+            with open(equity_csv, "w", newline="", encoding="utf-8") as f:
+                writer = csv.writer(f)
+                writer.writerow(["TradeIndex", "Balance", "Equity", "DrawdownPct", "Profit", "ProfitR"])
 
     def _log_trade_to_csv(self, position: VirtualPosition, exit_price: float, reason: str, exit_time: int, net_pnl: float) -> None:
         if not self.trades_csv_path:
             return
 
-        entry_dt = datetime.fromtimestamp(position.entry_time / 1000, tz=UTC).isoformat()
-        exit_dt = datetime.fromtimestamp(exit_time / 1000, tz=UTC).isoformat()
+        trade_idx = len(self.evaluator.evaluations) + 1
+        evaluation = self.evaluator.evaluate_trade(
+            trade_index=trade_idx,
+            position=position,
+            exit_price=exit_price,
+            exit_reason=reason,
+            exit_time=exit_time,
+            net_pnl=net_pnl,
+            new_balance=self.portfolio.balance
+        )
 
         with open(self.trades_csv_path, "a", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
+            writer.writerow(evaluation.to_csv_row())
+            
+        equity_csv = self.trades_csv_path.parent / "equity_curve.csv"
+        with open(equity_csv, "a", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
             writer.writerow([
-                position.symbol,
-                position.direction.value,
-                entry_dt,
-                exit_dt,
-                f"{position.entry_price:.6f}",
-                f"{exit_price:.6f}",
-                f"{position.quantity:.6f}",
-                reason,
+                evaluation.trade_index,
+                f"{self.portfolio.balance:.4f}",
+                f"{self.portfolio.balance:.4f}", # For now equity is just balance after trade
+                f"{self.evaluator.generate_summary().max_drawdown_pct:.4%}",
                 f"{net_pnl:.4f}",
-                f"{self.portfolio.balance:.4f}"
+                f"{evaluation.profit_r:.2f}"
             ])
+            
+    def generate_summary_report(self) -> None:
+        if not self.trades_csv_path:
+            return
+            
+        summary = self.evaluator.generate_summary()
+        summary_csv = self.trades_csv_path.parent / "paper_trade_summary.csv"
+        
+        with open(summary_csv, "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(summary.csv_header())
+            writer.writerow(summary.to_csv_row())
+        paper_logger.info(f"Summary written to {summary_csv}")
 
     def process_kline(self, symbol: Symbol, series: KlineSeries) -> None:
         """Process the latest market data for a symbol.
@@ -184,8 +215,36 @@ class PaperTradingEngine:
                     risk_reward=setup.risk_reward,
                     diagnostics=setup.diagnostics
                 )
+                
+                # Build snapshot for analysis
+                factors = {}
+                if setup.diagnostics and setup.diagnostics.triggered_rules:
+                    # Convert triggered_rules string to dict if possible
+                    # format usually "ema_trend:0.5, rsi:0.2"
+                    parts = setup.diagnostics.triggered_rules.split(",")
+                    for part in parts:
+                        if ":" in part:
+                            k, v = part.split(":", 1)
+                            try:
+                                factors[k.strip()] = float(v.strip())
+                            except ValueError:
+                                factors[k.strip()] = v.strip()
+                
+                analysis_snapshot = {
+                    "score": score_val,
+                    "confidence": conf_val,
+                    "regime": setup.diagnostics.regime if setup.diagnostics else "",
+                    "factors": factors,
+                    "indicators": {
+                        "atr": setup.diagnostics.atr if setup.diagnostics else None,
+                        "rsi": setup.diagnostics.rsi if setup.diagnostics else None,
+                        "adx": setup.diagnostics.adx if setup.diagnostics else None,
+                        "ema_spread": setup.diagnostics.ema_spread_pct if setup.diagnostics else None,
+                        "htf_trend": setup.diagnostics.htf_trend if setup.diagnostics else None
+                    }
+                }
 
-                pos = VirtualPosition.from_setup(symbol, setup, qty, latest_kline.open_time)
+                pos = VirtualPosition.from_setup(symbol, setup, qty, latest_kline.open_time, analysis_snapshot=analysis_snapshot)
                 self.portfolio.open_position(pos)
 
                 msg = f"OPENED {pos.direction.value} {sym_str} | Entry: {entry_price:.4f} | SL: {setup.stop_loss:.4f} | TP: {setup.take_profit_1:.4f} | Qty: {qty:.6f}"

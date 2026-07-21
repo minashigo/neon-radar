@@ -17,6 +17,7 @@ from neon_radar.utils.logging import get_logger
 if TYPE_CHECKING:
     from neon_radar.domain.models import Kline
     from neon_radar.domain.trading.setup import TradeSetup
+    from neon_radar.domain.trading.backtest import TradeDiagnostics
 
 logger = get_logger(__name__)
 
@@ -33,6 +34,10 @@ class VirtualPosition:
     stop_loss: float
     take_profit: float  # We simplify to a single TP for now, or just use TP1 from setup
 
+    # New fields for trade evaluation
+    diagnostics: TradeDiagnostics | None = None
+    analysis_snapshot: dict | None = None
+
     # Internal stats
     highest_price: float = field(init=False)
     lowest_price: float = field(init=False)
@@ -47,7 +52,8 @@ class VirtualPosition:
         symbol: Symbol,
         setup: TradeSetup,
         quantity: float,
-        entry_time: int
+        entry_time: int,
+        analysis_snapshot: dict | None = None
     ) -> VirtualPosition:
         """Create a new VirtualPosition from a TradeSetup."""
         return cls(
@@ -58,6 +64,8 @@ class VirtualPosition:
             quantity=quantity,
             stop_loss=setup.stop_loss,
             take_profit=setup.take_profit_1,  # Using TP1 as primary target for paper trading V1
+            diagnostics=setup.diagnostics,
+            analysis_snapshot=analysis_snapshot,
         )
 
     def update(self, kline: Kline) -> str | None:
