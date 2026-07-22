@@ -82,3 +82,33 @@ class BinanceTakerVolumeDTO:
             sellVol=data["sellVol"],
             timestamp=int(data["timestamp"]),
         )
+
+@dataclass(slots=True, frozen=True)
+class BinanceFundingRateHistoryDTO:
+    """Matches Binance /fapi/v1/fundingRate."""
+    fundingRate: str
+    fundingTime: int
+    markPrice: str | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> BinanceFundingRateHistoryDTO:
+        return cls(
+            fundingRate=data["fundingRate"],
+            fundingTime=int(data["fundingTime"]),
+            markPrice=data.get("markPrice"),
+        )
+
+@dataclass(slots=True, frozen=True)
+class BinanceOpenInterestHistoryDTO:
+    """Matches Binance /futures/data/openInterestHist."""
+    sumOpenInterest: str
+    sumOpenInterestValue: str
+    timestamp: int
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> BinanceOpenInterestHistoryDTO:
+        return cls(
+            sumOpenInterest=data["sumOpenInterest"],
+            sumOpenInterestValue=data["sumOpenInterestValue"],
+            timestamp=int(data["timestamp"]),
+        )

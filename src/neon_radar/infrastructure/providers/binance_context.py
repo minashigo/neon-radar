@@ -11,6 +11,8 @@ from neon_radar.application.services.market_context.normalizers import (
     normalize_binance_long_short_ratio,
     normalize_binance_open_interest,
     normalize_binance_taker_volume,
+    normalize_binance_funding_history,
+    normalize_binance_open_interest_history,
 )
 from neon_radar.application.services.market_context_provider import (
     FundingProvider,
@@ -23,14 +25,21 @@ from neon_radar.infrastructure.providers.binance_dto import (
     BinanceOpenInterestDTO,
     BinancePremiumIndexDTO,
     BinanceTakerVolumeDTO,
+    BinanceFundingRateHistoryDTO,
+    BinanceOpenInterestHistoryDTO,
 )
 
 if TYPE_CHECKING:
     from neon_radar.domain.market_context import (
         FundingContext,
+        FundingSeries,
         LongShortRatioContext,
+        LongShortSeries,
         OpenInterestContext,
+        OpenInterestSeries,
         TakerFlowContext,
+        TakerFlowSeries,
+        LiquidationSeries,
     )
     from neon_radar.domain.models import Symbol
     from neon_radar.infrastructure.exchanges.binance_transport import BinanceTransport
@@ -132,4 +141,131 @@ class BinanceContextProviders(FundingProvider, OpenInterestProvider, LongShortPr
             return context
         except Exception as e:
             print(f"DEBUG: get_taker_flow failed: {e}")
+            return None
+
+    async def get_funding_history(
+        self, symbol: Symbol, start_time: int, end_time: int, limit: int = 500
+    ) -> FundingSeries | None:
+        from neon_radar.domain.market_context import FundingSeries
+        cache_key = f"funding_history_{symbol}_{start_time}_{end_time}_{limit}"
+        cached = self._cache.get_json(cache_key, FundingSeries.from_dict)
+        if cached:
+            return cached
+
+        try:
+            data = await self._transport.get("/fapi/v1/fundingRate", {
+                "symbol": str(symbol),
+                "startTime": start_time,
+                "endTime": end_time,
+                "limit": limit
+            })
+            if not data:
+                return None
+                
+            items = []
+            ingest_time = int(time.time() * 1000)
+            for raw in data:
+                dto = BinanceFundingRateHistoryDTO.from_dict(raw)
+                items.append(normalize_binance_funding_history(dto, ingest_time))
+                
+            series = FundingSeries(symbol=symbol, items=tuple(items))
+            self._cache.set_json(cache_key, series, ttl_seconds=3600.0)
+            return series
+        except Exception:
+            return None
+
+    async def get_open_interest_history(
+        self, symbol: Symbol, start_time: int, end_time: int, limit: int = 500
+    ) -> OpenInterestSeries | None:
+        from neon_radar.domain.market_context import OpenInterestSeries
+        cache_key = f"oi_history_{symbol}_{start_time}_{end_time}_{limit}"
+        cached = self._cache.get_json(cache_key, OpenInterestSeries.from_dict)
+        if cached:
+            return cached
+
+        try:
+            data = await self._transport.get("/futures/data/openInterestHist", {
+                "symbol": str(symbol),
+                "period": "5m",
+                "startTime": start_time,
+                "endTime": end_time,
+                "limit": limit
+            })
+            if not data:
+                return None
+                
+            items = []
+            ingest_time = int(time.time() * 1000)
+            for raw in data:
+                dto = BinanceOpenInterestHistoryDTO.from_dict(raw)
+                items.append(normalize_binance_open_interest_history(dto, ingest_time))
+                
+            series = OpenInterestSeries(symbol=symbol, items=tuple(items))
+            self._cache.set_json(cache_key, series, ttl_seconds=3600.0)
+            return series
+        except Exception:
+            return None
+
+    async def get_long_short_ratio_history(
+        self, symbol: Symbol, start_time: int, end_time: int, limit: int = 500
+    ) -> LongShortSeries | None:
+        from neon_radar.domain.market_context import LongShortSeries
+        cache_key = f"ls_history_{symbol}_{start_time}_{end_time}_{limit}"
+        cached = self._cache.get_json(cache_key, LongShortSeries.from_dict)
+        if cached:
+            return cached
+
+        try:
+            data = await self._transport.get("/futures/data/globalLongShortAccountRatio", {
+                "symbol": str(symbol),
+                "period": "5m",
+                "startTime": start_time,
+                "endTime": end_time,
+                "limit": limit
+            })
+            if not data:
+                return None
+                
+            items = []
+            ingest_time = int(time.time() * 1000)
+            for raw in data:
+                dto = BinanceLongShortRatioDTO.from_dict(raw)
+                items.append(normalize_binance_long_short_ratio(dto, ingest_time))
+                
+            series = LongShortSeries(symbol=symbol, items=tuple(items))
+            self._cache.set_json(cache_key, series, ttl_seconds=3600.0)
+            return series
+        except Exception:
+            return None
+
+    async def get_taker_flow_history(
+        self, symbol: Symbol, start_time: int, end_time: int, limit: int = 500
+    ) -> TakerFlowSeries | None:
+        from neon_radar.domain.market_context import TakerFlowSeries
+        cache_key = f"taker_history_{symbol}_{start_time}_{end_time}_{limit}"
+        cached = self._cache.get_json(cache_key, TakerFlowSeries.from_dict)
+        if cached:
+            return cached
+
+        try:
+            data = await self._transport.get("/futures/data/takerlongshortRatio", {
+                "symbol": str(symbol),
+                "period": "5m",
+                "startTime": start_time,
+                "endTime": end_time,
+                "limit": limit
+            })
+            if not data:
+                return None
+                
+            items = []
+            ingest_time = int(time.time() * 1000)
+            for raw in data:
+                dto = BinanceTakerVolumeDTO.from_dict(raw)
+                items.append(normalize_binance_taker_volume(dto, ingest_time))
+                
+            series = TakerFlowSeries(symbol=symbol, items=tuple(items))
+            self._cache.set_json(cache_key, series, ttl_seconds=3600.0)
+            return series
+        except Exception:
             return None

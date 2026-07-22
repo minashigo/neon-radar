@@ -7,12 +7,14 @@ via explicit time markers, isolating the domain from raw API structures.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import Enum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
+from collections.abc import Iterator
+from neon_radar.domain.models import Symbol
 
 if TYPE_CHECKING:
-    from neon_radar.domain.models import Symbol
+    pass
 
 
 class SchemaVersion(str, Enum):
@@ -113,3 +115,139 @@ class MarketContext:
     ls_ratio: LongShortRatioContext | None = None
     taker_flow: TakerFlowContext | None = None
     liquidations: LiquidationContext | None = None
+
+
+T_Context = TypeVar("T_Context")
+
+@dataclass(slots=True, frozen=True)
+class ContextSeries(Generic[T_Context]):
+    """Base class for all historical context series.
+    
+    Provides iterable API, validation, slicing, latest(), and window().
+    """
+
+    symbol: Symbol
+    items: list[T_Context]
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.symbol, Symbol):
+            object.__setattr__(self, "symbol", Symbol(self.symbol))
+
+        if self.items:
+            # All context models must have `time_context`
+            times = [c.time_context.event_time for c in self.items]
+            if times != sorted(times):
+                raise ValueError(
+                    f"ContextSeries items are not sorted ascending by event_time "
+                    f"for {self.symbol}"
+                )
+
+    def __len__(self) -> int:
+        return len(self.items)
+
+    def __iter__(self) -> Iterator[T_Context]:
+        return iter(self.items)
+
+    def __getitem__(self, index: int | slice) -> T_Context | list[T_Context]:
+        return self.items[index]
+
+    @property
+    def is_empty(self) -> bool:
+        return len(self.items) == 0
+
+    def latest(self) -> T_Context | None:
+        """Return the most recent item or ``None`` if empty."""
+        return self.items[-1] if self.items else None
+
+    def window(self, n: int) -> ContextSeries[T_Context]:
+        """Return a new series with only the last ``n`` items."""
+        if n <= 0:
+            raise ValueError("n must be positive")
+        return replace(self, items=self.items[-n:])
+
+
+@dataclass(slots=True, frozen=True)
+class FundingSeries(ContextSeries[FundingContext]):
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> FundingSeries:
+        items = [FundingContext(
+            raw_funding=i["raw_funding"],
+            funding_8h_equiv=i["funding_8h_equiv"],
+            annualized_apr=i["annualized_apr"],
+            mark_price=i["mark_price"],
+            next_funding_time_utc=i["next_funding_time_utc"],
+            time_context=TimeContext(**i["time_context"])
+        ) for i in data["items"]]
+        return cls(symbol=Symbol(data["symbol"]), items=tuple(items))
+
+@dataclass(slots=True, frozen=True)
+class OpenInterestSeries(ContextSeries[OpenInterestContext]):
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> OpenInterestSeries:
+        items = [OpenInterestContext(
+            oi_coin=i["oi_coin"],
+            oi_usd_notional=i["oi_usd_notional"],
+            time_context=TimeContext(**i["time_context"])
+        ) for i in data["items"]]
+        return cls(symbol=Symbol(data["symbol"]), items=tuple(items))
+
+@dataclass(slots=True, frozen=True)
+class LongShortSeries(ContextSeries[LongShortRatioContext]):
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> LongShortSeries:
+        items = [LongShortRatioContext(
+            long_pct=i["long_pct"],
+            short_pct=i["short_pct"],
+            ls_ratio=i["ls_ratio"],
+            time_context=TimeContext(**i["time_context"])
+        ) for i in data["items"]]
+        return cls(symbol=Symbol(data["symbol"]), items=tuple(items))
+
+@dataclass(slots=True, frozen=True)
+class TakerFlowSeries(ContextSeries[TakerFlowContext]):
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> TakerFlowSeries:
+        items = [TakerFlowContext(
+            buy_volume=i["buy_volume"],
+            sell_volume=i["sell_volume"],
+            net_buy_volume=i["net_buy_volume"],
+            time_context=TimeContext(**i["time_context"])
+        ) for i in data["items"]]
+        return cls(symbol=Symbol(data["symbol"]), items=tuple(items))
+
+@dataclass(slots=True, frozen=True)
+class LiquidationSeries(ContextSeries[LiquidationContext]):
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> LiquidationSeries:
+        items = [LiquidationContext(
+            long_liquidations_usd=i["long_liquidations_usd"],
+            short_liquidations_usd=i["short_liquidations_usd"],
+            total_liquidations_usd=i["total_liquidations_usd"],
+            time_context=TimeContext(**i["time_context"])
+        ) for i in data["items"]]
+        return cls(symbol=Symbol(data["symbol"]), items=tuple(items))
+
+
+@dataclass(slots=True, frozen=True)
+class HistoricalMarketContext:
+    """Aggregate root containing all historical series for a symbol at a specific time.
+
+    Attributes
+    ----------
+    symbol
+        The trading pair (e.g. BTCUSDT).
+    schema_version
+        Version of the schema for backward compatibility.
+    timestamp
+        Evaluation timestamp (Unix ms). The time this historical context is built for.
+    """
+
+    symbol: Symbol
+    timestamp: int
+    schema_version: SchemaVersion = SchemaVersion.V1
+
+    funding_history: FundingSeries | None = None
+    open_interest_history: OpenInterestSeries | None = None
+    ls_ratio_history: LongShortSeries | None = None
+    taker_flow_history: TakerFlowSeries | None = None
+    liquidations_history: LiquidationSeries | None = None

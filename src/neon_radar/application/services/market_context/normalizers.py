@@ -12,6 +12,8 @@ from neon_radar.infrastructure.providers.binance_dto import (
     BinanceOpenInterestDTO,
     BinancePremiumIndexDTO,
     BinanceTakerVolumeDTO,
+    BinanceFundingRateHistoryDTO,
+    BinanceOpenInterestHistoryDTO,
 )
 
 
@@ -75,6 +77,38 @@ def normalize_binance_taker_volume(dto: BinanceTakerVolumeDTO, ingest_time_ms: i
         buy_volume=buy_vol,
         sell_volume=sell_vol,
         net_buy_volume=buy_vol - sell_vol,
+        time_context=TimeContext(
+            event_time=dto.timestamp,
+            publish_time=dto.timestamp,
+            ingest_time=ingest_time_ms,
+        ),
+    )
+
+
+def normalize_binance_funding_history(dto: BinanceFundingRateHistoryDTO, ingest_time_ms: int) -> FundingContext:
+    raw_rate = float(dto.fundingRate)
+    mark_price = float(dto.markPrice) if dto.markPrice else 0.0
+
+    return FundingContext(
+        raw_funding=raw_rate,
+        funding_8h_equiv=raw_rate,
+        annualized_apr=raw_rate * 3 * 365,
+        mark_price=mark_price,
+        next_funding_time_utc=dto.fundingTime + 8 * 3600 * 1000,
+        time_context=TimeContext(
+            event_time=dto.fundingTime,
+            publish_time=dto.fundingTime,
+            ingest_time=ingest_time_ms,
+        ),
+    )
+
+
+def normalize_binance_open_interest_history(dto: BinanceOpenInterestHistoryDTO, ingest_time_ms: int) -> OpenInterestContext:
+    oi_coin = float(dto.sumOpenInterest)
+    oi_usd = float(dto.sumOpenInterestValue)
+    return OpenInterestContext(
+        oi_coin=oi_coin,
+        oi_usd_notional=oi_usd,
         time_context=TimeContext(
             event_time=dto.timestamp,
             publish_time=dto.timestamp,
