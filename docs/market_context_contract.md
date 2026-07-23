@@ -54,7 +54,7 @@ Represents liquidated volumes.
 3. If an exchange only provides OI in USD and current index price, `oi_coin` must be derived: `oi_usd / index_price`.
 
 ## 5. MarketContext Aggregate
-`MarketContext` groups all context models for a single symbol at a specific time. 
+`MarketContext` groups all context models for a single symbol at a specific time (a snapshot).
 
 ```python
 class MarketContext:
@@ -69,3 +69,28 @@ class MarketContext:
     taker_flow: TakerFlowContext | None = None
     liquidations: LiquidationContext | None = None
 ```
+
+## 6. Historical Context & Series
+To support trend analysis, we store time-series context data as immutable generic lists wrapped in `ContextSeries`.
+
+```python
+class ContextSeries(Generic[T_Context]):
+    symbol: Symbol
+    items: tuple[T_Context, ...]
+```
+Derived series include: `FundingSeries`, `OpenInterestSeries`, `LongShortSeries`, `TakerFlowSeries`, and `LiquidationSeries`.
+
+The `HistoricalMarketContext` aggregate acts as the root for querying the latest *N* hours or bars of context data:
+```python
+class HistoricalMarketContext:
+    symbol: Symbol
+    timestamp: int
+    schema_version: SchemaVersion = SchemaVersion.V1
+
+    funding_history: FundingSeries | None = None
+    open_interest_history: OpenInterestSeries | None = None
+    ls_ratio_history: LongShortSeries | None = None
+    taker_flow_history: TakerFlowSeries | None = None
+    liquidations_history: LiquidationSeries | None = None
+```
+Historical queries are cached persistently using a JSON-based structure in `.cache/market_context/`, allowing efficient cross-session backtesting and historical data sharing without reloading from the exchange API.
