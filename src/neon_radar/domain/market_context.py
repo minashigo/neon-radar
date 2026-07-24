@@ -300,3 +300,16 @@ class HistoricalMarketContext:
             object.__setattr__(self, "taker_flow_history", self.taker_flow_history.slice_by_publish_time(self.timestamp))
         if self.liquidations_history:
             object.__setattr__(self, "liquidations_history", self.liquidations_history.slice_by_publish_time(self.timestamp))
+
+    def slice_at(self, timestamp: int) -> HistoricalMarketContext:
+        """Return a new HistoricalMarketContext sliced exactly at the given timestamp.
+        
+        This enables efficient point-in-time evaluation during backtesting by 
+        fetching the full history once and slicing it in memory for each candle.
+        """
+        from dataclasses import replace
+        
+        # replace() will invoke __post_init__ on the new instance, 
+        # which will safely re-slice all underlying series using slice_by_publish_time
+        # up to the new timestamp.
+        return replace(self, timestamp=timestamp)

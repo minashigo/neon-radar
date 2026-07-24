@@ -152,20 +152,30 @@ class BinanceContextProviders(FundingProvider, OpenInterestProvider, LongShortPr
             return cached
 
         try:
-            data = await self._transport.get("/fapi/v1/fundingRate", {
-                "symbol": str(symbol),
-                "startTime": start_time,
-                "endTime": end_time,
-                "limit": limit
-            })
-            if not data:
-                return None
-
             items = []
             ingest_time = int(time.time() * 1000)
-            for raw in data:
-                dto = BinanceFundingRateHistoryDTO.from_dict(raw)
-                items.append(normalize_binance_funding_history(dto, ingest_time))
+            
+            # Fetch in chunks to respect Binance limits (1000 max for funding, 30 days for others)
+            chunk_size_ms = 30 * 24 * 60 * 60 * 1000  # 30 days
+            current_start = start_time
+            
+            while current_start < end_time:
+                current_end = min(current_start + chunk_size_ms, end_time)
+                data = await self._transport.get("/fapi/v1/fundingRate", {
+                    "symbol": str(symbol),
+                    "startTime": current_start,
+                    "endTime": current_end,
+                    "limit": 1000
+                })
+                if data:
+                    for raw in data:
+                        dto = BinanceFundingRateHistoryDTO.from_dict(raw)
+                        items.append(normalize_binance_funding_history(dto, ingest_time))
+                current_start = current_end + 1
+
+            if not items:
+                return None
+
 
             series = FundingSeries(symbol=symbol, items=tuple(items))
             self._cache.set_json(cache_key, series, ttl_seconds=3600.0)
@@ -183,21 +193,31 @@ class BinanceContextProviders(FundingProvider, OpenInterestProvider, LongShortPr
             return cached
 
         try:
-            data = await self._transport.get("/futures/data/openInterestHist", {
-                "symbol": str(symbol),
-                "period": "5m",
-                "startTime": start_time,
-                "endTime": end_time,
-                "limit": limit
-            })
-            if not data:
-                return None
-
             items = []
             ingest_time = int(time.time() * 1000)
-            for raw in data:
-                dto = BinanceOpenInterestHistoryDTO.from_dict(raw)
-                items.append(normalize_binance_open_interest_history(dto, ingest_time))
+            
+            chunk_size_ms = 30 * 24 * 60 * 60 * 1000  # 30 days
+            current_start = start_time
+            
+            while current_start < end_time:
+                current_end = min(current_start + chunk_size_ms, end_time)
+                data = await self._transport.get("/futures/data/openInterestHist", {
+                    "symbol": str(symbol),
+                    "period": "5m",
+                    "startTime": current_start,
+                    "endTime": current_end,
+                    "limit": 500
+                })
+                if data:
+                    for raw in data:
+                        dto = BinanceOpenInterestHistoryDTO.from_dict(raw)
+                        items.append(normalize_binance_open_interest_history(dto, ingest_time))
+                current_start = current_end + 1
+                await asyncio.sleep(0.5) # Prevent rate limit bursts on history fetch
+
+            if not items:
+                return None
+
 
             series = OpenInterestSeries(symbol=symbol, items=tuple(items))
             self._cache.set_json(cache_key, series, ttl_seconds=3600.0)
@@ -215,21 +235,31 @@ class BinanceContextProviders(FundingProvider, OpenInterestProvider, LongShortPr
             return cached
 
         try:
-            data = await self._transport.get("/futures/data/globalLongShortAccountRatio", {
-                "symbol": str(symbol),
-                "period": "5m",
-                "startTime": start_time,
-                "endTime": end_time,
-                "limit": limit
-            })
-            if not data:
-                return None
-
             items = []
             ingest_time = int(time.time() * 1000)
-            for raw in data:
-                dto = BinanceLongShortRatioDTO.from_dict(raw)
-                items.append(normalize_binance_long_short_ratio(dto, ingest_time))
+            
+            chunk_size_ms = 30 * 24 * 60 * 60 * 1000  # 30 days
+            current_start = start_time
+            
+            while current_start < end_time:
+                current_end = min(current_start + chunk_size_ms, end_time)
+                data = await self._transport.get("/futures/data/globalLongShortAccountRatio", {
+                    "symbol": str(symbol),
+                    "period": "5m",
+                    "startTime": current_start,
+                    "endTime": current_end,
+                    "limit": 500
+                })
+                if data:
+                    for raw in data:
+                        dto = BinanceLongShortRatioDTO.from_dict(raw)
+                        items.append(normalize_binance_long_short_ratio(dto, ingest_time))
+                current_start = current_end + 1
+                await asyncio.sleep(0.5)
+
+            if not items:
+                return None
+
 
             series = LongShortSeries(symbol=symbol, items=tuple(items))
             self._cache.set_json(cache_key, series, ttl_seconds=3600.0)
@@ -247,21 +277,31 @@ class BinanceContextProviders(FundingProvider, OpenInterestProvider, LongShortPr
             return cached
 
         try:
-            data = await self._transport.get("/futures/data/takerlongshortRatio", {
-                "symbol": str(symbol),
-                "period": "5m",
-                "startTime": start_time,
-                "endTime": end_time,
-                "limit": limit
-            })
-            if not data:
-                return None
-
             items = []
             ingest_time = int(time.time() * 1000)
-            for raw in data:
-                dto = BinanceTakerVolumeDTO.from_dict(raw)
-                items.append(normalize_binance_taker_volume(dto, ingest_time))
+            
+            chunk_size_ms = 30 * 24 * 60 * 60 * 1000  # 30 days
+            current_start = start_time
+            
+            while current_start < end_time:
+                current_end = min(current_start + chunk_size_ms, end_time)
+                data = await self._transport.get("/futures/data/takerlongshortRatio", {
+                    "symbol": str(symbol),
+                    "period": "5m",
+                    "startTime": current_start,
+                    "endTime": current_end,
+                    "limit": 500
+                })
+                if data:
+                    for raw in data:
+                        dto = BinanceTakerVolumeDTO.from_dict(raw)
+                        items.append(normalize_binance_taker_volume(dto, ingest_time))
+                current_start = current_end + 1
+                await asyncio.sleep(0.5)
+
+            if not items:
+                return None
+
 
             series = TakerFlowSeries(symbol=symbol, items=tuple(items))
             self._cache.set_json(cache_key, series, ttl_seconds=3600.0)

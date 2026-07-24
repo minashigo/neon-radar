@@ -27,6 +27,8 @@ if TYPE_CHECKING:
 
     from neon_radar.config.models import ScoringRulesConfig, TimeFrame
     from neon_radar.domain.funding import FundingRate
+    from neon_radar.domain.market_context import HistoricalMarketContext
+    from neon_radar.application.services.market_context.history_service import MarketContextHistoryService
     from neon_radar.domain.scoring.factor_rule import FactorRule
 
 
@@ -60,14 +62,18 @@ class TradeBacktester:
         scoring_config: ScoringRulesConfig,
         rules: tuple[FactorRule, ...] | None = None,
         funding_provider: HistoricalFundingProvider | None = None,
+        history_service: MarketContextHistoryService | None = None,
         preloaded_series: dict[tuple[str, str], KlineSeries] | None = None,
+        preloaded_context: dict[str, HistoricalMarketContext] | None = None,
         cost_model: CostModel | None = None,
     ) -> None:
         self._exchange = exchange
         self._scoring_config = scoring_config
         self._rules = rules if rules is not None else RuleRegistry.build_all(scoring_config)
         self._funding_provider = funding_provider
+        self._history_service = history_service
         self._series_cache: dict[tuple[str, str], KlineSeries] = preloaded_series or {}
+        self._context_cache: dict[str, HistoricalMarketContext] = preloaded_context or {}
         self._cost_model = cost_model or CostModel()
 
         self._regime_config = None
@@ -141,6 +147,18 @@ class TradeBacktester:
                 await self._funding_provider.prefetch(symbols, start_date, end_date)
             except Exception as exc:
                 logger.warning(f"Failed to prefetch historical funding rates: {exc}")
+                
+        if self._history_service is not None:
+            for symbol in symbols:
+                if str(symbol) not in self._context_cache:
+                    # Fetch using ms timestamps
+                    start_ms = int(datetime.combine(start_date, datetime.min.time(), tzinfo=UTC).timestamp() * 1000)
+                    end_ms = fetch_end
+                    try:
+                        ctx = await self._history_service.get_historical_context(symbol, fetch_end, start_ms, end_ms, limit=1500)
+                        self._context_cache[str(symbol)] = ctx
+                    except Exception as exc:
+                        logger.warning(f"Failed to fetch historical market context for {symbol}: {exc}")
 
         for symbol in symbols:
             for current_tf in tfs_to_fetch:
@@ -308,18 +326,23 @@ class TradeBacktester:
                     funding_val = self._funding_provider.get_funding_rate_at(
                         symbol, int(history[-1].open_time)
                     )
+                    
+                context_val = None
+                if str(symbol) in self._context_cache:
+                    context_val = self._context_cache[str(symbol)].slice_at(int(history[-1].open_time))
 
                 try:
                     result = analyze_series(
                         history_series,
                         self._rules,
                         min_confidence=self._scoring_config.min_confidence,
-                confluence_bonus=self._scoring_config.confluence_bonus,
-                confluence_penalty=self._scoring_config.confluence_penalty,
-                max_confidence_boost=self._scoring_config.max_confidence_boost,
+                        confluence_bonus=self._scoring_config.confluence_bonus,
+                        confluence_penalty=self._scoring_config.confluence_penalty,
+                        max_confidence_boost=self._scoring_config.max_confidence_boost,
                         timestamp=int(history[-1].open_time),
                         higher_tf_series=higher_history_series,
                         funding_rate=funding_val,
+                        market_context=context_val,
                         regime_classifier=self._regime_classifier,
                         regime_config=self._regime_config,
                     )

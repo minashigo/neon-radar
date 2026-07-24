@@ -38,6 +38,8 @@ from neon_radar.domain.scoring import (
     EvaluationResult,
     RuleBasedEngine,
 )
+from neon_radar.application.services.market_context.history_service import MarketContextHistoryService
+from neon_radar.domain.market_context import HistoricalMarketContext
 from neon_radar.domain.scoring.backtest import (
     BacktestConfig,
     BacktestResult,
@@ -72,6 +74,7 @@ class WalkForwardBacktester:
         exchange: ExchangeClient,
         scoring_config: ScoringRulesConfig,
         rules: tuple[FactorRule, ...] | None = None,
+        history_service: MarketContextHistoryService | None = None,
     ) -> None:
         """Construct a backtester.
 
@@ -108,6 +111,8 @@ class WalkForwardBacktester:
         )
         # Cache of (symbol, timeframe) -> full KlineSeries fetched once.
         self._series_cache: dict[tuple[str, str], KlineSeries] = {}
+        self._history_service = history_service
+        self._context_cache: dict[str, HistoricalMarketContext] = {}
 
     @property
     def engine(self) -> RuleBasedEngine:
@@ -191,6 +196,18 @@ class WalkForwardBacktester:
         fetch_end = int(fetch_end_dt.timestamp() * 1000)
         # We fetch 1500 candles which is plenty for any reasonable window.
         limit = 1500
+        
+        if self._history_service is not None:
+            from datetime import UTC
+            for symbol in symbols:
+                if str(symbol) not in self._context_cache:
+                    start_ms = int(datetime.combine(start_date, datetime.min.time(), tzinfo=UTC).timestamp() * 1000)
+                    try:
+                        ctx = await self._history_service.get_historical_context(symbol, fetch_end, start_ms, fetch_end, limit=1500)
+                        self._context_cache[str(symbol)] = ctx
+                    except Exception:
+                        pass
+        
         for symbol in symbols:
             key = (str(symbol), timeframe)
             if key in self._series_cache:
@@ -241,7 +258,12 @@ class WalkForwardBacktester:
                     timeframe=series.timeframe,
                     candles=history,
                 )
-                result = self._score_at(history_series)
+                
+                context_val = None
+                if str(symbol) in self._context_cache:
+                    context_val = self._context_cache[str(symbol)].slice_at(int(history[-1].open_time))
+                    
+                result = self._score_at(history_series, context_val)
                 if result is None:
                     continue
 
@@ -272,7 +294,7 @@ class WalkForwardBacktester:
             day = day + timedelta(days=1)
         return out
 
-    def _score_at(self, series: KlineSeries) -> AnalysisResult | None:
+    def _score_at(self, series: KlineSeries, market_context: HistoricalMarketContext | None = None) -> AnalysisResult | None:
         """Run the engine on a synthetic slice."""
         try:
             return analyze_series(
@@ -283,6 +305,7 @@ class WalkForwardBacktester:
                 confluence_penalty=self._scoring_config.confluence_penalty,
                 max_confidence_boost=self._scoring_config.max_confidence_boost,
                 timestamp=int(series.candles[-1].open_time),
+                market_context=market_context,
             )
         except Exception:
             return None
