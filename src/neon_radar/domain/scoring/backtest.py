@@ -45,6 +45,9 @@ class BacktestConfig:
     symbols: tuple[str, ...]
     horizons: tuple[int, ...] = (1, 3, 7)  # forward days
     min_confidence: float = 0.0  # mirrors ScoringRulesConfig
+    confluence_bonus: float = 0.20
+    confluence_penalty: float = 0.15
+    max_confidence_boost: float = 0.40
 
 
 @dataclass(slots=True, frozen=True)

@@ -67,6 +67,24 @@ class ScoringRulesConfig(BaseModel):
             "e.g. 0.3 to ignore very uncertain votes."
         ),
     )
+    confluence_bonus: float = Field(
+        default=0.20,
+        ge=0.0,
+        le=1.0,
+        description="Confidence bonus per confirming category."
+    )
+    confluence_penalty: float = Field(
+        default=0.15,
+        ge=0.0,
+        le=1.0,
+        description="Confidence penalty per conflicting category."
+    )
+    max_confidence_boost: float = Field(
+        default=0.40,
+        ge=0.0,
+        le=1.0,
+        description="Maximum allowed boost to confidence from confluence."
+    )
     regime_filter: dict[str, Any] = Field(
         default_factory=dict,
         description="Configuration for the Regime Filter.",

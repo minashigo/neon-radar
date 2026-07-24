@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from neon_radar.domain.scoring.factor_rule import FactorRule, RuleDescription
 from neon_radar.domain.scoring.registry import RuleRegistry
-from neon_radar.domain.scoring.value_objects import EvidenceItem, Signal
+from neon_radar.domain.scoring.value_objects import EvidenceItem, Signal, SignalCategory
 
 if TYPE_CHECKING:
     from neon_radar.domain.market_state import MarketState
@@ -101,6 +101,7 @@ class OpenInterestExpansionRule(FactorRule):
             weight=self.weight,
             value=direction * magnitude,
             confidence=magnitude,
+            category=SignalCategory.MICROSTRUCTURE,
             description=f"OI expanded by {oi_change*100:.2f}% confirming {'uptrend' if direction > 0 else 'downtrend'}",
             evidence=(
                 EvidenceItem("oi_change", f"{oi_change*100:.2f}%"),
@@ -186,6 +187,7 @@ class OpenInterestDivergenceRule(FactorRule):
             weight=self.weight,
             value=direction * magnitude,
             confidence=magnitude,
+            category=SignalCategory.MICROSTRUCTURE,
             description=f"OI dropped by {abs(oi_change)*100:.2f}% during price move, signaling reversal",
             evidence=(
                 EvidenceItem("oi_change", f"{oi_change*100:.2f}%"),

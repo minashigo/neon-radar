@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from neon_radar.domain.scoring.factor_rule import FactorRule, RuleDescription
 from neon_radar.domain.scoring.registry import RuleRegistry
-from neon_radar.domain.scoring.value_objects import EvidenceItem, Signal
+from neon_radar.domain.scoring.value_objects import EvidenceItem, Signal, SignalCategory
 
 if TYPE_CHECKING:
     from neon_radar.domain.market_state import MarketState
@@ -69,6 +69,7 @@ class FundingTrendRule(FactorRule):
             weight=self.weight,
             value=direction * magnitude,
             confidence=magnitude,
+            category=SignalCategory.MICROSTRUCTURE,
             description=f"Funding rate shifted by {delta*10000:+.2f} bps over {len(series)} periods",
             evidence=(
                 EvidenceItem("delta_bps", f"{delta*10000:.2f}"),
@@ -128,6 +129,7 @@ class FundingExtremeRule(FactorRule):
             weight=self.weight,
             value=direction * magnitude,
             confidence=min(1.0, magnitude * 1.2),
+            category=SignalCategory.MICROSTRUCTURE,
             description=f"Extreme funding rate ({rate*10000:+.2f} bps)",
             evidence=(
                 EvidenceItem("funding_8h", f"{rate:.6f}"),

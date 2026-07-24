@@ -62,10 +62,19 @@ class RuleBasedEngine(ScoringEngine):
     name: str = "rule_based"
     rules: tuple[FactorRule, ...] = ()
     min_confidence: float = 0.0
+    confluence_bonus: float = 0.20
+    confluence_penalty: float = 0.15
+    max_confidence_boost: float = 0.40
 
     def evaluate(self, state: MarketState) -> AnalysisResult:
         signals = self.evaluate_signals(state)
-        score = aggregate(signals, min_confidence=self.min_confidence)
+        score = aggregate(
+            signals, 
+            min_confidence=self.min_confidence,
+            confluence_bonus=self.confluence_bonus,
+            confluence_penalty=self.confluence_penalty,
+            max_confidence_boost=self.max_confidence_boost
+        )
         summary = summarise(score, signals)
         return AnalysisResult(
             market_state=state,
@@ -79,13 +88,14 @@ class RuleBasedEngine(ScoringEngine):
         return iter(self.rules)
 
 
-def summarise(score: Score, signals: list[Signal]) -> str:
+def summarise(score: Score, signals: tuple[Signal, ...]) -> str:
     """One-line summary for the CLI and UI."""
     if not signals:
         return "no contributing signals"
     bias_word = score.bias.value.lower()
     return (
         f"{bias_word} bias; "
-        f"{len(signals)} contributing signals; "
+        f"{len(signals)} signals; "
+        f"confluence={score.confluence_state.value}; "
         f"long={score.long_score:.2f} short={score.short_score:.2f}"
     )

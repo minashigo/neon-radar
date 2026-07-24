@@ -428,6 +428,9 @@ async def _run_scan(args: argparse.Namespace) -> int:
                     limit=limit,
                     rules=rules,
                     min_confidence=scoring_cfg.min_confidence,
+                    confluence_bonus=scoring_cfg.confluence_bonus,
+                    confluence_penalty=scoring_cfg.confluence_penalty,
+                    max_confidence_boost=scoring_cfg.max_confidence_boost,
                 )
                 rows.append((symbol, result))
             except Exception as exc:

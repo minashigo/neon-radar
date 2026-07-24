@@ -1,10 +1,10 @@
 {
   "$schema": "./docs/config.schema.json",
-
   "_comment": "Neon Radar scoring rules. Copy to scoring_rules.json and edit.",
-
   "min_confidence": 0.0,
-
+  "confluence_bonus": 0.2,
+  "confluence_penalty": 0.15,
+  "max_confidence_boost": 0.4,
   "rules": [
     {
       "name": "ema_trend",
@@ -19,7 +19,7 @@
     {
       "name": "rsi_momentum",
       "enabled": true,
-      "weight": 0.20,
+      "weight": 0.2,
       "params": {
         "period": 14,
         "bull_low": 51.0,
@@ -31,7 +31,7 @@
     {
       "name": "volume_confirmation",
       "enabled": true,
-      "weight": 0.20,
+      "weight": 0.2,
       "params": {
         "period": 20,
         "strong_multiplier": 1.5,
@@ -41,7 +41,7 @@
     {
       "name": "volatility_filter",
       "enabled": true,
-      "weight": 0.20,
+      "weight": 0.2,
       "params": {
         "period": 14,
         "min_atr_pct": 0.003,
@@ -60,7 +60,7 @@
     {
       "name": "funding_extreme",
       "enabled": true,
-      "weight": 0.20,
+      "weight": 0.2,
       "params": {
         "extreme_threshold": 0.0005
       }
@@ -68,7 +68,7 @@
     {
       "name": "oi_expansion",
       "enabled": true,
-      "weight": 0.20,
+      "weight": 0.2,
       "params": {
         "window_size": 6,
         "oi_expansion_threshold": 0.02,
@@ -97,7 +97,7 @@
     {
       "name": "taker_flow_imbalance",
       "enabled": true,
-      "weight": 0.20,
+      "weight": 0.2,
       "params": {
         "window_size": 12,
         "imbalance_threshold": 0.15

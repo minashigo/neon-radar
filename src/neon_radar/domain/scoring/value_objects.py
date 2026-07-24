@@ -12,10 +12,26 @@ Kept as a separate module so the package layout is consistent:
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from enum import Enum
 from typing import TYPE_CHECKING
 
 from neon_radar.domain.enums import Bias
+
+class SignalCategory(str, Enum):
+    """Categorizes the source of a signal for Confluence detection."""
+    TECHNICAL = "technical"
+    MICROSTRUCTURE = "microstructure"
+    ONCHAIN = "onchain"
+    MACRO = "macro"
+    SENTIMENT = "sentiment"
+
+class ConfluenceState(str, Enum):
+    """Describes the alignment between different signal categories."""
+    CONFIRMED = "confirmed"
+    CONFLICTING = "conflicting"
+    NEUTRAL = "neutral"
+    UNALIGNED = "unaligned"
 
 if TYPE_CHECKING:
     from neon_radar.domain.market_state import MarketState
@@ -43,6 +59,7 @@ class Signal:
     value: float
     confidence: float
     description: str
+    category: SignalCategory = SignalCategory.TECHNICAL
     evidence: tuple[EvidenceItem, ...] = ()
 
     def __post_init__(self) -> None:
@@ -71,6 +88,8 @@ class Score:
     long_score: float
     short_score: float
     contributing_signals: int
+    confluence_state: ConfluenceState = ConfluenceState.NEUTRAL
+    confluence_details: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if not -1.0 <= self.value <= 1.0:

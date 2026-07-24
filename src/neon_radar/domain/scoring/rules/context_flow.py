@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from neon_radar.domain.scoring.factor_rule import FactorRule, RuleDescription
 from neon_radar.domain.scoring.registry import RuleRegistry
-from neon_radar.domain.scoring.value_objects import EvidenceItem, Signal
+from neon_radar.domain.scoring.value_objects import EvidenceItem, Signal, SignalCategory
 
 if TYPE_CHECKING:
     from neon_radar.domain.market_state import MarketState
@@ -76,6 +76,7 @@ class LongShortCrowdedRule(FactorRule):
             weight=self.weight,
             value=direction * magnitude,
             confidence=confidence,
+            category=SignalCategory.MICROSTRUCTURE,
             description=f"Extreme L/S Ratio: {ratio:.2f} (crowd is {'long' if direction < 0 else 'short'})",
             evidence=(
                 EvidenceItem("ls_ratio", f"{ratio:.2f}"),
@@ -147,6 +148,7 @@ class TakerFlowImbalanceRule(FactorRule):
             weight=self.weight,
             value=direction * magnitude,
             confidence=magnitude,
+            category=SignalCategory.MICROSTRUCTURE,
             description=f"Taker flow imbalance: {imbalance*100:+.1f}% over {len(series)} periods",
             evidence=(
                 EvidenceItem("imbalance_pct", f"{imbalance*100:.1f}%"),
@@ -227,6 +229,7 @@ class LiquidationCascadeRule(FactorRule):
             weight=self.weight,
             value=direction * magnitude,
             confidence=confidence,
+            category=SignalCategory.MICROSTRUCTURE,
             description=f"Massive {side} liquidation cascade (${liq_val/1e6:.1f}M)",
             evidence=(
                 EvidenceItem("long_liq_usd", f"${total_long_liq:,.0f}"),

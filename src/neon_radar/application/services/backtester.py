@@ -102,6 +102,9 @@ class WalkForwardBacktester:
         self._engine = RuleBasedEngine(
             rules=self._rules,
             min_confidence=scoring_config.min_confidence,
+                confluence_bonus=scoring_config.confluence_bonus,
+                confluence_penalty=scoring_config.confluence_penalty,
+                max_confidence_boost=scoring_config.max_confidence_boost,
         )
         # Cache of (symbol, timeframe) -> full KlineSeries fetched once.
         self._series_cache: dict[tuple[str, str], KlineSeries] = {}
@@ -138,6 +141,9 @@ class WalkForwardBacktester:
             symbols=tuple(str(s) for s in symbols),
             horizons=horizons,
             min_confidence=self._scoring_config.min_confidence,
+                confluence_bonus=self._scoring_config.confluence_bonus,
+                confluence_penalty=self._scoring_config.confluence_penalty,
+                max_confidence_boost=self._scoring_config.max_confidence_boost,
         )
 
         if not symbols:
@@ -273,6 +279,9 @@ class WalkForwardBacktester:
                 series,
                 self._rules,
                 min_confidence=self._scoring_config.min_confidence,
+                confluence_bonus=self._scoring_config.confluence_bonus,
+                confluence_penalty=self._scoring_config.confluence_penalty,
+                max_confidence_boost=self._scoring_config.max_confidence_boost,
                 timestamp=int(series.candles[-1].open_time),
             )
         except Exception:

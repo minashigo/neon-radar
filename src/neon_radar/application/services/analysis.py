@@ -51,6 +51,9 @@ def analyze_series(
     rules: Iterable[FactorRule],
     *,
     min_confidence: float = 0.0,
+    confluence_bonus: float = 0.20,
+    confluence_penalty: float = 0.15,
+    max_confidence_boost: float = 0.40,
     timestamp: int | None = None,
     higher_tf_series: KlineSeries | None = None,
     ticker: TickerStats | None = None,
@@ -104,7 +107,13 @@ def analyze_series(
         open_interest=open_interest,
         context=market_context,
     )
-    engine = RuleBasedEngine(rules=rules_tuple, min_confidence=min_confidence)
+    engine = RuleBasedEngine(
+        rules=rules_tuple, 
+        min_confidence=min_confidence,
+        confluence_bonus=confluence_bonus,
+        confluence_penalty=confluence_penalty,
+        max_confidence_boost=max_confidence_boost,
+    )
     result = engine.evaluate(state)
     setup = setup_engine.build_setup(state, result)
     return replace(result, trade_setup=setup)
