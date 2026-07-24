@@ -8,11 +8,11 @@ from typing import TYPE_CHECKING
 from neon_radar.application.services.market_context.cache import ContextCache
 from neon_radar.application.services.market_context.normalizers import (
     normalize_binance_funding,
+    normalize_binance_funding_history,
     normalize_binance_long_short_ratio,
     normalize_binance_open_interest,
-    normalize_binance_taker_volume,
-    normalize_binance_funding_history,
     normalize_binance_open_interest_history,
+    normalize_binance_taker_volume,
 )
 from neon_radar.application.services.market_context_provider import (
     FundingProvider,
@@ -21,12 +21,12 @@ from neon_radar.application.services.market_context_provider import (
     TakerFlowProvider,
 )
 from neon_radar.infrastructure.providers.binance_dto import (
+    BinanceFundingRateHistoryDTO,
     BinanceLongShortRatioDTO,
     BinanceOpenInterestDTO,
+    BinanceOpenInterestHistoryDTO,
     BinancePremiumIndexDTO,
     BinanceTakerVolumeDTO,
-    BinanceFundingRateHistoryDTO,
-    BinanceOpenInterestHistoryDTO,
 )
 
 if TYPE_CHECKING:
@@ -39,7 +39,6 @@ if TYPE_CHECKING:
         OpenInterestSeries,
         TakerFlowContext,
         TakerFlowSeries,
-        LiquidationSeries,
     )
     from neon_radar.domain.models import Symbol
     from neon_radar.infrastructure.exchanges.binance_transport import BinanceTransport
@@ -161,13 +160,13 @@ class BinanceContextProviders(FundingProvider, OpenInterestProvider, LongShortPr
             })
             if not data:
                 return None
-                
+
             items = []
             ingest_time = int(time.time() * 1000)
             for raw in data:
                 dto = BinanceFundingRateHistoryDTO.from_dict(raw)
                 items.append(normalize_binance_funding_history(dto, ingest_time))
-                
+
             series = FundingSeries(symbol=symbol, items=tuple(items))
             self._cache.set_json(cache_key, series, ttl_seconds=3600.0)
             return series
@@ -193,13 +192,13 @@ class BinanceContextProviders(FundingProvider, OpenInterestProvider, LongShortPr
             })
             if not data:
                 return None
-                
+
             items = []
             ingest_time = int(time.time() * 1000)
             for raw in data:
                 dto = BinanceOpenInterestHistoryDTO.from_dict(raw)
                 items.append(normalize_binance_open_interest_history(dto, ingest_time))
-                
+
             series = OpenInterestSeries(symbol=symbol, items=tuple(items))
             self._cache.set_json(cache_key, series, ttl_seconds=3600.0)
             return series
@@ -225,13 +224,13 @@ class BinanceContextProviders(FundingProvider, OpenInterestProvider, LongShortPr
             })
             if not data:
                 return None
-                
+
             items = []
             ingest_time = int(time.time() * 1000)
             for raw in data:
                 dto = BinanceLongShortRatioDTO.from_dict(raw)
                 items.append(normalize_binance_long_short_ratio(dto, ingest_time))
-                
+
             series = LongShortSeries(symbol=symbol, items=tuple(items))
             self._cache.set_json(cache_key, series, ttl_seconds=3600.0)
             return series
@@ -257,13 +256,13 @@ class BinanceContextProviders(FundingProvider, OpenInterestProvider, LongShortPr
             })
             if not data:
                 return None
-                
+
             items = []
             ingest_time = int(time.time() * 1000)
             for raw in data:
                 dto = BinanceTakerVolumeDTO.from_dict(raw)
                 items.append(normalize_binance_taker_volume(dto, ingest_time))
-                
+
             series = TakerFlowSeries(symbol=symbol, items=tuple(items))
             self._cache.set_json(cache_key, series, ttl_seconds=3600.0)
             return series

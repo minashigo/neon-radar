@@ -2,21 +2,23 @@
 
 import asyncio
 import time
+
+from neon_radar.application.services.market_context.cache import ContextCache
 from neon_radar.domain.models import Symbol
 from neon_radar.infrastructure.exchanges.binance_transport import BinanceTransport
-from neon_radar.application.services.market_context.cache import ContextCache
 from neon_radar.infrastructure.providers.binance_context import BinanceContextProviders
+
 
 async def main():
     transport = BinanceTransport(base_url="https://fapi.binance.com")
     cache = ContextCache()
     providers = BinanceContextProviders(transport, cache)
-    
+
     symbol = Symbol("BTCUSDT")
     current_time = int(time.time() * 1000)
-    
+
     print(f"Fetching Market Context for {symbol}...")
-    
+
     # 1. Fetch Funding
     funding = await providers.get_funding(symbol, current_time)
     print("\n--- Funding Context ---")

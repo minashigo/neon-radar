@@ -3,9 +3,10 @@ from __future__ import annotations
 
 import json
 import time
-from dataclasses import dataclass, asdict
-from typing import Any, Generic, TypeVar
+from dataclasses import asdict, dataclass
 from pathlib import Path
+from typing import Any, Generic, TypeVar
+
 from neon_radar.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -50,17 +51,17 @@ class ContextCache:
         """Get item from JSON disk cache."""
         if not self._dir:
             return None
-        
+
         path = self._dir / f"{key}.json"
         if not path.is_file():
             return None
-            
+
         try:
             payload = json.loads(path.read_text(encoding="utf-8"))
-            
+
             if payload.get("schema_version") != "v1":
                 return None
-                
+
             if time.time() > payload.get("expires_at", 0):
                 return None
             return deserializer(payload["data"])
@@ -72,7 +73,7 @@ class ContextCache:
         """Store item in JSON disk cache with TTL."""
         if not self._dir:
             return
-            
+
         path = self._dir / f"{key}.json"
         try:
             payload = {

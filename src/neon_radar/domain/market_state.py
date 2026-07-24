@@ -30,7 +30,7 @@ if TYPE_CHECKING:
     from neon_radar.config.models import TimeFrame
     from neon_radar.domain.funding import FundingRate, OpenInterest
     from neon_radar.domain.indicators.base import IndicatorSeries
-    from neon_radar.domain.market_context import MarketContext
+    from neon_radar.domain.market_context import HistoricalMarketContext, MarketContext
 
 
 @dataclass(slots=True, frozen=True)
@@ -75,6 +75,7 @@ class MarketState:
     funding_rate: FundingRate | None = None
     open_interest: OpenInterest | None = None
     context: MarketContext | None = None
+    historical_context: HistoricalMarketContext | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.symbol, Symbol):

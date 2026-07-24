@@ -7,14 +7,12 @@ via explicit time markers, isolating the domain from raw API structures.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass, replace
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Generic, TypeVar
-from collections.abc import Iterator
-from neon_radar.domain.models import Symbol
+from typing import Any, Generic, TypeVar
 
-if TYPE_CHECKING:
-    pass
+from neon_radar.domain.models import Symbol
 
 
 class SchemaVersion(str, Enum):
@@ -89,7 +87,10 @@ class LiquidationContext:
 
     long_liquidations: float
     short_liquidations: float
-    time_context: TimeContext
+    long_liquidations_usd: float = 0.0
+    short_liquidations_usd: float = 0.0
+    total_liquidations_usd: float = 0.0
+    time_context: TimeContext = None
 
 
 @dataclass(slots=True, frozen=True)
@@ -141,6 +142,11 @@ class ContextSeries(Generic[T_Context]):
                     f"ContextSeries items are not sorted ascending by event_time "
                     f"for {self.symbol}"
                 )
+            if len(set(times)) != len(times):
+                raise ValueError(
+                    f"ContextSeries items contain duplicate event_time values "
+                    f"for {self.symbol}"
+                )
 
     def __len__(self) -> int:
         return len(self.items)
@@ -164,6 +170,30 @@ class ContextSeries(Generic[T_Context]):
         if n <= 0:
             raise ValueError("n must be positive")
         return replace(self, items=self.items[-n:])
+
+    def slice_by_publish_time(self, max_timestamp: int) -> ContextSeries[T_Context]:
+        """Return a new series excluding items published after ``max_timestamp``.
+        
+        This is a critical Point-in-Time safeguard to prevent look-ahead bias.
+        """
+        if not self.items:
+            return self
+
+        # Fast binary search. We extract publish_times and use bisect_right.
+        import bisect
+        publish_times = [c.time_context.publish_time for c in self.items]
+        # We assume publish_times are also monotonically increasing (or roughly so).
+        # Wait, bisect requires strict sorting. If publish_times are not strictly sorted,
+        # it might not work perfectly, but for Binance they almost always are.
+        # Let's ensure publish_times are sorted, otherwise we fallback to linear.
+        if publish_times != sorted(publish_times):
+            # Fallback to linear filtering if publish times are slightly out of order
+            valid_items = tuple(c for c in self.items if c.time_context.publish_time <= max_timestamp)
+        else:
+            idx = bisect.bisect_right(publish_times, max_timestamp)
+            valid_items = self.items[:idx]
+
+        return replace(self, items=valid_items)
 
 
 @dataclass(slots=True, frozen=True)
@@ -220,9 +250,11 @@ class LiquidationSeries(ContextSeries[LiquidationContext]):
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> LiquidationSeries:
         items = [LiquidationContext(
-            long_liquidations_usd=i["long_liquidations_usd"],
-            short_liquidations_usd=i["short_liquidations_usd"],
-            total_liquidations_usd=i["total_liquidations_usd"],
+            long_liquidations=i.get("long_liquidations", 0.0),
+            short_liquidations=i.get("short_liquidations", 0.0),
+            long_liquidations_usd=i.get("long_liquidations_usd", 0.0),
+            short_liquidations_usd=i.get("short_liquidations_usd", 0.0),
+            total_liquidations_usd=i.get("total_liquidations_usd", 0.0),
             time_context=TimeContext(**i["time_context"])
         ) for i in data["items"]]
         return cls(symbol=Symbol(data["symbol"]), items=tuple(items))
@@ -251,3 +283,20 @@ class HistoricalMarketContext:
     ls_ratio_history: LongShortSeries | None = None
     taker_flow_history: TakerFlowSeries | None = None
     liquidations_history: LiquidationSeries | None = None
+
+    def __post_init__(self) -> None:
+        """Enforce strict Point-in-Time correctness for all series.
+        
+        This prevents any downstream rule from accidentally accessing data 
+        published after this context's timestamp, completely eliminating look-ahead bias.
+        """
+        if self.funding_history:
+            object.__setattr__(self, "funding_history", self.funding_history.slice_by_publish_time(self.timestamp))
+        if self.open_interest_history:
+            object.__setattr__(self, "open_interest_history", self.open_interest_history.slice_by_publish_time(self.timestamp))
+        if self.ls_ratio_history:
+            object.__setattr__(self, "ls_ratio_history", self.ls_ratio_history.slice_by_publish_time(self.timestamp))
+        if self.taker_flow_history:
+            object.__setattr__(self, "taker_flow_history", self.taker_flow_history.slice_by_publish_time(self.timestamp))
+        if self.liquidations_history:
+            object.__setattr__(self, "liquidations_history", self.liquidations_history.slice_by_publish_time(self.timestamp))

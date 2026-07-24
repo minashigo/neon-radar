@@ -49,12 +49,67 @@
       }
     },
     {
-      "name": "funding_rate",
+      "name": "funding_trend",
       "enabled": true,
       "weight": 0.15,
       "params": {
-        "neutral_band": 0.00005,
-        "strong_threshold": 0.0005
+        "window_size": 5,
+        "trend_threshold": 0.0001
+      }
+    },
+    {
+      "name": "funding_extreme",
+      "enabled": true,
+      "weight": 0.20,
+      "params": {
+        "extreme_threshold": 0.0005
+      }
+    },
+    {
+      "name": "oi_expansion",
+      "enabled": true,
+      "weight": 0.20,
+      "params": {
+        "window_size": 6,
+        "oi_expansion_threshold": 0.02,
+        "price_move_threshold": 0.005
+      }
+    },
+    {
+      "name": "oi_divergence",
+      "enabled": true,
+      "weight": 0.15,
+      "params": {
+        "window_size": 6,
+        "oi_drop_threshold": -0.015,
+        "price_move_threshold": 0.005
+      }
+    },
+    {
+      "name": "ls_crowded",
+      "enabled": true,
+      "weight": 0.15,
+      "params": {
+        "extreme_long_ratio": 2.5,
+        "extreme_short_ratio": 0.6
+      }
+    },
+    {
+      "name": "taker_flow_imbalance",
+      "enabled": true,
+      "weight": 0.20,
+      "params": {
+        "window_size": 12,
+        "imbalance_threshold": 0.15
+      }
+    },
+    {
+      "name": "liquidation_cascade",
+      "enabled": true,
+      "weight": 0.25,
+      "params": {
+        "window_size": 3,
+        "cascade_threshold_usd": 5000000.0
       }
     }
   ]

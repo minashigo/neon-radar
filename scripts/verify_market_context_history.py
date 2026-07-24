@@ -1,11 +1,14 @@
 import asyncio
 import time
 from pathlib import Path
+
+from neon_radar.application.services.market_context.cache import ContextCache
+from neon_radar.application.services.market_context.history_service import (
+    MarketContextHistoryService,
+)
 from neon_radar.domain.models import Symbol
 from neon_radar.infrastructure.exchanges.binance_transport import BinanceTransport
-from neon_radar.application.services.market_context.cache import ContextCache
 from neon_radar.infrastructure.providers.binance_context import BinanceContextProviders
-from neon_radar.application.services.market_context.history_service import MarketContextHistoryService
 from neon_radar.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -21,7 +24,7 @@ async def main():
     service = MarketContextHistoryService(providers=[provider])
 
     print(f"Fetching Historical Context for {symbol}...")
-    
+
     historical_context = await service.get_historical_context(
         symbol=symbol,
         timestamp=end_time,

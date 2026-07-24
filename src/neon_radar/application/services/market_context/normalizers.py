@@ -8,12 +8,12 @@ from neon_radar.domain.market_context import (
     TimeContext,
 )
 from neon_radar.infrastructure.providers.binance_dto import (
+    BinanceFundingRateHistoryDTO,
     BinanceLongShortRatioDTO,
     BinanceOpenInterestDTO,
+    BinanceOpenInterestHistoryDTO,
     BinancePremiumIndexDTO,
     BinanceTakerVolumeDTO,
-    BinanceFundingRateHistoryDTO,
-    BinanceOpenInterestHistoryDTO,
 )
 
 

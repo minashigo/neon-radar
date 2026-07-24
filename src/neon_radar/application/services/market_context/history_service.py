@@ -1,16 +1,18 @@
 """Service for assembling HistoricalMarketContext from various providers."""
 
 import asyncio
+
+from neon_radar.application.services.market_context_provider import (
+    FundingProvider,
+    LiquidationProvider,
+    LongShortProvider,
+    MarketContextProvider,
+    OpenInterestProvider,
+    TakerFlowProvider,
+)
 from neon_radar.domain.market_context import HistoricalMarketContext
 from neon_radar.domain.models import Symbol
-from neon_radar.application.services.market_context_provider import (
-    MarketContextProvider,
-    FundingProvider,
-    OpenInterestProvider,
-    LongShortProvider,
-    TakerFlowProvider,
-    LiquidationProvider,
-)
+
 
 class MarketContextHistoryService:
     """Orchestrates fetching of historical market context data from multiple providers."""
