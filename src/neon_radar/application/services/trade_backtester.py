@@ -16,8 +16,13 @@ from neon_radar.domain.models import KlineSeries, Symbol
 from neon_radar.domain.scoring.registry import RuleRegistry
 from neon_radar.domain.trading.backtest import Trade, TradeExitReason, TradeStatus
 from neon_radar.domain.trading.execution import CostModel, ExecutionType
-from neon_radar.domain.trading.setup import TradeSetup
+from neon_radar.domain.trading.setup import TradeSetup, FinalTradeSetup, TradeSetupEngine
 from neon_radar.infrastructure.exchanges.base import ExchangeClient
+from neon_radar.application.services.trading_pipeline import TradingPipeline
+from neon_radar.application.services.risk.manager import RiskManager, RiskManagerConfig
+from neon_radar.application.services.risk.sizing import PositionSizingEngine, FixedRiskStrategy
+from neon_radar.application.services.risk.drawdown import DrawdownMonitor
+from neon_radar.domain.risk import AccountState, PortfolioState
 from neon_radar.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -85,6 +90,28 @@ class TradeBacktester:
 
             self._regime_config = RegimeFilterConfig(**scoring_config.regime_filter)
             self._regime_classifier = RuleBasedRegimeClassifier(self._regime_config)
+            
+        # Initialize the pipeline components
+        setup_engine = TradeSetupEngine(
+            min_confidence=scoring_config.min_confidence,
+            regime_classifier=self._regime_classifier,
+            regime_config=self._regime_config,
+        )
+        risk_manager = RiskManager(RiskManagerConfig())
+        sizing_engine = PositionSizingEngine(FixedRiskStrategy())
+        
+        self._pipeline = TradingPipeline(
+            rules=self._rules,
+            setup_engine=setup_engine,
+            risk_manager=risk_manager,
+            sizing_engine=sizing_engine,
+            min_confidence=scoring_config.min_confidence,
+            confluence_bonus=scoring_config.confluence_bonus,
+            confluence_penalty=scoring_config.confluence_penalty,
+            max_confidence_boost=scoring_config.max_confidence_boost,
+            regime_classifier=self._regime_classifier,
+            regime_config=self._regime_config,
+        )
 
     @property
     def cache(self) -> dict[tuple[str, str], KlineSeries]:
@@ -215,7 +242,11 @@ class TradeBacktester:
 
         trades: list[Trade] = []
         active_trade: Trade | None = None
-        pending_setup: TradeSetup | None = None
+        pending_setup: FinalTradeSetup | None = None
+        
+        # Risk tracking per symbol simulation
+        account = AccountState(total_capital=10000.0, free_capital=10000.0)
+        drawdown_monitor = DrawdownMonitor(initial_capital=10000.0)
 
         for i in range(start_idx, len(series.candles)):
             candle = series.candles[i]
@@ -277,22 +308,21 @@ class TradeBacktester:
                         closed = True
 
                 if closed:
-                    pending_setup = None
-
             elif pending_setup is not None:
                 # Check entry trigger
-                if candle.low <= pending_setup.entry_price <= candle.high:
+                if candle.low <= pending_setup.entry <= candle.high:
                     active_trade = Trade(
                         symbol=symbol,
                         direction=pending_setup.direction,
                         entry_time=candle.open_time,
-                        entry_price=pending_setup.entry_price,
+                        entry_price=pending_setup.entry,
                         stop_loss=pending_setup.stop_loss,
-                        take_profit=pending_setup.take_profit_1,  # MVP: TP1 target
+                        take_profit=pending_setup.take_profit,
                         status=TradeStatus.OPEN,
                         exit_reason=TradeExitReason.NONE,
                         diagnostics=pending_setup.diagnostics,
                     )
+                    pending_setup = None
 
             # 2. Analysis Phase (generate signals for NEXT candle)
             if active_trade is None:
@@ -332,21 +362,31 @@ class TradeBacktester:
                     context_val = self._context_cache[str(symbol)].slice_at(int(history[-1].open_time))
 
                 try:
-                    result = analyze_series(
-                        history_series,
-                        self._rules,
-                        min_confidence=self._scoring_config.min_confidence,
-                        confluence_bonus=self._scoring_config.confluence_bonus,
-                        confluence_penalty=self._scoring_config.confluence_penalty,
-                        max_confidence_boost=self._scoring_config.max_confidence_boost,
+                    positions = ()
+                    if active_trade is not None:
+                        from neon_radar.domain.risk import PositionState
+                        pos = PositionState(
+                            symbol=active_trade.symbol,
+                            side=active_trade.direction,
+                            entry_price=active_trade.entry_price,
+                            size=1.0,  # Mock size for risk evaluation of open positions
+                            stop_loss=active_trade.stop_loss,
+                            unrealized_pnl=0.0
+                        )
+                        positions = (pos,)
+                        
+                    portfolio = PortfolioState(account=account, positions=positions)
+                    drawdown = drawdown_monitor.update(account.total_capital, int(history[-1].open_time))
+                    
+                    pending_setup = self._pipeline.evaluate(
+                        series=history_series,
+                        portfolio=portfolio,
+                        drawdown=drawdown,
                         timestamp=int(history[-1].open_time),
                         higher_tf_series=higher_history_series,
                         funding_rate=funding_val,
                         market_context=context_val,
-                        regime_classifier=self._regime_classifier,
-                        regime_config=self._regime_config,
                     )
-                    pending_setup = result.trade_setup
                 except Exception:
                     pending_setup = None
 

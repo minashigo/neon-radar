@@ -17,6 +17,8 @@ from neon_radar.domain.trading.regime import MarketRegime, RegimeClassifier, Reg
 if TYPE_CHECKING:
     from neon_radar.domain.market_state import MarketState
     from neon_radar.domain.scoring.value_objects import AnalysisResult
+    from neon_radar.domain.risk import RiskDecision
+    from neon_radar.domain.models import Symbol
 
 
 @dataclass(slots=True, frozen=True)
@@ -205,3 +207,23 @@ class TradeSetupEngine:
             risk_reward=(self.tp1_rr, self.tp2_rr),
             diagnostics=diagnostics,
         )
+
+
+@dataclass(slots=True, frozen=True)
+class FinalTradeSetup:
+    """The fully sized and validated trade setup, ready for execution."""
+
+    symbol: Symbol
+    direction: Bias
+    entry: float
+    stop_loss: float
+    take_profit: float
+    confidence: float
+    score: float
+    risk_decision: RiskDecision
+    position_size: float    # Base asset amount (e.g. 0.1 BTC)
+    quote_size: float       # Quote asset amount (e.g. 5000 USDT)
+    risk_amount: float      # Quote amount at risk if SL hit
+    expected_reward: float  # Quote amount expected if TP hit
+    diagnostics: TradeDiagnostics | None = None
+

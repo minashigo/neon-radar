@@ -65,16 +65,6 @@ def analyze_series(
     regime_config: RegimeFilterConfig | None = None,
 ) -> AnalysisResult:
     """Run the complete analysis cycle for one candle series."""
-    from dataclasses import replace
-
-    from neon_radar.domain.trading.setup import TradeSetupEngine
-
-    setup_engine = TradeSetupEngine(
-        min_confidence=min_confidence,
-        regime_classifier=regime_classifier,
-        regime_config=regime_config,
-    )
-
     rules_tuple = tuple(rules)
 
     # Collect rule indicators and engine indicators
@@ -82,8 +72,6 @@ def analyze_series(
     for rule in rules_tuple:
         for spec in rule.required_indicators():
             spec_map.setdefault(spec.series_name, spec)
-    for spec in setup_engine.required_indicators():
-        spec_map.setdefault(spec.series_name, spec)
     for spec in extra_indicators:
         spec_map.setdefault(spec.series_name, spec)
 
@@ -114,9 +102,7 @@ def analyze_series(
         confluence_penalty=confluence_penalty,
         max_confidence_boost=max_confidence_boost,
     )
-    result = engine.evaluate(state)
-    setup = setup_engine.build_setup(state, result)
-    return replace(result, trade_setup=setup)
+    return engine.evaluate(state)
 
 
 def _default_timestamp(series: KlineSeries) -> int:

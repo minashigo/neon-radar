@@ -35,7 +35,6 @@ class ConfluenceState(str, Enum):
 
 if TYPE_CHECKING:
     from neon_radar.domain.market_state import MarketState
-    from neon_radar.domain.trading.setup import TradeSetup
 
 
 @dataclass(slots=True, frozen=True)
@@ -123,7 +122,6 @@ class AnalysisResult:
     summary: str
     computed_at: int
     market_state: MarketState | None = None
-    trade_setup: TradeSetup | None = None
 
     @property
     def bias(self) -> Bias:
