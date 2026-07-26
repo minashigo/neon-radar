@@ -2,6 +2,7 @@
 
 Handles HTTP requests, rate limiting, and basic retries for Binance Futures API.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -40,7 +41,9 @@ class BinanceTransport:
             await self._http.aclose()
             self._http = None
 
-    async def get(self, endpoint: str, params: dict[str, Any] | None = None, weight: int = 1) -> Any:
+    async def get(
+        self, endpoint: str, params: dict[str, Any] | None = None, weight: int = 1
+    ) -> Any:
         """Execute GET request with rate limiting and basic retry."""
         await self._rate_limiter.acquire(weight)
         client = await self._get_http()
@@ -54,7 +57,7 @@ class BinanceTransport:
                     raise RateLimitError("Binance HTTP 429: Rate limit exceeded")
                 if resp.status_code >= 500:
                     if attempt < retries - 1:
-                        await asyncio.sleep(2 ** attempt)
+                        await asyncio.sleep(2**attempt)
                         continue
                     raise ServerError(f"Binance Server Error: {resp.status_code}")
 
@@ -62,6 +65,6 @@ class BinanceTransport:
                 return resp.json()
             except httpx.RequestError as exc:
                 if attempt < retries - 1:
-                    await asyncio.sleep(2 ** attempt)
+                    await asyncio.sleep(2**attempt)
                     continue
                 raise NetworkError(f"Network error while calling {endpoint}: {exc}") from exc

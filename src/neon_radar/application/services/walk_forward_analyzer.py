@@ -31,7 +31,7 @@ def _add_months(d: date, months: int) -> date:
 
 class WalkForwardAnalyzer:
     """Coordinates the rolling Walk-Forward Analysis over historical data.
-    
+
     For each step:
       1. Define IS (In-Sample) and OOS (Out-of-Sample) windows.
       2. Ask ParameterOptimizer to find the best configuration on the IS window.
@@ -78,7 +78,9 @@ class WalkForwardAnalyzer:
         current_is_start = start_date
 
         # We need to prefetch data for the ENTIRE range first so that optimizing is fast.
-        logger.info(f"Prefetching data from {start_date} to {end_date} for Walk-Forward Analysis...")
+        logger.info(
+            f"Prefetching data from {start_date} to {end_date} for Walk-Forward Analysis..."
+        )
         await base_backtester._prefetch(symbols, timeframe, start_date, end_date)
 
         cycle_idx = 1
@@ -107,8 +109,10 @@ class WalkForwardAnalyzer:
                 timeframe=timeframe,
             )
 
-            logger.info(f"  Selected min_confidence: {best_config.min_confidence:.2f} "
-                        f"(IS Expectancy: {is_report.net_expectancy:.2%}, IS Profit Factor: {is_report.net_profit_factor:.2f})")
+            logger.info(
+                f"  Selected min_confidence: {best_config.min_confidence:.2f} "
+                f"(IS Expectancy: {is_report.net_expectancy:.2%}, IS Profit Factor: {is_report.net_profit_factor:.2f})"
+            )
 
             # 2. Evaluate on OOS with the best config
             oos_tester = TradeBacktester(
@@ -129,8 +133,10 @@ class WalkForwardAnalyzer:
 
             oos_report = self._analyzer.analyze(oos_trades)
 
-            logger.info(f"  OOS Result: Expectancy {oos_report.net_expectancy:.2%}, "
-                        f"Profit Factor {oos_report.net_profit_factor:.2f}")
+            logger.info(
+                f"  OOS Result: Expectancy {oos_report.net_expectancy:.2%}, "
+                f"Profit Factor {oos_report.net_profit_factor:.2f}"
+            )
 
             # 3. Save Cycle
             cycles.append(

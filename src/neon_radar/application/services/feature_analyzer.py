@@ -62,7 +62,9 @@ class FeatureImportanceAnalyzer:
         b_exp = baseline_report.net_expectancy
         b_sharpe = baseline_report.net_sharpe_ratio
         b_wr = baseline_report.win_rate
-        b_prob_loss = baseline_report.validation.mc_probability_of_loss if baseline_report.validation else 1.0
+        b_prob_loss = (
+            baseline_report.validation.mc_probability_of_loss if baseline_report.validation else 1.0
+        )
         b_pval = baseline_report.validation.p_value if baseline_report.validation else 1.0
 
         # We need the base components to instantiate ablated testers
@@ -101,7 +103,11 @@ class FeatureImportanceAnalyzer:
             a_exp = ablated_report.net_expectancy
             a_sharpe = ablated_report.net_sharpe_ratio
             a_wr = ablated_report.win_rate
-            a_prob_loss = ablated_report.validation.mc_probability_of_loss if ablated_report.validation else 1.0
+            a_prob_loss = (
+                ablated_report.validation.mc_probability_of_loss
+                if ablated_report.validation
+                else 1.0
+            )
             a_pval = ablated_report.validation.p_value if ablated_report.validation else 1.0
 
             # Calculate Deltas (Positive means removing the rule made it worse, so the rule is good)
@@ -119,18 +125,18 @@ class FeatureImportanceAnalyzer:
             # To normalize somewhat, we map them based on typical scales.
             # Delta PF is absolute. Delta WR and Exp are percentages.
             # Example heuristic normalization for the score:
-            pf_score = delta_pf * 1.0             # Delta of 0.1 -> 0.1
-            exp_score = delta_exp * 10.0          # Delta of 1% (0.01) -> 0.1
-            sharpe_score = delta_sharpe * 0.2     # Delta of 0.5 -> 0.1
-            wr_score = delta_wr * 2.0             # Delta of 5% (0.05) -> 0.1
-            prob_loss_score = delta_prob_loss * 1.0 # Delta of 10% (0.1) -> 0.1
+            pf_score = delta_pf * 1.0  # Delta of 0.1 -> 0.1
+            exp_score = delta_exp * 10.0  # Delta of 1% (0.01) -> 0.1
+            sharpe_score = delta_sharpe * 0.2  # Delta of 0.5 -> 0.1
+            wr_score = delta_wr * 2.0  # Delta of 5% (0.05) -> 0.1
+            prob_loss_score = delta_prob_loss * 1.0  # Delta of 10% (0.1) -> 0.1
 
             score = (
-                self.W_PROFIT_FACTOR * pf_score +
-                self.W_EXPECTANCY * exp_score +
-                self.W_SHARPE_RATIO * sharpe_score +
-                self.W_WIN_RATE * wr_score +
-                self.W_PROBABILITY_OF_LOSS * prob_loss_score
+                self.W_PROFIT_FACTOR * pf_score
+                + self.W_EXPECTANCY * exp_score
+                + self.W_SHARPE_RATIO * sharpe_score
+                + self.W_WIN_RATE * wr_score
+                + self.W_PROBABILITY_OF_LOSS * prob_loss_score
             )
 
             metrics = FeatureImportanceMetrics(
@@ -148,7 +154,4 @@ class FeatureImportanceAnalyzer:
         # Sort by feature score descending
         features_metrics.sort(key=lambda x: x.feature_score, reverse=True)
 
-        return FeatureImportanceReport(
-            baseline=baseline_report,
-            features=tuple(features_metrics)
-        )
+        return FeatureImportanceReport(baseline=baseline_report, features=tuple(features_metrics))

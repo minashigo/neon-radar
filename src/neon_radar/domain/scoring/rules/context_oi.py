@@ -15,8 +15,8 @@ if TYPE_CHECKING:
 @RuleRegistry.register("oi_expansion")
 class OpenInterestExpansionRule(FactorRule):
     """Detects strong trend confirmation via Open Interest expansion.
-    
-    If price is moving strongly (determined by close vs open over the window) 
+
+    If price is moving strongly (determined by close vs open over the window)
     and OI is expanding significantly, it confirms the trend strength.
     """
 
@@ -27,7 +27,7 @@ class OpenInterestExpansionRule(FactorRule):
         weight: float = 0.20,
         description: str | None = None,
         window_size: int = 6,  # 30 mins at 5m
-        oi_expansion_threshold: float = 0.02, # 2% expansion
+        oi_expansion_threshold: float = 0.02,  # 2% expansion
         price_move_threshold: float = 0.005,  # 0.5% move
     ) -> None:
         super().__init__(name=name, weight=weight, description=description)
@@ -102,10 +102,10 @@ class OpenInterestExpansionRule(FactorRule):
             value=direction * magnitude,
             confidence=magnitude,
             category=SignalCategory.MICROSTRUCTURE,
-            description=f"OI expanded by {oi_change*100:.2f}% confirming {'uptrend' if direction > 0 else 'downtrend'}",
+            description=f"OI expanded by {oi_change * 100:.2f}% confirming {'uptrend' if direction > 0 else 'downtrend'}",
             evidence=(
-                EvidenceItem("oi_change", f"{oi_change*100:.2f}%"),
-                EvidenceItem("price_change", f"{price_change*100:.2f}%"),
+                EvidenceItem("oi_change", f"{oi_change * 100:.2f}%"),
+                EvidenceItem("price_change", f"{price_change * 100:.2f}%"),
             ),
         )
 
@@ -121,7 +121,7 @@ class OpenInterestDivergenceRule(FactorRule):
         weight: float = 0.15,
         description: str | None = None,
         window_size: int = 6,
-        oi_drop_threshold: float = -0.015, # 1.5% drop
+        oi_drop_threshold: float = -0.015,  # 1.5% drop
         price_move_threshold: float = 0.005,
     ) -> None:
         super().__init__(name=name, weight=weight, description=description)
@@ -188,9 +188,9 @@ class OpenInterestDivergenceRule(FactorRule):
             value=direction * magnitude,
             confidence=magnitude,
             category=SignalCategory.MICROSTRUCTURE,
-            description=f"OI dropped by {abs(oi_change)*100:.2f}% during price move, signaling reversal",
+            description=f"OI dropped by {abs(oi_change) * 100:.2f}% during price move, signaling reversal",
             evidence=(
-                EvidenceItem("oi_change", f"{oi_change*100:.2f}%"),
-                EvidenceItem("price_change", f"{price_change*100:.2f}%"),
+                EvidenceItem("oi_change", f"{oi_change * 100:.2f}%"),
+                EvidenceItem("price_change", f"{price_change * 100:.2f}%"),
             ),
         )

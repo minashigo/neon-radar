@@ -120,10 +120,11 @@ class MarketContext:
 
 T_Context = TypeVar("T_Context")
 
+
 @dataclass(slots=True, frozen=True)
 class ContextSeries(Generic[T_Context]):
     """Base class for all historical context series.
-    
+
     Provides iterable API, validation, slicing, latest(), and window().
     """
 
@@ -139,13 +140,11 @@ class ContextSeries(Generic[T_Context]):
             times = [c.time_context.event_time for c in self.items]
             if times != sorted(times):
                 raise ValueError(
-                    f"ContextSeries items are not sorted ascending by event_time "
-                    f"for {self.symbol}"
+                    f"ContextSeries items are not sorted ascending by event_time for {self.symbol}"
                 )
             if len(set(times)) != len(times):
                 raise ValueError(
-                    f"ContextSeries items contain duplicate event_time values "
-                    f"for {self.symbol}"
+                    f"ContextSeries items contain duplicate event_time values for {self.symbol}"
                 )
 
     def __len__(self) -> int:
@@ -173,7 +172,7 @@ class ContextSeries(Generic[T_Context]):
 
     def slice_by_publish_time(self, max_timestamp: int) -> ContextSeries[T_Context]:
         """Return a new series excluding items published after ``max_timestamp``.
-        
+
         This is a critical Point-in-Time safeguard to prevent look-ahead bias.
         """
         if not self.items:
@@ -181,6 +180,7 @@ class ContextSeries(Generic[T_Context]):
 
         # Fast binary search. We extract publish_times and use bisect_right.
         import bisect
+
         publish_times = [c.time_context.publish_time for c in self.items]
         # We assume publish_times are also monotonically increasing (or roughly so).
         # Wait, bisect requires strict sorting. If publish_times are not strictly sorted,
@@ -188,7 +188,9 @@ class ContextSeries(Generic[T_Context]):
         # Let's ensure publish_times are sorted, otherwise we fallback to linear.
         if publish_times != sorted(publish_times):
             # Fallback to linear filtering if publish times are slightly out of order
-            valid_items = tuple(c for c in self.items if c.time_context.publish_time <= max_timestamp)
+            valid_items = tuple(
+                c for c in self.items if c.time_context.publish_time <= max_timestamp
+            )
         else:
             idx = bisect.bisect_right(publish_times, max_timestamp)
             valid_items = self.items[:idx]
@@ -200,63 +202,82 @@ class ContextSeries(Generic[T_Context]):
 class FundingSeries(ContextSeries[FundingContext]):
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> FundingSeries:
-        items = [FundingContext(
-            raw_funding=i["raw_funding"],
-            funding_8h_equiv=i["funding_8h_equiv"],
-            annualized_apr=i["annualized_apr"],
-            mark_price=i["mark_price"],
-            next_funding_time_utc=i["next_funding_time_utc"],
-            time_context=TimeContext(**i["time_context"])
-        ) for i in data["items"]]
+        items = [
+            FundingContext(
+                raw_funding=i["raw_funding"],
+                funding_8h_equiv=i["funding_8h_equiv"],
+                annualized_apr=i["annualized_apr"],
+                mark_price=i["mark_price"],
+                next_funding_time_utc=i["next_funding_time_utc"],
+                time_context=TimeContext(**i["time_context"]),
+            )
+            for i in data["items"]
+        ]
         return cls(symbol=Symbol(data["symbol"]), items=tuple(items))
+
 
 @dataclass(slots=True, frozen=True)
 class OpenInterestSeries(ContextSeries[OpenInterestContext]):
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> OpenInterestSeries:
-        items = [OpenInterestContext(
-            oi_coin=i["oi_coin"],
-            oi_usd_notional=i["oi_usd_notional"],
-            time_context=TimeContext(**i["time_context"])
-        ) for i in data["items"]]
+        items = [
+            OpenInterestContext(
+                oi_coin=i["oi_coin"],
+                oi_usd_notional=i["oi_usd_notional"],
+                time_context=TimeContext(**i["time_context"]),
+            )
+            for i in data["items"]
+        ]
         return cls(symbol=Symbol(data["symbol"]), items=tuple(items))
+
 
 @dataclass(slots=True, frozen=True)
 class LongShortSeries(ContextSeries[LongShortRatioContext]):
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> LongShortSeries:
-        items = [LongShortRatioContext(
-            long_pct=i["long_pct"],
-            short_pct=i["short_pct"],
-            ls_ratio=i["ls_ratio"],
-            time_context=TimeContext(**i["time_context"])
-        ) for i in data["items"]]
+        items = [
+            LongShortRatioContext(
+                long_pct=i["long_pct"],
+                short_pct=i["short_pct"],
+                ls_ratio=i["ls_ratio"],
+                time_context=TimeContext(**i["time_context"]),
+            )
+            for i in data["items"]
+        ]
         return cls(symbol=Symbol(data["symbol"]), items=tuple(items))
+
 
 @dataclass(slots=True, frozen=True)
 class TakerFlowSeries(ContextSeries[TakerFlowContext]):
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> TakerFlowSeries:
-        items = [TakerFlowContext(
-            buy_volume=i["buy_volume"],
-            sell_volume=i["sell_volume"],
-            net_buy_volume=i["net_buy_volume"],
-            time_context=TimeContext(**i["time_context"])
-        ) for i in data["items"]]
+        items = [
+            TakerFlowContext(
+                buy_volume=i["buy_volume"],
+                sell_volume=i["sell_volume"],
+                net_buy_volume=i["net_buy_volume"],
+                time_context=TimeContext(**i["time_context"]),
+            )
+            for i in data["items"]
+        ]
         return cls(symbol=Symbol(data["symbol"]), items=tuple(items))
+
 
 @dataclass(slots=True, frozen=True)
 class LiquidationSeries(ContextSeries[LiquidationContext]):
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> LiquidationSeries:
-        items = [LiquidationContext(
-            long_liquidations=i.get("long_liquidations", 0.0),
-            short_liquidations=i.get("short_liquidations", 0.0),
-            long_liquidations_usd=i.get("long_liquidations_usd", 0.0),
-            short_liquidations_usd=i.get("short_liquidations_usd", 0.0),
-            total_liquidations_usd=i.get("total_liquidations_usd", 0.0),
-            time_context=TimeContext(**i["time_context"])
-        ) for i in data["items"]]
+        items = [
+            LiquidationContext(
+                long_liquidations=i.get("long_liquidations", 0.0),
+                short_liquidations=i.get("short_liquidations", 0.0),
+                long_liquidations_usd=i.get("long_liquidations_usd", 0.0),
+                short_liquidations_usd=i.get("short_liquidations_usd", 0.0),
+                total_liquidations_usd=i.get("total_liquidations_usd", 0.0),
+                time_context=TimeContext(**i["time_context"]),
+            )
+            for i in data["items"]
+        ]
         return cls(symbol=Symbol(data["symbol"]), items=tuple(items))
 
 
@@ -286,25 +307,43 @@ class HistoricalMarketContext:
 
     def __post_init__(self) -> None:
         """Enforce strict Point-in-Time correctness for all series.
-        
-        This prevents any downstream rule from accidentally accessing data 
+
+        This prevents any downstream rule from accidentally accessing data
         published after this context's timestamp, completely eliminating look-ahead bias.
         """
         if self.funding_history:
-            object.__setattr__(self, "funding_history", self.funding_history.slice_by_publish_time(self.timestamp))
+            object.__setattr__(
+                self, "funding_history", self.funding_history.slice_by_publish_time(self.timestamp)
+            )
         if self.open_interest_history:
-            object.__setattr__(self, "open_interest_history", self.open_interest_history.slice_by_publish_time(self.timestamp))
+            object.__setattr__(
+                self,
+                "open_interest_history",
+                self.open_interest_history.slice_by_publish_time(self.timestamp),
+            )
         if self.ls_ratio_history:
-            object.__setattr__(self, "ls_ratio_history", self.ls_ratio_history.slice_by_publish_time(self.timestamp))
+            object.__setattr__(
+                self,
+                "ls_ratio_history",
+                self.ls_ratio_history.slice_by_publish_time(self.timestamp),
+            )
         if self.taker_flow_history:
-            object.__setattr__(self, "taker_flow_history", self.taker_flow_history.slice_by_publish_time(self.timestamp))
+            object.__setattr__(
+                self,
+                "taker_flow_history",
+                self.taker_flow_history.slice_by_publish_time(self.timestamp),
+            )
         if self.liquidations_history:
-            object.__setattr__(self, "liquidations_history", self.liquidations_history.slice_by_publish_time(self.timestamp))
+            object.__setattr__(
+                self,
+                "liquidations_history",
+                self.liquidations_history.slice_by_publish_time(self.timestamp),
+            )
 
     def slice_at(self, timestamp: int) -> HistoricalMarketContext:
         """Return a new HistoricalMarketContext sliced exactly at the given timestamp.
-        
-        This enables efficient point-in-time evaluation during backtesting by 
+
+        This enables efficient point-in-time evaluation during backtesting by
         fetching the full history once and slicing it in memory for each candle.
         """
         from dataclasses import replace

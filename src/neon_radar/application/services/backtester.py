@@ -107,9 +107,9 @@ class WalkForwardBacktester:
         self._engine = RuleBasedEngine(
             rules=self._rules,
             min_confidence=scoring_config.min_confidence,
-                confluence_bonus=scoring_config.confluence_bonus,
-                confluence_penalty=scoring_config.confluence_penalty,
-                max_confidence_boost=scoring_config.max_confidence_boost,
+            confluence_bonus=scoring_config.confluence_bonus,
+            confluence_penalty=scoring_config.confluence_penalty,
+            max_confidence_boost=scoring_config.max_confidence_boost,
         )
         # Cache of (symbol, timeframe) -> full KlineSeries fetched once.
         self._series_cache: dict[tuple[str, str], KlineSeries] = {}
@@ -148,9 +148,9 @@ class WalkForwardBacktester:
             symbols=tuple(str(s) for s in symbols),
             horizons=horizons,
             min_confidence=self._scoring_config.min_confidence,
-                confluence_bonus=self._scoring_config.confluence_bonus,
-                confluence_penalty=self._scoring_config.confluence_penalty,
-                max_confidence_boost=self._scoring_config.max_confidence_boost,
+            confluence_bonus=self._scoring_config.confluence_bonus,
+            confluence_penalty=self._scoring_config.confluence_penalty,
+            max_confidence_boost=self._scoring_config.max_confidence_boost,
         )
 
         if not symbols:
@@ -201,11 +201,17 @@ class WalkForwardBacktester:
 
         if self._history_service is not None:
             from datetime import UTC
+
             for symbol in symbols:
                 if str(symbol) not in self._context_cache:
-                    start_ms = int(datetime.combine(start_date, datetime.min.time(), tzinfo=UTC).timestamp() * 1000)
+                    start_ms = int(
+                        datetime.combine(start_date, datetime.min.time(), tzinfo=UTC).timestamp()
+                        * 1000
+                    )
                     try:
-                        ctx = await self._history_service.get_historical_context(symbol, fetch_end, start_ms, fetch_end, limit=1500)
+                        ctx = await self._history_service.get_historical_context(
+                            symbol, fetch_end, start_ms, fetch_end, limit=1500
+                        )
                         self._context_cache[str(symbol)] = ctx
                     except Exception:
                         pass
@@ -263,7 +269,9 @@ class WalkForwardBacktester:
 
                 context_val = None
                 if str(symbol) in self._context_cache:
-                    context_val = self._context_cache[str(symbol)].slice_at(int(history[-1].open_time))
+                    context_val = self._context_cache[str(symbol)].slice_at(
+                        int(history[-1].open_time)
+                    )
 
                 result = self._score_at(history_series, context_val)
                 if result is None:
@@ -296,7 +304,9 @@ class WalkForwardBacktester:
             day = day + timedelta(days=1)
         return out
 
-    def _score_at(self, series: KlineSeries, market_context: HistoricalMarketContext | None = None) -> AnalysisResult | None:
+    def _score_at(
+        self, series: KlineSeries, market_context: HistoricalMarketContext | None = None
+    ) -> AnalysisResult | None:
         """Run the engine on a synthetic slice."""
         try:
             return analyze_series(

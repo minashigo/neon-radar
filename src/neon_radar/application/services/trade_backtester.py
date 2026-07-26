@@ -180,13 +180,20 @@ class TradeBacktester:
             for symbol in symbols:
                 if str(symbol) not in self._context_cache:
                     # Fetch using ms timestamps
-                    start_ms = int(datetime.combine(start_date, datetime.min.time(), tzinfo=UTC).timestamp() * 1000)
+                    start_ms = int(
+                        datetime.combine(start_date, datetime.min.time(), tzinfo=UTC).timestamp()
+                        * 1000
+                    )
                     end_ms = fetch_end
                     try:
-                        ctx = await self._history_service.get_historical_context(symbol, fetch_end, start_ms, end_ms, limit=1500)
+                        ctx = await self._history_service.get_historical_context(
+                            symbol, fetch_end, start_ms, end_ms, limit=1500
+                        )
                         self._context_cache[str(symbol)] = ctx
                     except Exception as exc:
-                        logger.warning(f"Failed to fetch historical market context for {symbol}: {exc}")
+                        logger.warning(
+                            f"Failed to fetch historical market context for {symbol}: {exc}"
+                        )
 
         for symbol in symbols:
             for current_tf in tfs_to_fetch:
@@ -202,8 +209,12 @@ class TradeBacktester:
                     )
                     self._series_cache[key] = series
                 except Exception as exc:
-                    logger.warning(f"Failed to fetch klines for {symbol} on {current_tf.value}: {exc}")
-                    self._series_cache[key] = KlineSeries(symbol=symbol, timeframe=current_tf, candles=())
+                    logger.warning(
+                        f"Failed to fetch klines for {symbol} on {current_tf.value}: {exc}"
+                    )
+                    self._series_cache[key] = KlineSeries(
+                        symbol=symbol, timeframe=current_tf, candles=()
+                    )
 
     def _simulate_symbol(
         self,
@@ -216,6 +227,7 @@ class TradeBacktester:
     ) -> list[Trade]:
         """Simulate trades for a single symbol."""
         from neon_radar.config.models import TimeFrame
+
         tf_enum = TimeFrame(timeframe)
         higher_tf = tf_enum.higher_timeframe
 
@@ -240,7 +252,9 @@ class TradeBacktester:
 
         # Initialize Portfolio and Execution engines
         portfolio_engine = PortfolioEngine(initial_capital=10000.0)
-        execution_engine = PaperExecutionEngine(portfolio_engine=portfolio_engine)
+        execution_engine = PaperExecutionEngine(
+            portfolio_engine=portfolio_engine, funding_provider=self._funding_provider
+        )
 
         drawdown_monitor = DrawdownMonitor(initial_capital=10000.0)
 
@@ -253,7 +267,9 @@ class TradeBacktester:
             execution_engine.process_market_tick(symbol, candle)
 
             # 2. Update drawdown with latest equity
-            drawdown = drawdown_monitor.update(portfolio_engine.state.account.total_capital, candle.open_time)
+            drawdown = drawdown_monitor.update(
+                portfolio_engine.state.account.total_capital, candle.open_time
+            )
 
             # 3. Build history up to current candle
             history_candles = series.candles[: i + 1]
@@ -268,11 +284,14 @@ class TradeBacktester:
 
             context_val = None
             if str(symbol) in self._context_cache:
-                context_val = self._context_cache[str(symbol)].slice_at(int(history.candles[-1].open_time))
+                context_val = self._context_cache[str(symbol)].slice_at(
+                    int(history.candles[-1].open_time)
+                )
 
             higher_history_series = None
             if higher_full_series is not None:
                 from neon_radar.config.models import TimeFrame
+
                 base_tf_enum = TimeFrame(series.timeframe)
                 htf_enum = TimeFrame(higher_full_series.timeframe)
 
@@ -287,7 +306,7 @@ class TradeBacktester:
                     higher_history_series = KlineSeries(
                         symbol=higher_full_series.symbol,
                         timeframe=higher_full_series.timeframe,
-                        candles=tuple(htf_history)
+                        candles=tuple(htf_history),
                     )
 
             # 5. Evaluate pipeline
@@ -306,16 +325,38 @@ class TradeBacktester:
 
             # 6. If we got a setup, execute it
             if setup is not None:
-                if str(symbol) not in execution_engine.pending_setups and not any(p.symbol == symbol for p in portfolio_engine.state.positions):
+                if str(symbol) not in execution_engine.pending_setups and not any(
+                    p.symbol == symbol for p in portfolio_engine.state.positions
+                ):
                     execution_engine.execute_setup(setup, candle.open_time)
 
         # Legacy trades mapping
+        from neon_radar.domain.trading.execution import TradeCosts
+
         legacy_trades = []
         for p in portfolio_engine._history:
-            trade_status = TradeStatus.WIN if p.realized_pnl > 0 else TradeStatus.LOSS
-            if p.realized_pnl == 0:
-                trade_status = TradeStatus.BREAK_EVEN
-            exit_reason = TradeExitReason.TAKE_PROFIT if p.close_reason == "TAKE_PROFIT" else TradeExitReason.STOP_LOSS
+            is_win = p.execution_summary.net_pnl > 0
+            is_loss = p.execution_summary.net_pnl < 0
+            trade_status = (
+                TradeStatus.WIN
+                if is_win
+                else (TradeStatus.LOSS if is_loss else TradeStatus.BREAK_EVEN)
+            )
+            exit_reason = (
+                TradeExitReason.TAKE_PROFIT
+                if p.close_reason == "TAKE_PROFIT"
+                else TradeExitReason.STOP_LOSS
+            )
+
+            notional = p.quantity * p.entry_price
+            trade_costs = None
+            if notional > 0:
+                trade_costs = TradeCosts(
+                    fees_pct=(p.execution_summary.entry_fee + p.execution_summary.exit_fee)
+                    / notional,
+                    slippage_pct=p.execution_summary.slippage_cost / notional,
+                    funding_pct=p.execution_summary.funding_cost / notional,
+                )
 
             legacy_trades.append(
                 Trade(
@@ -328,7 +369,8 @@ class TradeBacktester:
                     exit_time=p.exit_time,
                     exit_price=p.exit_price,
                     status=trade_status,
-                    exit_reason=exit_reason
+                    exit_reason=exit_reason,
+                    costs=trade_costs,
                 )
             )
 

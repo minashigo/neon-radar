@@ -19,11 +19,13 @@ def mock_rule_a():
     rule.name = "RuleA"
     return rule
 
+
 @pytest.fixture
 def mock_rule_b():
     rule = MagicMock(spec=FactorRule)
     rule.name = "RuleB"
     return rule
+
 
 def _make_report(pf, exp, sharpe, wr, prob_loss, pval):
     return BacktestReport(
@@ -53,6 +55,7 @@ def _make_report(pf, exp, sharpe, wr, prob_loss, pval):
         trades=(),
     )
 
+
 @pytest.mark.asyncio
 async def test_feature_importance_analyzer(mock_rule_a, mock_rule_b):
     # 1. Setup mocks
@@ -72,15 +75,22 @@ async def test_feature_importance_analyzer(mock_rule_a, mock_rule_b):
     # baseline call, ablated Rule A call, ablated Rule B call
     analyzer_mock.analyze.side_effect = [
         _make_report(pf=1.5, exp=0.05, sharpe=1.0, wr=0.5, prob_loss=0.1, pval=0.05),  # Baseline
-        _make_report(pf=1.0, exp=0.00, sharpe=0.0, wr=0.4, prob_loss=0.4, pval=0.5),   # Without Rule A (Worse -> A is good)
-        _make_report(pf=2.0, exp=0.10, sharpe=2.0, wr=0.6, prob_loss=0.0, pval=0.01),  # Without Rule B (Better -> B is bad)
+        _make_report(
+            pf=1.0, exp=0.00, sharpe=0.0, wr=0.4, prob_loss=0.4, pval=0.5
+        ),  # Without Rule A (Worse -> A is good)
+        _make_report(
+            pf=2.0, exp=0.10, sharpe=2.0, wr=0.6, prob_loss=0.0, pval=0.01
+        ),  # Without Rule B (Better -> B is bad)
     ]
 
     # Mock TradeBacktester constructor to return a mock tester
     with pytest.MonkeyPatch.context() as m:
         tester_instance_mock = MagicMock(spec=TradeBacktester)
         tester_instance_mock.run = AsyncMock(return_value=())
-        m.setattr("neon_radar.application.services.feature_analyzer.TradeBacktester", lambda **kwargs: tester_instance_mock)
+        m.setattr(
+            "neon_radar.application.services.feature_analyzer.TradeBacktester",
+            lambda **kwargs: tester_instance_mock,
+        )
 
         baseline_tester.run = AsyncMock(return_value=())
 

@@ -17,10 +17,12 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from neon_radar.domain.enums import Bias
     from neon_radar.domain.models import Symbol
+    from neon_radar.domain.execution_costs import ExecutionCostSummary
 
 
 class PositionCloseReason(str, Enum):
     """Reason for a position being closed."""
+
     STOP_LOSS = "STOP_LOSS"
     TAKE_PROFIT = "TAKE_PROFIT"
     MANUAL = "MANUAL"
@@ -59,8 +61,9 @@ class OpenPosition:
     take_profit: float
     opened_at: int
     unrealized_pnl: float = 0.0
-    fees: float = 0.0
-    funding_paid: float = 0.0
+    entry_fee: float = 0.0
+    entry_slippage: float = 0.0
+    entry_execution_type: str = "taker"
 
     def __post_init__(self) -> None:
         if self.entry_price <= 0:
@@ -88,9 +91,7 @@ class ClosedPosition:
     quantity: float
     entry_time: int
     exit_time: int
-    realized_pnl: float
-    fees: float
-    funding: float
+    execution_summary: ExecutionCostSummary
     close_reason: PositionCloseReason
 
     @property
@@ -100,8 +101,8 @@ class ClosedPosition:
 
     @property
     def net_pnl(self) -> float:
-        """Realized PnL net of fees and funding."""
-        return self.realized_pnl - self.fees - self.funding
+        """Realized PnL net of all costs."""
+        return self.execution_summary.net_pnl
 
     @property
     def is_win(self) -> bool:
@@ -117,6 +118,9 @@ class PortfolioStatistics:
     losing_trades: int = 0
     gross_profit: float = 0.0
     gross_loss: float = 0.0
+    total_fees: float = 0.0
+    total_slippage: float = 0.0
+    total_funding: float = 0.0
     max_drawdown: float = 0.0
     current_drawdown: float = 0.0
 
@@ -128,7 +132,11 @@ class PortfolioStatistics:
 
     @property
     def net_profit(self) -> float:
-        return self.gross_profit - self.gross_loss
+        return self.gross_profit - self.gross_loss - self.total_trading_costs
+
+    @property
+    def total_trading_costs(self) -> float:
+        return self.total_fees + self.total_slippage + self.total_funding
 
     @property
     def profit_factor(self) -> float:

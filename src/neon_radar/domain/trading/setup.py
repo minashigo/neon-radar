@@ -64,7 +64,7 @@ class TradeSetupEngine:
     ----------------------
     The engine requires the aggregated `Score.confidence` to be greater than
     or equal to `min_confidence` to generate a trade.
-    
+
     * **Як формується confidence:** Кожне правило (FactorRule) повертає власний `confidence` [0.0, 1.0]. `ScoringAggregator` розраховує середньозважений `confidence` усього скорингу, використовуючи вагу правил (weight).
     * **Діапазон:** [0.0, 1.0]. Де 0.0 — повна невпевненість, 1.0 — абсолютна впевненість.
     * **Чому цей поріг (наприклад, 0.5):** Базовий поріг 0.5 є логічним рубіконом — якщо зважена впевненість системи падає нижче 50%, торговий сигнал вважається шумовим і відхиляється. Це захищає від торгівлі в періоди хаосу (що детектує `volatility_filter`).
@@ -221,9 +221,8 @@ class FinalTradeSetup:
     confidence: float
     score: float
     risk_decision: RiskDecision
-    position_size: float    # Base asset amount (e.g. 0.1 BTC)
-    quote_size: float       # Quote asset amount (e.g. 5000 USDT)
-    risk_amount: float      # Quote amount at risk if SL hit
+    position_size: float  # Base asset amount (e.g. 0.1 BTC)
+    quote_size: float  # Quote asset amount (e.g. 5000 USDT)
+    risk_amount: float  # Quote amount at risk if SL hit
     expected_reward: float  # Quote amount expected if TP hit
     diagnostics: TradeDiagnostics | None = None
-

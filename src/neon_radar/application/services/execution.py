@@ -3,6 +3,7 @@
 Responsible for taking a FinalTradeSetup and executing it (Paper or Live).
 It manages the lifecycle of a trade by processing market ticks.
 """
+
 from abc import ABC, abstractmethod
 
 from neon_radar.application.services.portfolio_engine import PortfolioEngine
@@ -10,6 +11,20 @@ from neon_radar.domain.enums import Bias
 from neon_radar.domain.models import OHLCV, Symbol
 from neon_radar.domain.portfolio import OpenPosition
 from neon_radar.domain.trading.setup import FinalTradeSetup
+from neon_radar.domain.trading.execution import ExecutionType
+from neon_radar.domain.execution_costs import (
+    FeeModel,
+    SlippageModel,
+    FundingModel,
+    ExecutionCostSummary,
+    BinanceFuturesFeeModel,
+    FixedSlippageModel,
+    BinanceFundingModel,
+)
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from neon_radar.application.services.trade_backtester import HistoricalFundingProvider
 
 
 class ExecutionEngine(ABC):
@@ -29,8 +44,19 @@ class ExecutionEngine(ABC):
 class PaperExecutionEngine(ExecutionEngine):
     """Simulates trade execution using paper trading logic."""
 
-    def __init__(self, portfolio_engine: PortfolioEngine) -> None:
+    def __init__(
+        self,
+        portfolio_engine: PortfolioEngine,
+        fee_model: FeeModel | None = None,
+        slippage_model: SlippageModel | None = None,
+        funding_model: FundingModel | None = None,
+        funding_provider: "HistoricalFundingProvider | None" = None,
+    ) -> None:
         self.portfolio_engine = portfolio_engine
+        self.fee_model = fee_model or BinanceFuturesFeeModel()
+        self.slippage_model = slippage_model or FixedSlippageModel()
+        self.funding_model = funding_model or BinanceFundingModel()
+        self.funding_provider = funding_provider
         # Dictionary of pending setups that are waiting for an entry trigger
         self.pending_setups: dict[str, FinalTradeSetup] = {}
 
@@ -61,15 +87,27 @@ class PaperExecutionEngine(ExecutionEngine):
             if candle.low <= setup.entry <= candle.high:
                 # Trigger entry
                 try:
+                    entry_exec_type = ExecutionType.MAKER
+                    entry_fee = self.fee_model.calculate_entry_fee(
+                        setup.position_size, entry_exec_type
+                    )
+                    entry_slippage = self.slippage_model.calculate_slippage(
+                        setup.position_size, symbol, entry_exec_type, setup.direction
+                    )
+
                     pos = OpenPosition(
                         symbol=symbol,
                         direction=setup.direction,
                         entry_price=setup.entry,
-                        quantity=setup.position_size / setup.entry, # Approximation since quantity usually is base asset
-                        position_size=setup.position_size, # Margin
+                        quantity=setup.position_size
+                        / setup.entry,  # Approximation since quantity usually is base asset
+                        position_size=setup.position_size,  # Margin
                         stop_loss=setup.stop_loss,
                         take_profit=setup.take_profit,
-                        opened_at=candle.open_time
+                        opened_at=candle.open_time,
+                        entry_fee=entry_fee,
+                        entry_slippage=entry_slippage,
+                        entry_execution_type=entry_exec_type.name,
                     )
                     self.portfolio_engine.open_position(pos)
                     del self.pending_setups[symbol_str]
@@ -103,9 +141,44 @@ class PaperExecutionEngine(ExecutionEngine):
                     reason = "TAKE_PROFIT"
 
             if exit_price is not None:
+                exit_exec_type = (
+                    ExecutionType.TAKER if reason == "STOP_LOSS" else ExecutionType.MAKER
+                )
+                notional = pos.quantity * exit_price
+
+                exit_fee = self.fee_model.calculate_exit_fee(notional, exit_exec_type)
+                exit_slippage = self.slippage_model.calculate_slippage(
+                    notional, pos.symbol, exit_exec_type, pos.direction
+                )
+
+                funding_cost = 0.0
+                if self.funding_provider:
+                    funding_cost = self.funding_model.calculate_funding_cost(
+                        notional,
+                        pos.symbol,
+                        pos.direction,
+                        pos.opened_at,
+                        candle.open_time,
+                        self.funding_provider,
+                    )
+
+                if pos.direction == Bias.BULLISH:
+                    gross_pnl = (exit_price - pos.entry_price) * pos.quantity
+                else:
+                    gross_pnl = (pos.entry_price - exit_price) * pos.quantity
+
+                summary = ExecutionCostSummary(
+                    entry_fee=pos.entry_fee,
+                    exit_fee=exit_fee,
+                    slippage_cost=pos.entry_slippage + exit_slippage,
+                    funding_cost=funding_cost,
+                    gross_pnl=gross_pnl,
+                )
+
                 self.portfolio_engine.close_position(
                     symbol=symbol_str,
                     exit_price=exit_price,
                     closed_at=candle.open_time,
-                    reason=reason
+                    execution_summary=summary,
+                    reason=reason,
                 )

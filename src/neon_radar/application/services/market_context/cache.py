@@ -1,4 +1,5 @@
 """Context Cache with TTL for minimizing API calls."""
+
 from __future__ import annotations
 
 import json
@@ -12,6 +13,7 @@ from neon_radar.utils.logging import get_logger
 logger = get_logger(__name__)
 
 T = TypeVar("T")
+
 
 @dataclass
 class CacheEntry(Generic[T]):
@@ -42,10 +44,7 @@ class ContextCache:
 
     def set(self, key: str, data: Any, ttl_seconds: float) -> None:
         """Store item in memory cache with a TTL."""
-        self._cache[key] = CacheEntry(
-            data=data,
-            expires_at=time.time() + ttl_seconds
-        )
+        self._cache[key] = CacheEntry(data=data, expires_at=time.time() + ttl_seconds)
 
     def get_json(self, key: str, deserializer: Any) -> Any | None:
         """Get item from JSON disk cache."""
@@ -79,7 +78,7 @@ class ContextCache:
             payload = {
                 "schema_version": "v1",
                 "expires_at": time.time() + ttl_seconds,
-                "data": asdict(data)
+                "data": asdict(data),
             }
             tmp = path.with_suffix(".json.tmp")
             tmp.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")

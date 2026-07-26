@@ -11,7 +11,7 @@ def export_trades_to_csv(trades: Iterable[Trade], filepath: Path) -> None:
     """Export a list of trades to a CSV file.
 
     Columns: Symbol, Direction, Entry Time, Exit Time, Entry Price,
-    Exit Price, Exit Reason, Gross PnL (%), Fees (%), Slippage (%), 
+    Exit Price, Exit Reason, Gross PnL (%), Fees (%), Slippage (%),
     Funding (%), Execution Costs (%), Net PnL (%), Holding Time.
     """
     with filepath.open(mode="w", newline="", encoding="utf-8") as f:
@@ -63,11 +63,31 @@ def export_trades_to_csv(trades: Iterable[Trade], filepath: Path) -> None:
             net_pnl = f"{t.net_pnl_pct * 100:.2f}"
 
             entry_reason = t.diagnostics.entry_reason.value if t.diagnostics else "unknown"
-            adx_val = f"{t.diagnostics.adx:.2f}" if t.diagnostics and t.diagnostics.adx is not None else ""
-            atr_val = f"{t.diagnostics.atr:.4f}" if t.diagnostics and t.diagnostics.atr is not None else ""
-            rsi_val = f"{t.diagnostics.rsi:.2f}" if t.diagnostics and t.diagnostics.rsi is not None else ""
-            ema_spread = f"{t.diagnostics.ema_spread_pct:.2f}" if t.diagnostics and t.diagnostics.ema_spread_pct is not None else ""
-            htf_trend = f"{t.diagnostics.htf_trend:.2f}" if t.diagnostics and t.diagnostics.htf_trend is not None else ""
+            adx_val = (
+                f"{t.diagnostics.adx:.2f}"
+                if t.diagnostics and t.diagnostics.adx is not None
+                else ""
+            )
+            atr_val = (
+                f"{t.diagnostics.atr:.4f}"
+                if t.diagnostics and t.diagnostics.atr is not None
+                else ""
+            )
+            rsi_val = (
+                f"{t.diagnostics.rsi:.2f}"
+                if t.diagnostics and t.diagnostics.rsi is not None
+                else ""
+            )
+            ema_spread = (
+                f"{t.diagnostics.ema_spread_pct:.2f}"
+                if t.diagnostics and t.diagnostics.ema_spread_pct is not None
+                else ""
+            )
+            htf_trend = (
+                f"{t.diagnostics.htf_trend:.2f}"
+                if t.diagnostics and t.diagnostics.htf_trend is not None
+                else ""
+            )
             confidence = f"{t.diagnostics.confidence:.2f}" if t.diagnostics else ""
             final_score = f"{t.diagnostics.final_score:.2f}" if t.diagnostics else ""
             rules_str = t.diagnostics.triggered_rules if t.diagnostics else ""

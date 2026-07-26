@@ -1,6 +1,6 @@
 """Trading Pipeline Orchestrator.
 
-Combines the Analysis Layer (Rule Engine, Trade Setup Engine) with the Risk Layer 
+Combines the Analysis Layer (Rule Engine, Trade Setup Engine) with the Risk Layer
 (Risk Manager, Position Sizing Engine) into a single, cohesive decision-making pipeline.
 """
 
@@ -98,16 +98,12 @@ class TradingPipeline:
         if analysis_result.market_state is None:
             return None
 
-        trade_setup = self.setup_engine.build_setup(
-            analysis_result.market_state, analysis_result
-        )
+        trade_setup = self.setup_engine.build_setup(analysis_result.market_state, analysis_result)
         if trade_setup is None:
             return None
 
         # 3. Evaluate Risk Limits -> RiskDecision
-        risk_decision = self.risk_manager.evaluate(
-            analysis_result, portfolio, drawdown
-        )
+        risk_decision = self.risk_manager.evaluate(analysis_result, portfolio, drawdown)
         if not risk_decision.is_allowed:
             return None
 
@@ -120,9 +116,7 @@ class TradingPipeline:
         expected_reward = (
             abs(trade_setup.entry_price - trade_setup.take_profit_1) * sized_setup.base_size
         )
-        risk_amount = (
-            abs(trade_setup.entry_price - trade_setup.stop_loss) * sized_setup.base_size
-        )
+        risk_amount = abs(trade_setup.entry_price - trade_setup.stop_loss) * sized_setup.base_size
 
         return FinalTradeSetup(
             symbol=analysis_result.market_state.primary_series.symbol,

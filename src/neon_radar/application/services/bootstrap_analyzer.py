@@ -20,7 +20,7 @@ class BootstrapAnalyzer:
 
     def __init__(self, metric_calculator: Callable[[Sequence[Trade]], Any]) -> None:
         """Initialize with a metric calculator function.
-        
+
         Args:
             metric_calculator: A function that takes a sequence of Trades and returns
                 an object that has properties for the metrics we want to track.

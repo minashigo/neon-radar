@@ -73,7 +73,7 @@ class RuleBasedEngine(ScoringEngine):
             min_confidence=self.min_confidence,
             confluence_bonus=self.confluence_bonus,
             confluence_penalty=self.confluence_penalty,
-            max_confidence_boost=self.max_confidence_boost
+            max_confidence_boost=self.max_confidence_boost,
         )
         summary = summarise(score, signals)
         return AnalysisResult(

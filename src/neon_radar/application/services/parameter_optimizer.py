@@ -21,7 +21,7 @@ logger = get_logger(__name__)
 
 class ParameterOptimizer(Protocol):
     """Protocol for a walk-forward parameter optimizer.
-    
+
     Given a Backtester (which holds the cache, exchange, base config),
     finds the best ScoringRulesConfig on the given historical period.
     """
@@ -40,7 +40,7 @@ class ParameterOptimizer(Protocol):
 
 class GridSearchOptimizer:
     """Basic grid search optimizer for V1.
-    
+
     Optimizes ONLY the `min_confidence` parameter to isolate its effect
     and prevent curve fitting over multiple dimensions.
     """

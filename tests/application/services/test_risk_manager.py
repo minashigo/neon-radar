@@ -49,7 +49,7 @@ def test_risk_manager_rejects_max_open_positions(analysis):
         position_size=2000.0,
         stop_loss=1900.0,
         take_profit=2200.0,
-        opened_at=1000
+        opened_at=1000,
     )
     portfolio = PortfolioState(acc, positions=(pos,))
 
@@ -83,7 +83,7 @@ def test_risk_manager_rejects_duplicate_symbol(analysis):
         position_size=3000.0,
         stop_loss=29000.0,
         take_profit=32000.0,
-        opened_at=1000
+        opened_at=1000,
     )
     portfolio = PortfolioState(acc, positions=(pos,))
 
@@ -104,7 +104,7 @@ def test_risk_manager_rejects_max_exposure(empty_portfolio, analysis):
         position_size=6000.0,
         stop_loss=2900.0,
         take_profit=3200.0,
-        opened_at=1000
+        opened_at=1000,
     )
     portfolio = PortfolioState(AccountState(10000.0, 4000.0), positions=(pos,))
 

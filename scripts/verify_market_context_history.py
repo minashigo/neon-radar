@@ -13,6 +13,7 @@ from neon_radar.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
+
 async def main():
     symbol = Symbol("BTCUSDT")
     end_time = int(time.time() * 1000)
@@ -26,11 +27,7 @@ async def main():
     print(f"Fetching Historical Context for {symbol}...")
 
     historical_context = await service.get_historical_context(
-        symbol=symbol,
-        timestamp=end_time,
-        start_time=start_time,
-        end_time=end_time,
-        limit=500
+        symbol=symbol, timestamp=end_time, start_time=start_time, end_time=end_time, limit=500
     )
 
     if historical_context.funding_history:
@@ -58,6 +55,7 @@ async def main():
         print("No Taker Flow History found.")
 
     await transport.close()
+
 
 if __name__ == "__main__":
     asyncio.run(main())

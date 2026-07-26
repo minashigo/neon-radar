@@ -23,6 +23,7 @@ def test_binance_futures_fee_model():
     assert model.calculate_exit_fee_pct(ExecutionType.MAKER) == 0.0002
     assert model.calculate_exit_fee_pct(ExecutionType.TAKER) == 0.0005
 
+
 def test_fixed_slippage_model():
     """Test deterministic slippage logic."""
     model = FixedSlippageModel(slippage_pct=0.0005)
@@ -31,6 +32,7 @@ def test_fixed_slippage_model():
     # Slippage applied only on TAKER
     assert model.calculate_slippage_pct(symbol, ExecutionType.TAKER, Bias.BULLISH) == 0.0005
     assert model.calculate_slippage_pct(symbol, ExecutionType.MAKER, Bias.BULLISH) == 0.0
+
 
 def test_binance_funding_model_long():
     """Test funding cost for a LONG position."""
@@ -59,13 +61,15 @@ def test_binance_funding_model_long():
         direction=Bias.BULLISH,
         entry_time=entry_time,
         exit_time=exit_time,
-        provider=provider
+        provider=provider,
     )
 
     # Long pays positive funding -> 0.0001 + 0.0002 = 0.0003
     import pytest
+
     assert cost == pytest.approx(0.0003)
     assert provider.get_funding_rate_at.call_count == 2
+
 
 def test_binance_funding_model_short():
     """Test funding cost for a SHORT position."""
@@ -85,12 +89,14 @@ def test_binance_funding_model_short():
         direction=Bias.BEARISH,
         entry_time=entry_time,
         exit_time=exit_time,
-        provider=provider
+        provider=provider,
     )
 
     # Short pays negative funding. Rate is 0.0001 -> short receives it -> cost is -0.0001
     import pytest
+
     assert cost == pytest.approx(-0.0001)
+
 
 def test_cost_model_facade():
     """Test the facade properly aggregates fees, slippage, and funding."""
@@ -108,7 +114,7 @@ def test_cost_model_facade():
         exit_type=ExecutionType.TAKER,
         entry_time=1000,
         exit_time=28801000,
-        funding_provider=provider
+        funding_provider=provider,
     )
 
     # Fees: Maker (0.0002) + Taker (0.0005) = 0.0007
@@ -116,6 +122,7 @@ def test_cost_model_facade():
     # Funding: 1 boundary (0.0001) for Long = 0.0001
 
     import pytest
+
     assert costs.fees_pct == pytest.approx(0.0007)
     assert costs.slippage_pct == pytest.approx(0.0005)
     assert costs.funding_pct == pytest.approx(0.0001)

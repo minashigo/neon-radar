@@ -32,16 +32,20 @@ def base_state():
 
     # We need a primary series for the OI rules to check price
     candles = [
-        OHLCV(open=50000.0, high=50500.0, low=49500.0, close=50100.0, volume=10.0, open_time=now - 5000),
+        OHLCV(
+            open=50000.0,
+            high=50500.0,
+            low=49500.0,
+            close=50100.0,
+            volume=10.0,
+            open_time=now - 5000,
+        ),
         OHLCV(open=50100.0, high=51000.0, low=50000.0, close=51000.0, volume=20.0, open_time=now),
     ]
     primary_series = KlineSeries(symbol=symbol, timeframe=TimeFrame.M5, candles=tuple(candles))
 
-    return MarketState(
-        symbol=symbol,
-        timestamp=now,
-        primary_series=primary_series
-    )
+    return MarketState(symbol=symbol, timestamp=now, primary_series=primary_series)
+
 
 def _tc(i):
     return TimeContext(event_time=i, publish_time=i, ingest_time=i)
@@ -56,13 +60,12 @@ def test_funding_trend_rule(base_state):
             annualized_apr=0.1,
             mark_price=50000.0,
             next_funding_time_utc=0,
-            time_context=_tc(i)
-        ) for i in range(5)
+            time_context=_tc(i),
+        )
+        for i in range(5)
     )
     hmc = HistoricalMarketContext(
-        symbol=symbol,
-        timestamp=1000,
-        funding_history=FundingSeries(symbol=symbol, items=items)
+        symbol=symbol, timestamp=1000, funding_history=FundingSeries(symbol=symbol, items=items)
     )
     state = base_state
     object.__setattr__(state, "historical_context", hmc)
@@ -82,21 +85,20 @@ def test_oi_expansion_rule(base_state):
 
     # OI expands from 100 to 110 (10%)
     items = tuple(
-        OpenInterestContext(
-            oi_coin=100.0 + i * 2.5,
-            oi_usd_notional=5000000.0,
-            time_context=_tc(i)
-        ) for i in range(5)
+        OpenInterestContext(oi_coin=100.0 + i * 2.5, oi_usd_notional=5000000.0, time_context=_tc(i))
+        for i in range(5)
     )
     hmc = HistoricalMarketContext(
         symbol=symbol,
         timestamp=1000,
-        open_interest_history=OpenInterestSeries(symbol=symbol, items=items)
+        open_interest_history=OpenInterestSeries(symbol=symbol, items=items),
     )
     state = base_state
     object.__setattr__(state, "historical_context", hmc)
 
-    rule = OpenInterestExpansionRule(window_size=5, oi_expansion_threshold=0.05, price_move_threshold=0.005)
+    rule = OpenInterestExpansionRule(
+        window_size=5, oi_expansion_threshold=0.05, price_move_threshold=0.005
+    )
     signal = rule.evaluate(state)
 
     assert signal is not None
@@ -109,15 +111,9 @@ def test_oi_expansion_rule(base_state):
 
 def test_ls_crowded_rule(base_state):
     symbol = Symbol("BTCUSDT")
-    items = (
-        LongShortRatioContext(
-            long_pct=0.8, short_pct=0.2, ls_ratio=4.0, time_context=_tc(1)
-        ),
-    )
+    items = (LongShortRatioContext(long_pct=0.8, short_pct=0.2, ls_ratio=4.0, time_context=_tc(1)),)
     hmc = HistoricalMarketContext(
-        symbol=symbol,
-        timestamp=1000,
-        ls_ratio_history=LongShortSeries(symbol=symbol, items=items)
+        symbol=symbol, timestamp=1000, ls_ratio_history=LongShortSeries(symbol=symbol, items=items)
     )
     state = base_state
     object.__setattr__(state, "historical_context", hmc)
@@ -139,13 +135,13 @@ def test_liquidation_cascade_rule(base_state):
             short_liquidations=0.0,
             long_liquidations_usd=6_000_000.0,
             short_liquidations_usd=100_000.0,
-            time_context=_tc(1)
+            time_context=_tc(1),
         ),
     )
     hmc = HistoricalMarketContext(
         symbol=symbol,
         timestamp=1000,
-        liquidations_history=LiquidationSeries(symbol=symbol, items=items)
+        liquidations_history=LiquidationSeries(symbol=symbol, items=items),
     )
     state = base_state
     object.__setattr__(state, "historical_context", hmc)

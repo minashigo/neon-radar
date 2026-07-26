@@ -19,7 +19,7 @@ from neon_radar.infrastructure.providers.binance_dto import (
 
 def normalize_binance_funding(dto: BinancePremiumIndexDTO, ingest_time_ms: int) -> FundingContext:
     """Normalize Binance /premiumIndex into FundingContext.
-    
+
     Binance funding is calculated and applied every 8 hours.
     So funding_8h_equiv is equal to raw_funding.
     """
@@ -40,9 +40,11 @@ def normalize_binance_funding(dto: BinancePremiumIndexDTO, ingest_time_ms: int) 
     )
 
 
-def normalize_binance_open_interest(dto: BinanceOpenInterestDTO, mark_price: float, ingest_time_ms: int) -> OpenInterestContext:
+def normalize_binance_open_interest(
+    dto: BinanceOpenInterestDTO, mark_price: float, ingest_time_ms: int
+) -> OpenInterestContext:
     """Normalize Binance /openInterest into OpenInterestContext.
-    
+
     Binance provides OI in base asset (coin). We derive USD notional using mark_price.
     """
     oi_coin = float(dto.openInterest)
@@ -57,7 +59,9 @@ def normalize_binance_open_interest(dto: BinanceOpenInterestDTO, mark_price: flo
     )
 
 
-def normalize_binance_long_short_ratio(dto: BinanceLongShortRatioDTO, ingest_time_ms: int) -> LongShortRatioContext:
+def normalize_binance_long_short_ratio(
+    dto: BinanceLongShortRatioDTO, ingest_time_ms: int
+) -> LongShortRatioContext:
     return LongShortRatioContext(
         long_pct=float(dto.longAccount),
         short_pct=float(dto.shortAccount),
@@ -70,7 +74,9 @@ def normalize_binance_long_short_ratio(dto: BinanceLongShortRatioDTO, ingest_tim
     )
 
 
-def normalize_binance_taker_volume(dto: BinanceTakerVolumeDTO, ingest_time_ms: int) -> TakerFlowContext:
+def normalize_binance_taker_volume(
+    dto: BinanceTakerVolumeDTO, ingest_time_ms: int
+) -> TakerFlowContext:
     buy_vol = float(dto.buyVol)
     sell_vol = float(dto.sellVol)
     return TakerFlowContext(
@@ -85,7 +91,9 @@ def normalize_binance_taker_volume(dto: BinanceTakerVolumeDTO, ingest_time_ms: i
     )
 
 
-def normalize_binance_funding_history(dto: BinanceFundingRateHistoryDTO, ingest_time_ms: int) -> FundingContext:
+def normalize_binance_funding_history(
+    dto: BinanceFundingRateHistoryDTO, ingest_time_ms: int
+) -> FundingContext:
     raw_rate = float(dto.fundingRate)
     mark_price = float(dto.markPrice) if dto.markPrice else 0.0
 
@@ -103,7 +111,9 @@ def normalize_binance_funding_history(dto: BinanceFundingRateHistoryDTO, ingest_
     )
 
 
-def normalize_binance_open_interest_history(dto: BinanceOpenInterestHistoryDTO, ingest_time_ms: int) -> OpenInterestContext:
+def normalize_binance_open_interest_history(
+    dto: BinanceOpenInterestHistoryDTO, ingest_time_ms: int
+) -> OpenInterestContext:
     oi_coin = float(dto.sumOpenInterest)
     oi_usd = float(dto.sumOpenInterestValue)
     return OpenInterestContext(

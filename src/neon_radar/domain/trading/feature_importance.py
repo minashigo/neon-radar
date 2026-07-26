@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 @dataclass(slots=True, frozen=True)
 class FeatureImportanceMetrics:
     """Metrics representing the contribution of a single feature (rule).
-    
+
     Deltas are calculated such that a POSITIVE value indicates the rule is helpful
     (i.e., removing the rule made the metric worse).
     """

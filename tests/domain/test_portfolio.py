@@ -32,7 +32,7 @@ def test_open_position_calculations():
         position_size=5000.0,
         stop_loss=45000.0,
         take_profit=55000.0,
-        opened_at=1000
+        opened_at=1000,
     )
     assert pos.max_risk == 500.0  # (50000 - 45000) * 0.1
 
@@ -47,7 +47,7 @@ def test_portfolio_state_calculations():
         position_size=5000.0,
         stop_loss=45000.0,
         take_profit=55000.0,
-        opened_at=1000
+        opened_at=1000,
     )
     pos2 = OpenPosition(
         symbol=Symbol("ETHUSDT"),
@@ -57,7 +57,7 @@ def test_portfolio_state_calculations():
         position_size=3000.0,
         stop_loss=3200.0,
         take_profit=2500.0,
-        opened_at=1000
+        opened_at=1000,
     )
 
     portfolio = PortfolioState(account=account, positions=(pos1, pos2))

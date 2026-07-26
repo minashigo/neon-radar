@@ -39,11 +39,9 @@ class TradeCosts:
 class FeeModel(Protocol):
     """Calculates entry and exit fees."""
 
-    def calculate_entry_fee_pct(self, order_type: ExecutionType) -> float:
-        ...
+    def calculate_entry_fee_pct(self, order_type: ExecutionType) -> float: ...
 
-    def calculate_exit_fee_pct(self, order_type: ExecutionType) -> float:
-        ...
+    def calculate_exit_fee_pct(self, order_type: ExecutionType) -> float: ...
 
 
 class BinanceFuturesFeeModel:
@@ -63,8 +61,9 @@ class BinanceFuturesFeeModel:
 class SlippageModel(Protocol):
     """Calculates slippage costs."""
 
-    def calculate_slippage_pct(self, symbol: Symbol, order_type: ExecutionType, trade_direction: Bias) -> float:
-        ...
+    def calculate_slippage_pct(
+        self, symbol: Symbol, order_type: ExecutionType, trade_direction: Bias
+    ) -> float: ...
 
 
 class FixedSlippageModel:
@@ -73,7 +72,9 @@ class FixedSlippageModel:
     def __init__(self, slippage_pct: float = 0.0005) -> None:
         self.slippage_pct = slippage_pct
 
-    def calculate_slippage_pct(self, symbol: Symbol, order_type: ExecutionType, trade_direction: Bias) -> float:
+    def calculate_slippage_pct(
+        self, symbol: Symbol, order_type: ExecutionType, trade_direction: Bias
+    ) -> float:
         """Slippage only applies to TAKER orders usually."""
         if order_type == ExecutionType.TAKER:
             return self.slippage_pct
@@ -90,8 +91,7 @@ class FundingModel(Protocol):
         entry_time: int,
         exit_time: int,
         provider: HistoricalFundingProvider,
-    ) -> float:
-        ...
+    ) -> float: ...
 
 
 class BinanceFundingModel:
@@ -112,6 +112,7 @@ class BinanceFundingModel:
         """
         # Start at the next 8-hour boundary after entry
         import math
+
         EIGHT_HOURS_MS = 8 * 60 * 60 * 1000
         next_boundary = math.ceil(entry_time / EIGHT_HOURS_MS) * EIGHT_HOURS_MS
 
@@ -130,8 +131,8 @@ class BinanceFundingModel:
 
 
 class CostModel:
-    """Unified service for calculating all trade costs. 
-    
+    """Unified service for calculating all trade costs.
+
     Acts as a facade so the Backtester does not have to deal with individual models.
     """
 
@@ -155,10 +156,13 @@ class CostModel:
         exit_time: int,
         funding_provider: HistoricalFundingProvider | None = None,
     ) -> TradeCosts:
-        fees = self.fee_model.calculate_entry_fee_pct(entry_type) + self.fee_model.calculate_exit_fee_pct(exit_type)
+        fees = self.fee_model.calculate_entry_fee_pct(
+            entry_type
+        ) + self.fee_model.calculate_exit_fee_pct(exit_type)
 
-        slippage = self.slippage_model.calculate_slippage_pct(symbol, entry_type, direction) + \
-                   self.slippage_model.calculate_slippage_pct(symbol, exit_type, direction)
+        slippage = self.slippage_model.calculate_slippage_pct(
+            symbol, entry_type, direction
+        ) + self.slippage_model.calculate_slippage_pct(symbol, exit_type, direction)
 
         funding = 0.0
         if funding_provider is not None:

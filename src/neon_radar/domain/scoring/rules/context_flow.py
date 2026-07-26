@@ -80,8 +80,8 @@ class LongShortCrowdedRule(FactorRule):
             description=f"Extreme L/S Ratio: {ratio:.2f} (crowd is {'long' if direction < 0 else 'short'})",
             evidence=(
                 EvidenceItem("ls_ratio", f"{ratio:.2f}"),
-                EvidenceItem("long_pct", f"{latest.long_pct*100:.1f}%"),
-                EvidenceItem("short_pct", f"{latest.short_pct*100:.1f}%"),
+                EvidenceItem("long_pct", f"{latest.long_pct * 100:.1f}%"),
+                EvidenceItem("short_pct", f"{latest.short_pct * 100:.1f}%"),
             ),
         )
 
@@ -96,8 +96,8 @@ class TakerFlowImbalanceRule(FactorRule):
         name: str | None = None,
         weight: float = 0.20,
         description: str | None = None,
-        window_size: int = 12, # 1 hour at 5m resolution
-        imbalance_threshold: float = 0.15, # Net volume is 15% of total volume
+        window_size: int = 12,  # 1 hour at 5m resolution
+        imbalance_threshold: float = 0.15,  # Net volume is 15% of total volume
     ) -> None:
         super().__init__(name=name, weight=weight, description=description)
         self.window_size = window_size
@@ -149,9 +149,9 @@ class TakerFlowImbalanceRule(FactorRule):
             value=direction * magnitude,
             confidence=magnitude,
             category=SignalCategory.MICROSTRUCTURE,
-            description=f"Taker flow imbalance: {imbalance*100:+.1f}% over {len(series)} periods",
+            description=f"Taker flow imbalance: {imbalance * 100:+.1f}% over {len(series)} periods",
             evidence=(
-                EvidenceItem("imbalance_pct", f"{imbalance*100:.1f}%"),
+                EvidenceItem("imbalance_pct", f"{imbalance * 100:.1f}%"),
                 EvidenceItem("net_buy_vol", f"{net_buy:.2f}"),
                 EvidenceItem("total_vol", f"{total_vol:.2f}"),
             ),
@@ -168,8 +168,8 @@ class LiquidationCascadeRule(FactorRule):
         name: str | None = None,
         weight: float = 0.25,
         description: str | None = None,
-        window_size: int = 3, # Recent 15 mins at 5m resolution
-        cascade_threshold_usd: float = 5_000_000.0, # $5m threshold
+        window_size: int = 3,  # Recent 15 mins at 5m resolution
+        cascade_threshold_usd: float = 5_000_000.0,  # $5m threshold
     ) -> None:
         super().__init__(name=name, weight=weight, description=description)
         self.window_size = window_size
@@ -230,7 +230,7 @@ class LiquidationCascadeRule(FactorRule):
             value=direction * magnitude,
             confidence=confidence,
             category=SignalCategory.MICROSTRUCTURE,
-            description=f"Massive {side} liquidation cascade (${liq_val/1e6:.1f}M)",
+            description=f"Massive {side} liquidation cascade (${liq_val / 1e6:.1f}M)",
             evidence=(
                 EvidenceItem("long_liq_usd", f"${total_long_liq:,.0f}"),
                 EvidenceItem("short_liq_usd", f"${total_short_liq:,.0f}"),

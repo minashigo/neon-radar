@@ -1,4 +1,3 @@
-
 from neon_radar.application.services.market_context.normalizers import (
     normalize_binance_funding,
     normalize_binance_long_short_ratio,
@@ -22,7 +21,7 @@ def test_normalize_binance_funding():
         lastFundingRate="0.0001",
         nextFundingTime=123456789,
         interestRate="0.0001",
-        time=123456000
+        time=123456000,
     )
 
     ingest_time = 123456100
@@ -40,11 +39,7 @@ def test_normalize_binance_funding():
 
 
 def test_normalize_binance_open_interest():
-    dto = BinanceOpenInterestDTO(
-        symbol="BTCUSDT",
-        openInterest="100.5",
-        time=123456000
-    )
+    dto = BinanceOpenInterestDTO(symbol="BTCUSDT", openInterest="100.5", time=123456000)
 
     mark_price = 50000.0
     context = normalize_binance_open_interest(dto, mark_price, 123456100)
@@ -56,10 +51,7 @@ def test_normalize_binance_open_interest():
 
 def test_normalize_long_short_ratio():
     dto = BinanceLongShortRatioDTO(
-        longShortRatio="1.5",
-        longAccount="0.60",
-        shortAccount="0.40",
-        timestamp=123456000
+        longShortRatio="1.5", longAccount="0.60", shortAccount="0.40", timestamp=123456000
     )
 
     context = normalize_binance_long_short_ratio(dto, 123456100)
@@ -70,10 +62,7 @@ def test_normalize_long_short_ratio():
 
 def test_normalize_taker_volume():
     dto = BinanceTakerVolumeDTO(
-        buySellRatio="1.2",
-        buyVol="120.0",
-        sellVol="100.0",
-        timestamp=123456000
+        buySellRatio="1.2", buyVol="120.0", sellVol="100.0", timestamp=123456000
     )
 
     context = normalize_binance_taker_volume(dto, 123456100)
@@ -98,10 +87,8 @@ def test_point_in_time_barrier():
             oi_coin=float(i),
             oi_usd_notional=float(i * 10),
             time_context=TimeContext(
-                event_time=i * 1000,
-                publish_time=i * 1000,
-                ingest_time=i * 1000 + 100
-            )
+                event_time=i * 1000, publish_time=i * 1000, ingest_time=i * 1000 + 100
+            ),
         )
         items.append(ctx)
 
@@ -109,9 +96,7 @@ def test_point_in_time_barrier():
 
     # Our evaluation timestamp is exactly 3000
     hmc = HistoricalMarketContext(
-        symbol=Symbol("BTCUSDT"),
-        timestamp=3000,
-        open_interest_history=series
+        symbol=Symbol("BTCUSDT"), timestamp=3000, open_interest_history=series
     )
 
     # The HMC should automatically slice the series to only include items with publish_time <= 3000

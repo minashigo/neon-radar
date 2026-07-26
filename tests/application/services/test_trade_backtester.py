@@ -95,7 +95,7 @@ async def test_trade_backtester_with_mocked_analysis(
                 quote_size=106.0,
                 risk_amount=6.0,
                 expected_reward=4.0,
-                diagnostics=None
+                diagnostics=None,
             )
         return None
 

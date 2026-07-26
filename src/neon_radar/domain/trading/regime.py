@@ -26,10 +26,7 @@ class MarketRegime(str, Enum):
 class RegimeFilterConfig(BaseModel):
     """Configuration for rule-based regime classification."""
 
-    enabled: bool = Field(
-        default=True,
-        description="Whether to evaluate the regime filter at all."
-    )
+    enabled: bool = Field(default=True, description="Whether to evaluate the regime filter at all.")
 
     adx_period: int = Field(default=14)
     adx_chop_threshold: float = Field(

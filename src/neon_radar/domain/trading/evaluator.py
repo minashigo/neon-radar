@@ -33,10 +33,10 @@ class TradeEvaluation:
 
     outcome: str  # 'TP', 'SL', or 'Manual'
     profit_pct: float  # Percentage profit based on entry price
-    profit_r: float    # Profit in units of initial risk (R)
+    profit_r: float  # Profit in units of initial risk (R)
 
-    mfe_pct: float     # Maximum Favorable Excursion (%)
-    mae_pct: float     # Maximum Adverse Excursion (%)
+    mfe_pct: float  # Maximum Favorable Excursion (%)
+    mae_pct: float  # Maximum Adverse Excursion (%)
 
     score: float
     confidence: float
@@ -52,6 +52,7 @@ class TradeEvaluation:
     def to_csv_row(self) -> list[str]:
         """Convert to a row for paper_trades.csv."""
         from datetime import UTC, datetime
+
         entry_dt = datetime.fromtimestamp(self.entry_time / 1000, tz=UTC).isoformat()
         exit_dt = datetime.fromtimestamp(self.exit_time / 1000, tz=UTC).isoformat()
 
@@ -74,16 +75,31 @@ class TradeEvaluation:
             self.factors_json,
             self.analysis_snapshot_json,
             f"{self.net_pnl:.4f}",
-            f"{self.new_balance:.4f}"
+            f"{self.new_balance:.4f}",
         ]
 
     @staticmethod
     def csv_header() -> list[str]:
         return [
-            "Symbol", "Direction", "EntryTime", "ExitTime", "DurationMin",
-            "EntryPrice", "ExitPrice", "Outcome", "ProfitPct", "ProfitR",
-            "MFE_Pct", "MAE_Pct", "Score", "Confidence", "Regime",
-            "FactorContributions", "AnalysisSnapshot", "NetPnL", "NewBalance"
+            "Symbol",
+            "Direction",
+            "EntryTime",
+            "ExitTime",
+            "DurationMin",
+            "EntryPrice",
+            "ExitPrice",
+            "Outcome",
+            "ProfitPct",
+            "ProfitR",
+            "MFE_Pct",
+            "MAE_Pct",
+            "Score",
+            "Confidence",
+            "Regime",
+            "FactorContributions",
+            "AnalysisSnapshot",
+            "NetPnL",
+            "NewBalance",
         ]
 
 
@@ -112,14 +128,21 @@ class PaperTradingSummary:
             f"{self.expectancy_r:.2f}",
             f"{self.average_r:.2f}",
             f"{self.average_hold_time_minutes:.2f}",
-            f"{self.max_drawdown_pct:.2%}"
+            f"{self.max_drawdown_pct:.2%}",
         ]
 
     @staticmethod
     def csv_header() -> list[str]:
         return [
-            "TotalTrades", "WinningTrades", "LosingTrades", "WinRate",
-            "ProfitFactor", "ExpectancyR", "AverageR", "AvgHoldTimeMin", "MaxDrawdownPct"
+            "TotalTrades",
+            "WinningTrades",
+            "LosingTrades",
+            "WinRate",
+            "ProfitFactor",
+            "ExpectancyR",
+            "AverageR",
+            "AvgHoldTimeMin",
+            "MaxDrawdownPct",
         ]
 
 
@@ -138,7 +161,7 @@ class TradeOutcomeEvaluator:
         exit_reason: str,
         exit_time: int,
         net_pnl: float,
-        new_balance: float
+        new_balance: float,
     ) -> TradeEvaluation:
         """Evaluates a closed VirtualPosition."""
 
@@ -212,7 +235,7 @@ class TradeOutcomeEvaluator:
             factors_json=factors_json,
             analysis_snapshot_json=analysis_snap,
             net_pnl=net_pnl,
-            new_balance=new_balance
+            new_balance=new_balance,
         )
 
         self.evaluations.append(evaluation)
@@ -234,7 +257,11 @@ class TradeOutcomeEvaluator:
         gross_profit_r = sum(e.profit_r for e in wins)
         gross_loss_r = abs(sum(e.profit_r for e in losses))
 
-        pf = gross_profit_r / gross_loss_r if gross_loss_r > 0 else (99.0 if gross_profit_r > 0 else 0.0)
+        pf = (
+            gross_profit_r / gross_loss_r
+            if gross_loss_r > 0
+            else (99.0 if gross_profit_r > 0 else 0.0)
+        )
 
         avg_r = sum(e.profit_r for e in self.evaluations) / total
 
@@ -247,7 +274,9 @@ class TradeOutcomeEvaluator:
 
         # Calculate Max Drawdown (Balance based)
         max_dd_pct = 0.0
-        peak = self.evaluations[0].new_balance - self.evaluations[0].net_pnl # starting balance roughly
+        peak = (
+            self.evaluations[0].new_balance - self.evaluations[0].net_pnl
+        )  # starting balance roughly
 
         for e in self.evaluations:
             if e.new_balance > peak:
@@ -265,5 +294,5 @@ class TradeOutcomeEvaluator:
             expectancy_r=expectancy,
             average_r=avg_r,
             average_hold_time_minutes=avg_hold,
-            max_drawdown_pct=max_dd_pct
+            max_drawdown_pct=max_dd_pct,
         )

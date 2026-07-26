@@ -31,10 +31,12 @@ class TestAnalyzeSeries:
         )
 
         assert result.market_state is not None
-        assert {i.name for i in result.market_state.indicator_series}.issuperset({
-            "ema_12",
-            "ema_26",
-        })
+        assert {i.name for i in result.market_state.indicator_series}.issuperset(
+            {
+                "ema_12",
+                "ema_26",
+            }
+        )
         assert result.signal_count == 1
         assert result.signals[0].name == "ema_trend"
         assert result.score.value > 0
@@ -53,8 +55,6 @@ class TestAnalyzeSeries:
         assert result.signal_count == 1
         assert result.signals[0].name == "funding_rate"
         assert result.score.value == pytest.approx(result.signals[0].value)
-
-
 
     def test_higher_tf_indicators(self) -> None:
         from neon_radar.application.services.indicator_pipeline import IndicatorSpec

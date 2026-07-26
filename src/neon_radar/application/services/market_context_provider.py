@@ -61,7 +61,9 @@ class OpenInterestProvider(MarketContextProvider):
 
 class LongShortProvider(MarketContextProvider):
     @abc.abstractmethod
-    async def get_long_short_ratio(self, symbol: Symbol, timestamp: int) -> LongShortRatioContext | None:
+    async def get_long_short_ratio(
+        self, symbol: Symbol, timestamp: int
+    ) -> LongShortRatioContext | None:
         """Fetch long/short ratio context available at the given timestamp."""
         pass
 

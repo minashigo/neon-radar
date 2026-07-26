@@ -70,9 +70,9 @@ class FundingTrendRule(FactorRule):
             value=direction * magnitude,
             confidence=magnitude,
             category=SignalCategory.MICROSTRUCTURE,
-            description=f"Funding rate shifted by {delta*10000:+.2f} bps over {len(series)} periods",
+            description=f"Funding rate shifted by {delta * 10000:+.2f} bps over {len(series)} periods",
             evidence=(
-                EvidenceItem("delta_bps", f"{delta*10000:.2f}"),
+                EvidenceItem("delta_bps", f"{delta * 10000:.2f}"),
                 EvidenceItem("first_val", f"{first_val:.6f}"),
                 EvidenceItem("last_val", f"{last_val:.6f}"),
             ),
@@ -130,9 +130,9 @@ class FundingExtremeRule(FactorRule):
             value=direction * magnitude,
             confidence=min(1.0, magnitude * 1.2),
             category=SignalCategory.MICROSTRUCTURE,
-            description=f"Extreme funding rate ({rate*10000:+.2f} bps)",
+            description=f"Extreme funding rate ({rate * 10000:+.2f} bps)",
             evidence=(
                 EvidenceItem("funding_8h", f"{rate:.6f}"),
-                EvidenceItem("annualized_apr", f"{latest.annualized_apr*100:.1f}%"),
+                EvidenceItem("annualized_apr", f"{latest.annualized_apr * 100:.1f}%"),
             ),
         )

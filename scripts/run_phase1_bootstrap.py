@@ -24,10 +24,12 @@ TIMEFRAMES = ["1d", "4h"]
 SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "ADAUSDT"]
 MIN_HISTORY = 100
 
+
 async def main():
     print("Loading config...")
     cfg = load_config()
     from neon_radar.config.loader import _strip_meta
+
     scoring_raw = json.loads(Path("scoring_rules.json").read_text(encoding="utf-8"))
     scoring_cfg = ScoringRulesConfig.model_validate(_strip_meta(scoring_raw))
     rules = tuple(load_rules(Path("scoring_rules.json")))
@@ -39,14 +41,11 @@ async def main():
     summary = {}
 
     async with BinanceClient(cfg.api) as client:
-        backtester = TradeBacktester(
-            exchange=client,
-            scoring_config=scoring_cfg,
-            rules=rules
-        )
+        backtester = TradeBacktester(exchange=client, scoring_config=scoring_cfg, rules=rules)
 
         for name, (start_str, end_str) in PERIODS.items():
             from datetime import date
+
             start = date.fromisoformat(start_str)
             end = date.fromisoformat(end_str)
             summary[name] = {}
@@ -84,18 +83,16 @@ async def main():
                             "mean": dist.mean,
                             "median": dist.median,
                             "ci_lower_95": dist.ci_lower_95,
-                            "ci_upper_95": dist.ci_upper_95
+                            "ci_upper_95": dist.ci_upper_95,
                         }
 
-                summary[name][tf] = {
-                    "backtest_report": b_dict,
-                    "boot_report": boot_dict
-                }
+                summary[name][tf] = {"backtest_report": b_dict, "boot_report": boot_dict}
 
                 with open("results/phase1_bootstrap_raw.json", "w", encoding="utf-8") as f:
                     json.dump(summary, f, indent=2)
 
     print("Bootstrap analysis completed. Results saved to results/phase1_bootstrap_raw.json")
+
 
 if __name__ == "__main__":
     asyncio.run(main())

@@ -21,18 +21,22 @@ from neon_radar.domain.enums import Bias
 
 class SignalCategory(str, Enum):
     """Categorizes the source of a signal for Confluence detection."""
+
     TECHNICAL = "technical"
     MICROSTRUCTURE = "microstructure"
     ONCHAIN = "onchain"
     MACRO = "macro"
     SENTIMENT = "sentiment"
 
+
 class ConfluenceState(str, Enum):
     """Describes the alignment between different signal categories."""
+
     CONFIRMED = "confirmed"
     CONFLICTING = "conflicting"
     NEUTRAL = "neutral"
     UNALIGNED = "unaligned"
+
 
 if TYPE_CHECKING:
     from neon_radar.domain.market_state import MarketState

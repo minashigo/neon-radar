@@ -78,9 +78,5 @@ class ADXIndicator(Indicator):
             if np.isnan(adx[i]):
                 out.append(IndicatorSnapshot(ts, ()))
             else:
-                out.append(
-                    IndicatorSnapshot(
-                        ts, (IndicatorValue("adx", float(adx[i])),)
-                    )
-                )
+                out.append(IndicatorSnapshot(ts, (IndicatorValue("adx", float(adx[i])),)))
         return IndicatorSeries(name=out_name, kind=self.KIND, snapshots=tuple(out))

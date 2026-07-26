@@ -17,17 +17,27 @@ TIMEFRAMES = ["1d", "4h"]
 SYMBOLS = "BTCUSDT,ETHUSDT,SOLUSDT,BNBUSDT,XRPUSDT,ADAUSDT"
 MIN_HISTORY = 100
 
+
 def run_backtest(name, start, end, tf):
     print(f"Running {name} on {tf}...", flush=True)
     cmd = [
-        ".venv/Scripts/python.exe", "-m", "neon_radar.presentation.cli", "backtest",
-        "--start", start,
-        "--end", end,
-        "--timeframe", tf,
-        "--symbols", SYMBOLS,
-        "--min-history", str(MIN_HISTORY),
+        ".venv/Scripts/python.exe",
+        "-m",
+        "neon_radar.presentation.cli",
+        "backtest",
+        "--start",
+        start,
+        "--end",
+        end,
+        "--timeframe",
+        tf,
+        "--symbols",
+        SYMBOLS,
+        "--min-history",
+        str(MIN_HISTORY),
         "--feature-analysis",
-        "--output", "json"
+        "--output",
+        "json",
     ]
 
     result = subprocess.run(cmd, capture_output=True, text=True)
@@ -39,7 +49,7 @@ def run_backtest(name, start, end, tf):
         # Standard output might contain logging lines before the JSON output
         # So we search for the first '{'
         out = result.stdout
-        start_idx = out.find('{')
+        start_idx = out.find("{")
         if start_idx == -1:
             print(f"No JSON found in output for {name} on {tf}:\n{out}")
             return None
@@ -48,6 +58,7 @@ def run_backtest(name, start, end, tf):
     except Exception as e:
         print(f"Failed to parse JSON for {name} on {tf}: {e}")
         return None
+
 
 def main():
     results = {}
@@ -65,6 +76,7 @@ def main():
         json.dump(results, f, indent=2)
 
     print("All backtests completed. Results saved to results/phase1_raw.json")
+
 
 if __name__ == "__main__":
     main()

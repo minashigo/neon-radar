@@ -44,7 +44,9 @@ class RuleBasedRegimeClassifier:
     def classify(self, state: MarketState) -> RegimeClassification:
         """Evaluate the current market state and classify the regime."""
         if not self._config.enabled:
-            return RegimeClassification(regime=MarketRegime.UNKNOWN, reason="Regime filter disabled")
+            return RegimeClassification(
+                regime=MarketRegime.UNKNOWN, reason="Regime filter disabled"
+            )
 
         # 1. Volatility Crash Check (Priority 1)
         atr_val = state.get_indicator_value(f"atr_{self._config.atr_period}")
@@ -55,7 +57,7 @@ class RuleBasedRegimeClassifier:
             if atr_pct > self._config.atr_crash_threshold_pct:
                 return RegimeClassification(
                     regime=MarketRegime.VOLATILE_CRASH,
-                    reason=f"ATR pct {atr_pct*100:.2f}% > {self._config.atr_crash_threshold_pct*100:.2f}%"
+                    reason=f"ATR pct {atr_pct * 100:.2f}% > {self._config.atr_crash_threshold_pct * 100:.2f}%",
                 )
 
         # 2. ADX Chop Check (Priority 2)
@@ -64,7 +66,7 @@ class RuleBasedRegimeClassifier:
             if adx_val < self._config.adx_chop_threshold:
                 return RegimeClassification(
                     regime=MarketRegime.CHOP,
-                    reason=f"ADX {adx_val:.2f} < {self._config.adx_chop_threshold:.2f}"
+                    reason=f"ADX {adx_val:.2f} < {self._config.adx_chop_threshold:.2f}",
                 )
 
         # 3. EMA Trend Check (Priority 3)
@@ -73,24 +75,19 @@ class RuleBasedRegimeClassifier:
 
         if ema_fast is not None and ema_slow is not None:
             if ema_fast > ema_slow:
-                reason = f"EMA({self._config.ema_fast_period}) > EMA({self._config.ema_slow_period})"
+                reason = (
+                    f"EMA({self._config.ema_fast_period}) > EMA({self._config.ema_slow_period})"
+                )
                 if adx_val is not None:
                     reason += f" and ADX {adx_val:.2f} >= {self._config.adx_chop_threshold:.2f}"
-                return RegimeClassification(
-                    regime=MarketRegime.BULL_TREND,
-                    reason=reason
-                )
+                return RegimeClassification(regime=MarketRegime.BULL_TREND, reason=reason)
             else:
-                reason = f"EMA({self._config.ema_fast_period}) < EMA({self._config.ema_slow_period})"
+                reason = (
+                    f"EMA({self._config.ema_fast_period}) < EMA({self._config.ema_slow_period})"
+                )
                 if adx_val is not None:
                     reason += f" and ADX {adx_val:.2f} >= {self._config.adx_chop_threshold:.2f}"
-                return RegimeClassification(
-                    regime=MarketRegime.BEAR_TREND,
-                    reason=reason
-                )
+                return RegimeClassification(regime=MarketRegime.BEAR_TREND, reason=reason)
 
         # Fallback
-        return RegimeClassification(
-            regime=MarketRegime.UNKNOWN,
-            reason="Missing indicator data"
-        )
+        return RegimeClassification(regime=MarketRegime.UNKNOWN, reason="Missing indicator data")

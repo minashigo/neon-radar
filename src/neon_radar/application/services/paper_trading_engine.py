@@ -3,6 +3,7 @@
 Evaluates new kline data against the scoring engine to open virtual trades,
 and monitors active virtual trades for exit conditions (SL/TP).
 """
+
 from __future__ import annotations
 
 import csv
@@ -27,6 +28,7 @@ paper_logger.setLevel(logging.INFO)
 # Don't propagate to root logger if we want it isolated, but root is fine for now
 # We will attach a FileHandler in the CLI
 
+
 class PaperTradingEngine:
     """Core logic for executing paper trades against incoming live data."""
 
@@ -44,6 +46,7 @@ class PaperTradingEngine:
 
         # New Evaluator
         from neon_radar.domain.trading.evaluator import TradeOutcomeEvaluator
+
         self.evaluator = TradeOutcomeEvaluator()
 
         # Build rules and setup engine
@@ -82,9 +85,18 @@ class PaperTradingEngine:
         if not equity_csv.exists():
             with open(equity_csv, "w", newline="", encoding="utf-8") as f:
                 writer = csv.writer(f)
-                writer.writerow(["TradeIndex", "Balance", "Equity", "DrawdownPct", "Profit", "ProfitR"])
+                writer.writerow(
+                    ["TradeIndex", "Balance", "Equity", "DrawdownPct", "Profit", "ProfitR"]
+                )
 
-    def _log_trade_to_csv(self, position: VirtualPosition, exit_price: float, reason: str, exit_time: int, net_pnl: float) -> None:
+    def _log_trade_to_csv(
+        self,
+        position: VirtualPosition,
+        exit_price: float,
+        reason: str,
+        exit_time: int,
+        net_pnl: float,
+    ) -> None:
         if not self.trades_csv_path:
             return
 
@@ -96,7 +108,7 @@ class PaperTradingEngine:
             exit_reason=reason,
             exit_time=exit_time,
             net_pnl=net_pnl,
-            new_balance=self.portfolio.balance
+            new_balance=self.portfolio.balance,
         )
 
         with open(self.trades_csv_path, "a", newline="", encoding="utf-8") as f:
@@ -106,14 +118,16 @@ class PaperTradingEngine:
         equity_csv = self.trades_csv_path.parent / "equity_curve.csv"
         with open(equity_csv, "a", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
-            writer.writerow([
-                evaluation.trade_index,
-                f"{self.portfolio.balance:.4f}",
-                f"{self.portfolio.balance:.4f}", # For now equity is just balance after trade
-                f"{self.evaluator.generate_summary().max_drawdown_pct:.4%}",
-                f"{net_pnl:.4f}",
-                f"{evaluation.profit_r:.2f}"
-            ])
+            writer.writerow(
+                [
+                    evaluation.trade_index,
+                    f"{self.portfolio.balance:.4f}",
+                    f"{self.portfolio.balance:.4f}",  # For now equity is just balance after trade
+                    f"{self.evaluator.generate_summary().max_drawdown_pct:.4%}",
+                    f"{net_pnl:.4f}",
+                    f"{evaluation.profit_r:.2f}",
+                ]
+            )
 
     def generate_summary_report(self) -> None:
         if not self.trades_csv_path:
@@ -130,17 +144,20 @@ class PaperTradingEngine:
 
     def process_kline(self, symbol: Symbol, series: KlineSeries) -> None:
         """Process the latest market data for a symbol.
-        
+
         1. Checks if an active position hits SL/TP against the current incomplete candle.
         2. If no position, evaluates the *closed* series for a new setup.
         """
         if series.is_empty or len(series.candles) < 2:
             return
 
-        latest_kline = series.candles[-1] # This is the current, incomplete candle
+        latest_kline = series.candles[-1]  # This is the current, incomplete candle
 
         from neon_radar.domain.models import KlineSeries
-        closed_series = KlineSeries(symbol=series.symbol, timeframe=series.timeframe, candles=series.candles[:-1])
+
+        closed_series = KlineSeries(
+            symbol=series.symbol, timeframe=series.timeframe, candles=series.candles[:-1]
+        )
 
         sym_str = str(symbol)
 
@@ -153,14 +170,18 @@ class PaperTradingEngine:
                 # Close position
                 exit_price = position.stop_loss if exit_reason == "SL" else position.take_profit
 
-                net_pnl = self.portfolio.close_position(sym_str, exit_price, exit_reason, latest_kline.open_time)
+                net_pnl = self.portfolio.close_position(
+                    sym_str, exit_price, exit_reason, latest_kline.open_time
+                )
 
                 msg = f"CLOSED {position.direction.value} {sym_str} | Reason: {exit_reason} | PnL: {net_pnl:.2f} | Bal: {self.portfolio.balance:.2f}"
                 paper_logger.info(msg)
 
-                self._log_trade_to_csv(position, exit_price, exit_reason, latest_kline.open_time, net_pnl)
+                self._log_trade_to_csv(
+                    position, exit_price, exit_reason, latest_kline.open_time, net_pnl
+                )
 
-            return # Skip opening a new trade on the same candle we exited
+            return  # Skip opening a new trade on the same candle we exited
 
         # 2. Evaluate for new entry (only if no active position)
         if not self.portfolio.can_open_position(sym_str):
@@ -170,7 +191,7 @@ class PaperTradingEngine:
         last_closed_candle = closed_series.candles[-1]
 
         if last_closed_candle.open_time <= last_eval_time:
-            return # Already evaluated this candle
+            return  # Already evaluated this candle
 
         self._last_eval_time[sym_str] = last_closed_candle.open_time
 
@@ -211,7 +232,7 @@ class PaperTradingEngine:
                     take_profit_1=setup.take_profit_1,
                     take_profit_2=setup.take_profit_2,
                     risk_reward=setup.risk_reward,
-                    diagnostics=setup.diagnostics
+                    diagnostics=setup.diagnostics,
                 )
 
                 # Build snapshot for analysis
@@ -237,12 +258,16 @@ class PaperTradingEngine:
                         "atr": setup.diagnostics.atr if setup.diagnostics else None,
                         "rsi": setup.diagnostics.rsi if setup.diagnostics else None,
                         "adx": setup.diagnostics.adx if setup.diagnostics else None,
-                        "ema_spread": setup.diagnostics.ema_spread_pct if setup.diagnostics else None,
-                        "htf_trend": setup.diagnostics.htf_trend if setup.diagnostics else None
-                    }
+                        "ema_spread": setup.diagnostics.ema_spread_pct
+                        if setup.diagnostics
+                        else None,
+                        "htf_trend": setup.diagnostics.htf_trend if setup.diagnostics else None,
+                    },
                 }
 
-                pos = VirtualPosition.from_setup(symbol, setup, qty, latest_kline.open_time, analysis_snapshot=analysis_snapshot)
+                pos = VirtualPosition.from_setup(
+                    symbol, setup, qty, latest_kline.open_time, analysis_snapshot=analysis_snapshot
+                )
                 self.portfolio.open_position(pos)
 
                 msg = f"OPENED {pos.direction.value} {sym_str} | Entry: {entry_price:.4f} | SL: {setup.stop_loss:.4f} | TP: {setup.take_profit_1:.4f} | Qty: {qty:.6f}"

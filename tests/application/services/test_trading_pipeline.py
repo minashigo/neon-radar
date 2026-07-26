@@ -35,21 +35,25 @@ def dummy_series():
         ),
     )
 
+
 @pytest.fixture
 def mock_analyze_result(dummy_series):
     market_state = MarketState(
         symbol=dummy_series.symbol,
         timestamp=dummy_series.candles[0].open_time,
         primary_series=dummy_series,
-        indicator_series=()
+        indicator_series=(),
     )
     return AnalysisResult(
-        score=Score(value=1.0, confidence=0.8, long_score=1.0, short_score=0.0, contributing_signals=2),
+        score=Score(
+            value=1.0, confidence=0.8, long_score=1.0, short_score=0.0, contributing_signals=2
+        ),
         signals=(),
         summary="Mock",
         computed_at=dummy_series.candles[0].open_time,
-        market_state=market_state
+        market_state=market_state,
     )
+
 
 @pytest.fixture
 def mock_trade_setup():
@@ -72,8 +76,9 @@ def mock_trade_setup():
             entry_reason=TradeEntryReason.CONFIDENCE_THRESHOLD,
             regime="bullish",
             regime_reason="mock",
-        )
+        ),
     )
+
 
 @pytest.fixture
 def pipeline():
@@ -90,8 +95,11 @@ def pipeline():
         sizing_engine=sizing_engine,
     )
 
+
 @patch("neon_radar.application.services.trading_pipeline.analyze_series")
-def test_pipeline_valid_buy(mock_analyze_series, pipeline, dummy_series, mock_analyze_result, mock_trade_setup):
+def test_pipeline_valid_buy(
+    mock_analyze_series, pipeline, dummy_series, mock_analyze_result, mock_trade_setup
+):
     """Test a valid buy signal successfully creates a FinalTradeSetup."""
     mock_analyze_series.return_value = mock_analyze_result
     pipeline.setup_engine.build_setup.return_value = mock_trade_setup
@@ -111,8 +119,11 @@ def test_pipeline_valid_buy(mock_analyze_series, pipeline, dummy_series, mock_an
     assert final_setup.quote_size == 2000.0
     assert final_setup.risk_amount == 200.0
 
+
 @patch("neon_radar.application.services.trading_pipeline.analyze_series")
-def test_pipeline_risk_rejection(mock_analyze_series, pipeline, dummy_series, mock_analyze_result, mock_trade_setup):
+def test_pipeline_risk_rejection(
+    mock_analyze_series, pipeline, dummy_series, mock_analyze_result, mock_trade_setup
+):
     """Test that the RiskManager correctly blocks the trade if max positions are reached."""
     mock_analyze_series.return_value = mock_analyze_result
     pipeline.setup_engine.build_setup.return_value = mock_trade_setup
@@ -126,19 +137,21 @@ def test_pipeline_risk_rejection(mock_analyze_series, pipeline, dummy_series, mo
         position_size=2000.0,
         stop_loss=1900.0,
         take_profit=2200.0,
-        opened_at=1000
+        opened_at=1000,
     )
     portfolio = PortfolioState(
-        account=AccountState(total_capital=10000.0, free_capital=8000.0),
-        positions=(existing_pos,)
+        account=AccountState(total_capital=10000.0, free_capital=8000.0), positions=(existing_pos,)
     )
 
     final_setup = pipeline.evaluate(dummy_series, portfolio=portfolio)
 
     assert final_setup is None
 
+
 @patch("neon_radar.application.services.trading_pipeline.analyze_series")
-def test_pipeline_drawdown_block(mock_analyze_series, pipeline, dummy_series, mock_analyze_result, mock_trade_setup):
+def test_pipeline_drawdown_block(
+    mock_analyze_series, pipeline, dummy_series, mock_analyze_result, mock_trade_setup
+):
     """Test that Drawdown penalty blocks the trade."""
     mock_analyze_series.return_value = mock_analyze_result
     pipeline.setup_engine.build_setup.return_value = mock_trade_setup

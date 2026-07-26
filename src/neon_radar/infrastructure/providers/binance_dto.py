@@ -9,6 +9,7 @@ from typing import Any
 @dataclass(slots=True, frozen=True)
 class BinancePremiumIndexDTO:
     """Matches Binance /fapi/v1/premiumIndex."""
+
     symbol: str
     markPrice: str
     indexPrice: str
@@ -35,6 +36,7 @@ class BinancePremiumIndexDTO:
 @dataclass(slots=True, frozen=True)
 class BinanceOpenInterestDTO:
     """Matches Binance /fapi/v1/openInterest."""
+
     symbol: str
     openInterest: str
     time: int
@@ -51,6 +53,7 @@ class BinanceOpenInterestDTO:
 @dataclass(slots=True, frozen=True)
 class BinanceLongShortRatioDTO:
     """Matches Binance /futures/data/globalLongShortAccountRatio."""
+
     longShortRatio: str
     longAccount: str
     shortAccount: str
@@ -69,6 +72,7 @@ class BinanceLongShortRatioDTO:
 @dataclass(slots=True, frozen=True)
 class BinanceTakerVolumeDTO:
     """Matches Binance /futures/data/takerlongshortRatio."""
+
     buySellRatio: str
     buyVol: str
     sellVol: str
@@ -83,9 +87,11 @@ class BinanceTakerVolumeDTO:
             timestamp=int(data["timestamp"]),
         )
 
+
 @dataclass(slots=True, frozen=True)
 class BinanceFundingRateHistoryDTO:
     """Matches Binance /fapi/v1/fundingRate."""
+
     fundingRate: str
     fundingTime: int
     markPrice: str | None = None
@@ -98,9 +104,11 @@ class BinanceFundingRateHistoryDTO:
             markPrice=data.get("markPrice"),
         )
 
+
 @dataclass(slots=True, frozen=True)
 class BinanceOpenInterestHistoryDTO:
     """Matches Binance /futures/data/openInterestHist."""
+
     sumOpenInterest: str
     sumOpenInterestValue: str
     timestamp: int

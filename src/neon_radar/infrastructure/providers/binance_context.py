@@ -44,7 +44,9 @@ if TYPE_CHECKING:
     from neon_radar.infrastructure.exchanges.binance_transport import BinanceTransport
 
 
-class BinanceContextProviders(FundingProvider, OpenInterestProvider, LongShortProvider, TakerFlowProvider):
+class BinanceContextProviders(
+    FundingProvider, OpenInterestProvider, LongShortProvider, TakerFlowProvider
+):
     """Unified provider class that implements all Binance microstructure context."""
 
     def __init__(self, transport: BinanceTransport, cache: ContextCache) -> None:
@@ -81,7 +83,9 @@ class BinanceContextProviders(FundingProvider, OpenInterestProvider, LongShortPr
 
         try:
             # We need mark price to normalize OI to USD notional
-            premium_data = await self._transport.get("/fapi/v1/premiumIndex", {"symbol": str(symbol)})
+            premium_data = await self._transport.get(
+                "/fapi/v1/premiumIndex", {"symbol": str(symbol)}
+            )
             mark_price = float(premium_data["markPrice"])
 
             oi_data = await self._transport.get("/fapi/v1/openInterest", {"symbol": str(symbol)})
@@ -93,7 +97,9 @@ class BinanceContextProviders(FundingProvider, OpenInterestProvider, LongShortPr
         except Exception:
             return None
 
-    async def get_long_short_ratio(self, symbol: Symbol, timestamp: int) -> LongShortRatioContext | None:
+    async def get_long_short_ratio(
+        self, symbol: Symbol, timestamp: int
+    ) -> LongShortRatioContext | None:
         cache_key = f"ls_ratio_{symbol}"
         cached = self._cache.get(cache_key)
         if cached:
@@ -101,11 +107,10 @@ class BinanceContextProviders(FundingProvider, OpenInterestProvider, LongShortPr
 
         try:
             # Use 5m period as default for global account ratio
-            data = await self._transport.get("/futures/data/globalLongShortAccountRatio", {
-                "symbol": str(symbol),
-                "period": "5m",
-                "limit": 1
-            })
+            data = await self._transport.get(
+                "/futures/data/globalLongShortAccountRatio",
+                {"symbol": str(symbol), "period": "5m", "limit": 1},
+            )
             if not data:
                 return None
 
@@ -125,11 +130,10 @@ class BinanceContextProviders(FundingProvider, OpenInterestProvider, LongShortPr
             return cached
 
         try:
-            data = await self._transport.get("/futures/data/takerlongshortRatio", {
-                "symbol": str(symbol),
-                "period": "5m",
-                "limit": 1
-            })
+            data = await self._transport.get(
+                "/futures/data/takerlongshortRatio",
+                {"symbol": str(symbol), "period": "5m", "limit": 1},
+            )
             if not data:
                 return None
 
@@ -146,6 +150,7 @@ class BinanceContextProviders(FundingProvider, OpenInterestProvider, LongShortPr
         self, symbol: Symbol, start_time: int, end_time: int, limit: int = 500
     ) -> FundingSeries | None:
         from neon_radar.domain.market_context import FundingSeries
+
         cache_key = f"funding_history_{symbol}_{start_time}_{end_time}_{limit}"
         cached = self._cache.get_json(cache_key, FundingSeries.from_dict)
         if cached:
@@ -161,12 +166,15 @@ class BinanceContextProviders(FundingProvider, OpenInterestProvider, LongShortPr
 
             while current_start < end_time:
                 current_end = min(current_start + chunk_size_ms, end_time)
-                data = await self._transport.get("/fapi/v1/fundingRate", {
-                    "symbol": str(symbol),
-                    "startTime": current_start,
-                    "endTime": current_end,
-                    "limit": 1000
-                })
+                data = await self._transport.get(
+                    "/fapi/v1/fundingRate",
+                    {
+                        "symbol": str(symbol),
+                        "startTime": current_start,
+                        "endTime": current_end,
+                        "limit": 1000,
+                    },
+                )
                 if data:
                     for raw in data:
                         dto = BinanceFundingRateHistoryDTO.from_dict(raw)
@@ -175,7 +183,6 @@ class BinanceContextProviders(FundingProvider, OpenInterestProvider, LongShortPr
 
             if not items:
                 return None
-
 
             series = FundingSeries(symbol=symbol, items=tuple(items))
             self._cache.set_json(cache_key, series, ttl_seconds=3600.0)
@@ -187,6 +194,7 @@ class BinanceContextProviders(FundingProvider, OpenInterestProvider, LongShortPr
         self, symbol: Symbol, start_time: int, end_time: int, limit: int = 500
     ) -> OpenInterestSeries | None:
         from neon_radar.domain.market_context import OpenInterestSeries
+
         cache_key = f"oi_history_{symbol}_{start_time}_{end_time}_{limit}"
         cached = self._cache.get_json(cache_key, OpenInterestSeries.from_dict)
         if cached:
@@ -201,23 +209,25 @@ class BinanceContextProviders(FundingProvider, OpenInterestProvider, LongShortPr
 
             while current_start < end_time:
                 current_end = min(current_start + chunk_size_ms, end_time)
-                data = await self._transport.get("/futures/data/openInterestHist", {
-                    "symbol": str(symbol),
-                    "period": "5m",
-                    "startTime": current_start,
-                    "endTime": current_end,
-                    "limit": 500
-                })
+                data = await self._transport.get(
+                    "/futures/data/openInterestHist",
+                    {
+                        "symbol": str(symbol),
+                        "period": "5m",
+                        "startTime": current_start,
+                        "endTime": current_end,
+                        "limit": 500,
+                    },
+                )
                 if data:
                     for raw in data:
                         dto = BinanceOpenInterestHistoryDTO.from_dict(raw)
                         items.append(normalize_binance_open_interest_history(dto, ingest_time))
                 current_start = current_end + 1
-                await asyncio.sleep(0.5) # Prevent rate limit bursts on history fetch
+                await asyncio.sleep(0.5)  # Prevent rate limit bursts on history fetch
 
             if not items:
                 return None
-
 
             series = OpenInterestSeries(symbol=symbol, items=tuple(items))
             self._cache.set_json(cache_key, series, ttl_seconds=3600.0)
@@ -229,6 +239,7 @@ class BinanceContextProviders(FundingProvider, OpenInterestProvider, LongShortPr
         self, symbol: Symbol, start_time: int, end_time: int, limit: int = 500
     ) -> LongShortSeries | None:
         from neon_radar.domain.market_context import LongShortSeries
+
         cache_key = f"ls_history_{symbol}_{start_time}_{end_time}_{limit}"
         cached = self._cache.get_json(cache_key, LongShortSeries.from_dict)
         if cached:
@@ -243,13 +254,16 @@ class BinanceContextProviders(FundingProvider, OpenInterestProvider, LongShortPr
 
             while current_start < end_time:
                 current_end = min(current_start + chunk_size_ms, end_time)
-                data = await self._transport.get("/futures/data/globalLongShortAccountRatio", {
-                    "symbol": str(symbol),
-                    "period": "5m",
-                    "startTime": current_start,
-                    "endTime": current_end,
-                    "limit": 500
-                })
+                data = await self._transport.get(
+                    "/futures/data/globalLongShortAccountRatio",
+                    {
+                        "symbol": str(symbol),
+                        "period": "5m",
+                        "startTime": current_start,
+                        "endTime": current_end,
+                        "limit": 500,
+                    },
+                )
                 if data:
                     for raw in data:
                         dto = BinanceLongShortRatioDTO.from_dict(raw)
@@ -259,7 +273,6 @@ class BinanceContextProviders(FundingProvider, OpenInterestProvider, LongShortPr
 
             if not items:
                 return None
-
 
             series = LongShortSeries(symbol=symbol, items=tuple(items))
             self._cache.set_json(cache_key, series, ttl_seconds=3600.0)
@@ -271,6 +284,7 @@ class BinanceContextProviders(FundingProvider, OpenInterestProvider, LongShortPr
         self, symbol: Symbol, start_time: int, end_time: int, limit: int = 500
     ) -> TakerFlowSeries | None:
         from neon_radar.domain.market_context import TakerFlowSeries
+
         cache_key = f"taker_history_{symbol}_{start_time}_{end_time}_{limit}"
         cached = self._cache.get_json(cache_key, TakerFlowSeries.from_dict)
         if cached:
@@ -285,13 +299,16 @@ class BinanceContextProviders(FundingProvider, OpenInterestProvider, LongShortPr
 
             while current_start < end_time:
                 current_end = min(current_start + chunk_size_ms, end_time)
-                data = await self._transport.get("/futures/data/takerlongshortRatio", {
-                    "symbol": str(symbol),
-                    "period": "5m",
-                    "startTime": current_start,
-                    "endTime": current_end,
-                    "limit": 500
-                })
+                data = await self._transport.get(
+                    "/futures/data/takerlongshortRatio",
+                    {
+                        "symbol": str(symbol),
+                        "period": "5m",
+                        "startTime": current_start,
+                        "endTime": current_end,
+                        "limit": 500,
+                    },
+                )
                 if data:
                     for raw in data:
                         dto = BinanceTakerVolumeDTO.from_dict(raw)
@@ -301,7 +318,6 @@ class BinanceContextProviders(FundingProvider, OpenInterestProvider, LongShortPr
 
             if not items:
                 return None
-
 
             series = TakerFlowSeries(symbol=symbol, items=tuple(items))
             self._cache.set_json(cache_key, series, ttl_seconds=3600.0)

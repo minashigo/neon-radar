@@ -31,21 +31,47 @@ class MarketContextHistoryService:
 
         for provider in self.providers:
             if isinstance(provider, FundingProvider):
-                tasks.append(self._fetch_funding_history(provider, context, symbol, start_time, end_time, limit))
+                tasks.append(
+                    self._fetch_funding_history(
+                        provider, context, symbol, start_time, end_time, limit
+                    )
+                )
             if isinstance(provider, OpenInterestProvider):
-                tasks.append(self._fetch_open_interest_history(provider, context, symbol, start_time, end_time, limit))
+                tasks.append(
+                    self._fetch_open_interest_history(
+                        provider, context, symbol, start_time, end_time, limit
+                    )
+                )
             if isinstance(provider, LongShortProvider):
-                tasks.append(self._fetch_long_short_history(provider, context, symbol, start_time, end_time, limit))
+                tasks.append(
+                    self._fetch_long_short_history(
+                        provider, context, symbol, start_time, end_time, limit
+                    )
+                )
             if isinstance(provider, TakerFlowProvider):
-                tasks.append(self._fetch_taker_flow_history(provider, context, symbol, start_time, end_time, limit))
+                tasks.append(
+                    self._fetch_taker_flow_history(
+                        provider, context, symbol, start_time, end_time, limit
+                    )
+                )
             if isinstance(provider, LiquidationProvider):
-                tasks.append(self._fetch_liquidations_history(provider, context, symbol, start_time, end_time, limit))
+                tasks.append(
+                    self._fetch_liquidations_history(
+                        provider, context, symbol, start_time, end_time, limit
+                    )
+                )
 
         await asyncio.gather(*tasks)
         return context
 
     async def _fetch_funding_history(
-        self, provider: FundingProvider, context: HistoricalMarketContext, symbol: Symbol, start: int, end: int, limit: int
+        self,
+        provider: FundingProvider,
+        context: HistoricalMarketContext,
+        symbol: Symbol,
+        start: int,
+        end: int,
+        limit: int,
     ) -> None:
         series = await provider.get_funding_history(symbol, start, end, limit)
         if series:
@@ -53,28 +79,52 @@ class MarketContextHistoryService:
             object.__setattr__(context, "funding_history", series)
 
     async def _fetch_open_interest_history(
-        self, provider: OpenInterestProvider, context: HistoricalMarketContext, symbol: Symbol, start: int, end: int, limit: int
+        self,
+        provider: OpenInterestProvider,
+        context: HistoricalMarketContext,
+        symbol: Symbol,
+        start: int,
+        end: int,
+        limit: int,
     ) -> None:
         series = await provider.get_open_interest_history(symbol, start, end, limit)
         if series:
             object.__setattr__(context, "open_interest_history", series)
 
     async def _fetch_long_short_history(
-        self, provider: LongShortProvider, context: HistoricalMarketContext, symbol: Symbol, start: int, end: int, limit: int
+        self,
+        provider: LongShortProvider,
+        context: HistoricalMarketContext,
+        symbol: Symbol,
+        start: int,
+        end: int,
+        limit: int,
     ) -> None:
         series = await provider.get_long_short_ratio_history(symbol, start, end, limit)
         if series:
             object.__setattr__(context, "ls_ratio_history", series)
 
     async def _fetch_taker_flow_history(
-        self, provider: TakerFlowProvider, context: HistoricalMarketContext, symbol: Symbol, start: int, end: int, limit: int
+        self,
+        provider: TakerFlowProvider,
+        context: HistoricalMarketContext,
+        symbol: Symbol,
+        start: int,
+        end: int,
+        limit: int,
     ) -> None:
         series = await provider.get_taker_flow_history(symbol, start, end, limit)
         if series:
             object.__setattr__(context, "taker_flow_history", series)
 
     async def _fetch_liquidations_history(
-        self, provider: LiquidationProvider, context: HistoricalMarketContext, symbol: Symbol, start: int, end: int, limit: int
+        self,
+        provider: LiquidationProvider,
+        context: HistoricalMarketContext,
+        symbol: Symbol,
+        start: int,
+        end: int,
+        limit: int,
     ) -> None:
         series = await provider.get_liquidations_history(symbol, start, end, limit)
         if series:

@@ -2,6 +2,7 @@
 
 Periodically polls the exchange for new candle data and feeds it to the Paper Trading Engine.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -23,7 +24,9 @@ logger = get_logger(__name__)
 class LiveDataFetcher:
     """Continuously fetches klines and pushes them to the paper trading engine."""
 
-    def __init__(self, exchange: ExchangeClient, engine: PaperTradingEngine, poll_interval_seconds: int = 60) -> None:
+    def __init__(
+        self, exchange: ExchangeClient, engine: PaperTradingEngine, poll_interval_seconds: int = 60
+    ) -> None:
         self.exchange = exchange
         self.engine = engine
         self.poll_interval = poll_interval_seconds
@@ -33,7 +36,9 @@ class LiveDataFetcher:
         """Run the continuous fetching loop."""
         symbols = tuple(symbols)
         self._running = True
-        logger.info(f"Starting Live Data Fetcher for {len(symbols)} symbols. Polling every {self.poll_interval}s.")
+        logger.info(
+            f"Starting Live Data Fetcher for {len(symbols)} symbols. Polling every {self.poll_interval}s."
+        )
 
         while self._running:
             for symbol in symbols:

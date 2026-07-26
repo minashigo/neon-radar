@@ -20,6 +20,7 @@ def base_trade():
         take_profit=110.0,
     )
 
+
 def test_trade_analyzer_empty():
     analyzer = TradeAnalyzer()
     report = analyzer.analyze([])
@@ -27,6 +28,7 @@ def test_trade_analyzer_empty():
     assert report.gross_expectancy == 0.0
     assert report.net_expectancy == 0.0
     assert report.validation.is_valid is False
+
 
 def test_trade_analyzer_edge(base_trade):
     """Test a scenario with a clear statistical edge."""
@@ -43,7 +45,7 @@ def test_trade_analyzer_edge(base_trade):
             exit_time=1100,
             exit_price=110.0,
             status=TradeStatus.WIN,
-            exit_reason=TradeExitReason.TAKE_PROFIT
+            exit_reason=TradeExitReason.TAKE_PROFIT,
         )
         trades.append(t)
 
@@ -58,7 +60,7 @@ def test_trade_analyzer_edge(base_trade):
             exit_time=1100,
             exit_price=95.0,
             status=TradeStatus.LOSS,
-            exit_reason=TradeExitReason.STOP_LOSS
+            exit_reason=TradeExitReason.STOP_LOSS,
         )
         trades.append(t)
 
@@ -79,6 +81,7 @@ def test_trade_analyzer_edge(base_trade):
     assert val.mc_expectancy_95_ci_lower > 0.0  # Lower bound of expectancy CI > 0
     assert val.mc_probability_of_loss < 0.05  # Unlikely to be unprofitable
 
+
 def test_trade_analyzer_no_edge(base_trade):
     """Test a scenario with no statistical edge (random noise around 0)."""
     # 50 wins (+5%), 50 losses (-5%)
@@ -94,7 +97,7 @@ def test_trade_analyzer_no_edge(base_trade):
             exit_time=1100,
             exit_price=105.0,
             status=TradeStatus.WIN,
-            exit_reason=TradeExitReason.TAKE_PROFIT
+            exit_reason=TradeExitReason.TAKE_PROFIT,
         )
         trades.append(t)
 
@@ -109,7 +112,7 @@ def test_trade_analyzer_no_edge(base_trade):
             exit_time=1100,
             exit_price=95.0,
             status=TradeStatus.LOSS,
-            exit_reason=TradeExitReason.STOP_LOSS
+            exit_reason=TradeExitReason.STOP_LOSS,
         )
         trades.append(t)
 

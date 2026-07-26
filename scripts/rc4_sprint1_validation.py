@@ -22,8 +22,11 @@ from neon_radar.infrastructure.exchanges.binance.client import BinanceClient
 from neon_radar.infrastructure.exchanges.binance_transport import BinanceTransport
 from neon_radar.infrastructure.providers.binance_context import BinanceContextProviders
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
 logger = logging.getLogger("RC4_Validation")
+
 
 # Spearman Rank Correlation
 def spearmanr(x: list[float], y: list[float]) -> float:
@@ -47,11 +50,21 @@ def spearmanr(x: list[float], y: list[float]) -> float:
         return 0.0
     return num / ((den_x * den_y) ** 0.5)
 
-async def run_correlation(start_date: date, end_date: date, symbols: tuple[Symbol, ...], rules: tuple, exchange: BinanceClient, history_service: MarketContextHistoryService) -> dict:
+
+async def run_correlation(
+    start_date: date,
+    end_date: date,
+    symbols: tuple[Symbol, ...],
+    rules: tuple,
+    exchange: BinanceClient,
+    history_service: MarketContextHistoryService,
+) -> dict:
     logger.info("Running Correlation Analyzer...")
     scoring_cfg = ScoringRulesConfig(rules=[])
 
-    tester = WalkForwardBacktester(exchange=exchange, scoring_config=scoring_cfg, rules=rules, history_service=history_service)
+    tester = WalkForwardBacktester(
+        exchange=exchange, scoring_config=scoring_cfg, rules=rules, history_service=history_service
+    )
     await tester._prefetch(symbols, "1d", start_date, end_date, (1,))
     evaluations = tester._evaluate_all(
         symbols=symbols,
@@ -59,17 +72,21 @@ async def run_correlation(start_date: date, end_date: date, symbols: tuple[Symbo
         start_date=start_date,
         end_date=end_date,
         horizons=(1,),
-        min_history_candles=50
+        min_history_candles=50,
     )
 
     from neon_radar.domain.scoring.backtest import BacktestConfig
+
     config = BacktestConfig(
-        start_date=start_date, end_date=end_date, timeframe="1d",
-        symbols=tuple(str(s) for s in symbols), horizons=(1,),
+        start_date=start_date,
+        end_date=end_date,
+        timeframe="1d",
+        symbols=tuple(str(s) for s in symbols),
+        horizons=(1,),
         min_confidence=scoring_cfg.min_confidence,
         confluence_bonus=scoring_cfg.confluence_bonus,
         confluence_penalty=scoring_cfg.confluence_penalty,
-        max_confidence_boost=scoring_cfg.max_confidence_boost
+        max_confidence_boost=scoring_cfg.max_confidence_boost,
     )
     result = tester._aggregate(config=config, evaluations=evaluations, horizons=(1,))
 
@@ -83,7 +100,7 @@ async def run_correlation(start_date: date, end_date: date, symbols: tuple[Symbo
     for e in evaluations:
         if e.horizon_days != 1:
             continue
-        
+
         # Create a dict of just this evaluation's rule values
         val_map = {name: val for name, val in e.rule_values}
         for r_name in rule_names:
@@ -99,7 +116,9 @@ async def run_correlation(start_date: date, end_date: date, symbols: tuple[Symbo
         # Simultaneous: % where both are non-zero
         total_evals = len(s1)
         simultaneous = sum(1 for a, b in zip(s1, s2, strict=True) if a != 0 and b != 0)
-        agreement = sum(1 for a, b in zip(s1, s2, strict=True) if a != 0 and b != 0 and (a > 0) == (b > 0))
+        agreement = sum(
+            1 for a, b in zip(s1, s2, strict=True) if a != 0 and b != 0 and (a > 0) == (b > 0)
+        )
 
         dir_agree = agreement / simultaneous if simultaneous > 0 else 0.0
         simult_pct = simultaneous / total_evals if total_evals > 0 else 0.0
@@ -107,18 +126,23 @@ async def run_correlation(start_date: date, end_date: date, symbols: tuple[Symbo
         p = result.correlation.get(r1, r2)
         s = spearmanr(s1, s2)
 
-        correlation_data.append({
-            "rule_1": r1,
-            "rule_2": r2,
-            "pearson": p,
-            "spearman": s,
-            "direction_agreement": dir_agree,
-            "simultaneous_pct": simult_pct
-        })
+        correlation_data.append(
+            {
+                "rule_1": r1,
+                "rule_2": r2,
+                "pearson": p,
+                "spearman": s,
+                "direction_agreement": dir_agree,
+                "simultaneous_pct": simult_pct,
+            }
+        )
 
     return {"matrix": correlation_data}
 
-async def run_wfa(tester: TradeBacktester, start_date: date, end_date: date, symbols: tuple[Symbol, ...]) -> dict:
+
+async def run_wfa(
+    tester: TradeBacktester, start_date: date, end_date: date, symbols: tuple[Symbol, ...]
+) -> dict:
     optimizer = GridSearchOptimizer(min_confidence_grid=[0.3, 0.4, 0.5])
     wfa = WalkForwardAnalyzer(optimizer)
     report = await wfa.run(
@@ -129,7 +153,7 @@ async def run_wfa(tester: TradeBacktester, start_date: date, end_date: date, sym
         timeframe="1d",
         is_window_months=6,
         oos_window_months=1,
-        step_months=1
+        step_months=1,
     )
 
     # Aggregate OOS trades
@@ -151,7 +175,15 @@ async def run_wfa(tester: TradeBacktester, start_date: date, end_date: date, sym
         "trade_count": final_report.total_trades,
     }
 
-async def run_ablation(start_date: date, end_date: date, symbols: tuple[Symbol, ...], rules: tuple, exchange: BinanceClient, history_service: MarketContextHistoryService) -> dict:
+
+async def run_ablation(
+    start_date: date,
+    end_date: date,
+    symbols: tuple[Symbol, ...],
+    rules: tuple,
+    exchange: BinanceClient,
+    history_service: MarketContextHistoryService,
+) -> dict:
     logger.info("Running Feature Importance (Ablation) via WFA...")
     scoring_cfg = ScoringRulesConfig(rules=[])
 
@@ -179,90 +211,147 @@ async def run_ablation(start_date: date, end_date: date, symbols: tuple[Symbol, 
         )
         ablated_metrics = await run_wfa(ablated_tester, start_date, end_date, symbols)
 
-        ablation_results.append({
-            "rule": rule.name,
-            "delta_pf": baseline_metrics["pf"] - ablated_metrics["pf"],
-            "delta_exp": baseline_metrics["exp"] - ablated_metrics["exp"],
-            "delta_wr": baseline_metrics["wr"] - ablated_metrics["wr"],
-            "delta_sharpe": baseline_metrics["sharpe"] - ablated_metrics["sharpe"],
-            "delta_max_dd": baseline_metrics["max_dd"] - ablated_metrics["max_dd"],
-        })
+        ablation_results.append(
+            {
+                "rule": rule.name,
+                "delta_pf": baseline_metrics["pf"] - ablated_metrics["pf"],
+                "delta_exp": baseline_metrics["exp"] - ablated_metrics["exp"],
+                "delta_wr": baseline_metrics["wr"] - ablated_metrics["wr"],
+                "delta_sharpe": baseline_metrics["sharpe"] - ablated_metrics["sharpe"],
+                "delta_max_dd": baseline_metrics["max_dd"] - ablated_metrics["max_dd"],
+            }
+        )
 
     return {"baseline": baseline_metrics, "features": ablation_results}
 
-async def run_confluence_validation(start_date: date, end_date: date, symbols: tuple[Symbol, ...], rules: tuple, exchange: BinanceClient, history_service: MarketContextHistoryService) -> dict:
+
+async def run_confluence_validation(
+    start_date: date,
+    end_date: date,
+    symbols: tuple[Symbol, ...],
+    rules: tuple,
+    exchange: BinanceClient,
+    history_service: MarketContextHistoryService,
+) -> dict:
     logger.info("Running Confluence Validation...")
 
-    cfg_with = ScoringRulesConfig(rules=[], confluence_bonus=0.20, confluence_penalty=0.15, max_confidence_boost=0.40)
-    cfg_without = ScoringRulesConfig(rules=[], confluence_bonus=0.0, confluence_penalty=0.0, max_confidence_boost=0.0)
+    cfg_with = ScoringRulesConfig(
+        rules=[], confluence_bonus=0.20, confluence_penalty=0.15, max_confidence_boost=0.40
+    )
+    cfg_without = ScoringRulesConfig(
+        rules=[], confluence_bonus=0.0, confluence_penalty=0.0, max_confidence_boost=0.0
+    )
 
-    tester_with = TradeBacktester(exchange=exchange, scoring_config=cfg_with, rules=rules, history_service=history_service)
+    tester_with = TradeBacktester(
+        exchange=exchange, scoring_config=cfg_with, rules=rules, history_service=history_service
+    )
     await tester_with._prefetch(symbols, "1d", start_date, end_date)
 
     metrics_with = await run_wfa(tester_with, start_date, end_date, symbols)
 
-    tester_without = TradeBacktester(exchange=exchange, scoring_config=cfg_without, rules=rules, history_service=history_service, preloaded_series=tester_with.cache, preloaded_context=tester_with._context_cache)
+    tester_without = TradeBacktester(
+        exchange=exchange,
+        scoring_config=cfg_without,
+        rules=rules,
+        history_service=history_service,
+        preloaded_series=tester_with.cache,
+        preloaded_context=tester_with._context_cache,
+    )
     metrics_without = await run_wfa(tester_without, start_date, end_date, symbols)
 
-    return {
-        "with_confluence": metrics_with,
-        "without_confluence": metrics_without
-    }
+    return {"with_confluence": metrics_with, "without_confluence": metrics_without}
 
-async def run_sensitivity(start_date: date, end_date: date, symbols: tuple[Symbol, ...], rules: tuple, exchange: BinanceClient, history_service: MarketContextHistoryService) -> dict:
+
+async def run_sensitivity(
+    start_date: date,
+    end_date: date,
+    symbols: tuple[Symbol, ...],
+    rules: tuple,
+    exchange: BinanceClient,
+    history_service: MarketContextHistoryService,
+) -> dict:
     logger.info("Running Sensitivity Analysis...")
     results = []
 
     bonuses = [0.10, 0.20, 0.30]
     penalties = [0.10, 0.15, 0.20]
 
-    base_tester = TradeBacktester(exchange=exchange, scoring_config=ScoringRulesConfig(rules=[]), rules=rules, history_service=history_service)
+    base_tester = TradeBacktester(
+        exchange=exchange,
+        scoring_config=ScoringRulesConfig(rules=[]),
+        rules=rules,
+        history_service=history_service,
+    )
     await base_tester._prefetch(symbols, "1d", start_date, end_date)
 
     for bonus in bonuses:
         for penalty in penalties:
-            cfg = ScoringRulesConfig(rules=[], confluence_bonus=bonus, confluence_penalty=penalty, max_confidence_boost=bonus * 2)
-            tester = TradeBacktester(exchange=exchange, scoring_config=cfg, rules=rules, history_service=history_service, preloaded_series=base_tester.cache, preloaded_context=base_tester._context_cache)
+            cfg = ScoringRulesConfig(
+                rules=[],
+                confluence_bonus=bonus,
+                confluence_penalty=penalty,
+                max_confidence_boost=bonus * 2,
+            )
+            tester = TradeBacktester(
+                exchange=exchange,
+                scoring_config=cfg,
+                rules=rules,
+                history_service=history_service,
+                preloaded_series=base_tester.cache,
+                preloaded_context=base_tester._context_cache,
+            )
             metrics = await run_wfa(tester, start_date, end_date, symbols)
-            results.append({
-                "bonus": bonus,
-                "penalty": penalty,
-                "pf": metrics["pf"],
-                "exp": metrics["exp"],
-                "sharpe": metrics["sharpe"]
-            })
+            results.append(
+                {
+                    "bonus": bonus,
+                    "penalty": penalty,
+                    "pf": metrics["pf"],
+                    "exp": metrics["exp"],
+                    "sharpe": metrics["sharpe"],
+                }
+            )
 
     return {"grid": results}
 
+
 async def main():
     start_date = date(2023, 7, 1)
-    end_date = date(2024, 7, 1) # 12 months
+    end_date = date(2024, 7, 1)  # 12 months
     symbols = (Symbol("BTCUSDT"), Symbol("ETHUSDT"), Symbol("SOLUSDT"))
 
     rules = load_rules(Path("config/scoring.example.json"))
 
     from neon_radar.config.loader import load_config
+
     cfg = load_config()
 
     async with BinanceClient(cfg.api) as exchange:
-        transport = BinanceTransport(base_url=cfg.api.base_url, rate_limit_per_minute=cfg.api.rate_limit_per_minute)
+        transport = BinanceTransport(
+            base_url=cfg.api.base_url, rate_limit_per_minute=cfg.api.rate_limit_per_minute
+        )
         try:
             cache = ContextCache(directory=Path(".cache/context"))
-            providers = [
-                BinanceContextProviders(transport, cache)
-            ]
+            providers = [BinanceContextProviders(transport, cache)]
             history_service = MarketContextHistoryService(providers)
 
-            correlation = await run_correlation(start_date, end_date, symbols, rules, exchange, history_service)
-            ablation = await run_ablation(start_date, end_date, symbols, rules, exchange, history_service)
-            confluence = await run_confluence_validation(start_date, end_date, symbols, rules, exchange, history_service)
-            sensitivity = await run_sensitivity(start_date, end_date, symbols, rules, exchange, history_service)
+            correlation = await run_correlation(
+                start_date, end_date, symbols, rules, exchange, history_service
+            )
+            ablation = await run_ablation(
+                start_date, end_date, symbols, rules, exchange, history_service
+            )
+            confluence = await run_confluence_validation(
+                start_date, end_date, symbols, rules, exchange, history_service
+            )
+            sensitivity = await run_sensitivity(
+                start_date, end_date, symbols, rules, exchange, history_service
+            )
 
             final_data = {
                 "correlation": correlation,
                 "ablation": ablation,
                 "confluence": confluence,
-                "sensitivity": sensitivity
+                "sensitivity": sensitivity,
             }
 
             output_path = r"C:\Users\orphan\.gemini\antigravity\brain\581231c9-0c19-4477-b91a-7ab1a96c82a4\rc4_validation_results_with_context.json"
@@ -272,6 +361,7 @@ async def main():
             logger.info(f"Validation data dumped to {output_path}")
         finally:
             await transport.close()
+
 
 if __name__ == "__main__":
     asyncio.run(main())

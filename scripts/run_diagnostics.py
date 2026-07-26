@@ -9,10 +9,7 @@ from pathlib import Path
 def calculate_metrics(trades: list[dict]) -> dict:
     total = len(trades)
     if total == 0:
-        return {
-            "total": 0, "win_rate": 0.0, "profit_factor": 0.0,
-            "expectancy": 0.0, "avg_r": 0.0
-        }
+        return {"total": 0, "win_rate": 0.0, "profit_factor": 0.0, "expectancy": 0.0, "avg_r": 0.0}
 
     wins = [t for t in trades if t["net_pnl"] > 0]
     losses = [t for t in trades if t["net_pnl"] < 0]
@@ -44,9 +41,9 @@ def format_table(groups: dict[str, list[dict]], title: str) -> str:
 
     for key, trades in sorted(groups.items()):
         m = calculate_metrics(trades)
-        pf = f"{m['profit_factor']:.2f}" if m['profit_factor'] != float("inf") else "inf"
+        pf = f"{m['profit_factor']:.2f}" if m["profit_factor"] != float("inf") else "inf"
         lines.append(
-            f"| {key} | {m['total']} | {m['win_rate']*100:.1f}% | {pf} | {m['expectancy']:.3f}% | {m['avg_r']:.3f}% |"
+            f"| {key} | {m['total']} | {m['win_rate'] * 100:.1f}% | {pf} | {m['expectancy']:.3f}% | {m['avg_r']:.3f}% |"
         )
     return "\n".join(lines) + "\n\n"
 
@@ -95,22 +92,32 @@ def run_diagnostics(csv_path: Path, out_path: Path) -> None:
 
         # ADX
         if t["adx"] is not None:
-            if t["adx"] < 20: by_adx["< 20 (Chop)"].append(t)
-            elif t["adx"] < 30: by_adx["20 - 30 (Trending)"].append(t)
-            else: by_adx["> 30 (Strong Trend)"].append(t)
+            if t["adx"] < 20:
+                by_adx["< 20 (Chop)"].append(t)
+            elif t["adx"] < 30:
+                by_adx["20 - 30 (Trending)"].append(t)
+            else:
+                by_adx["> 30 (Strong Trend)"].append(t)
 
         # RSI
         if t["rsi"] is not None:
-            if t["rsi"] < 30: by_rsi["< 30 (Oversold)"].append(t)
-            elif t["rsi"] < 50: by_rsi["30 - 50 (Bearish)"].append(t)
-            elif t["rsi"] < 70: by_rsi["50 - 70 (Bullish)"].append(t)
-            else: by_rsi["> 70 (Overbought)"].append(t)
+            if t["rsi"] < 30:
+                by_rsi["< 30 (Oversold)"].append(t)
+            elif t["rsi"] < 50:
+                by_rsi["30 - 50 (Bearish)"].append(t)
+            elif t["rsi"] < 70:
+                by_rsi["50 - 70 (Bullish)"].append(t)
+            else:
+                by_rsi["> 70 (Overbought)"].append(t)
 
         # Confidence
         if t["confidence"] is not None:
-            if t["confidence"] < 0.6: by_confidence["< 0.6"].append(t)
-            elif t["confidence"] < 0.8: by_confidence["0.6 - 0.8"].append(t)
-            else: by_confidence["> 0.8"].append(t)
+            if t["confidence"] < 0.6:
+                by_confidence["< 0.6"].append(t)
+            elif t["confidence"] < 0.8:
+                by_confidence["0.6 - 0.8"].append(t)
+            else:
+                by_confidence["> 0.8"].append(t)
 
         # Rules
         rules = [r.split(":")[0] for r in t["rules"].split(", ") if r]
@@ -132,6 +139,7 @@ def run_diagnostics(csv_path: Path, out_path: Path) -> None:
         f.write("".join(report))
 
     print(f"Diagnostics report saved to {out_path}")
+
 
 if __name__ == "__main__":
     base_dir = Path(__file__).resolve().parent.parent

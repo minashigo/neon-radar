@@ -53,7 +53,7 @@ class VirtualPosition:
         setup: TradeSetup,
         quantity: float,
         entry_time: int,
-        analysis_snapshot: dict | None = None
+        analysis_snapshot: dict | None = None,
     ) -> VirtualPosition:
         """Create a new VirtualPosition from a TradeSetup."""
         return cls(
@@ -70,7 +70,7 @@ class VirtualPosition:
 
     def update(self, kline: Kline) -> str | None:
         """Check if the kline hits SL or TP. Updates high/low watermarks.
-        
+
         Returns the exit reason ("SL", "TP") or None if still active.
         """
         # Update watermarks
@@ -182,14 +182,16 @@ class VirtualPortfolio:
                         "lowest_price": p.lowest_price,
                     }
                     for sym, p in self.positions.items()
-                }
+                },
             }
             self.filepath.write_text(json.dumps(state, indent=2), encoding="utf-8")
         except Exception as e:
             logger.error(f"Failed to save portfolio state: {e}")
 
     @classmethod
-    def load(cls, filepath: Path, default_balance: float, risk_per_trade: float) -> VirtualPortfolio:
+    def load(
+        cls, filepath: Path, default_balance: float, risk_per_trade: float
+    ) -> VirtualPortfolio:
         """Load portfolio state from JSON, or create new if not exists."""
         if not filepath.exists():
             return cls(balance=default_balance, risk_per_trade=risk_per_trade, filepath=filepath)
@@ -199,7 +201,7 @@ class VirtualPortfolio:
             portfolio = cls(
                 balance=data.get("balance", default_balance),
                 risk_per_trade=data.get("risk_per_trade", risk_per_trade),
-                filepath=filepath
+                filepath=filepath,
             )
 
             for sym, p_data in data.get("positions", {}).items():

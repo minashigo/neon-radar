@@ -519,6 +519,7 @@ async def _run_trade_backtest(args: argparse.Namespace) -> int:
         )
 
         from neon_radar.application.services.trade_analyzer import TradeAnalyzer
+
         analyzer = TradeAnalyzer()
 
         if args.walk_forward:
@@ -550,6 +551,7 @@ async def _run_trade_backtest(args: argparse.Namespace) -> int:
 
         elif args.feature_analysis:
             from neon_radar.application.services.feature_analyzer import FeatureImportanceAnalyzer
+
             feature_analyzer = FeatureImportanceAnalyzer(analyzer)
             feature_report = await feature_analyzer.analyze(
                 baseline_tester=backtester,
@@ -583,6 +585,7 @@ async def _run_trade_backtest(args: argparse.Namespace) -> int:
 
             if args.bootstrap:
                 from neon_radar.application.services.bootstrap_analyzer import BootstrapAnalyzer
+
                 boot_analyzer = BootstrapAnalyzer(analyzer.analyze)
                 boot_report = boot_analyzer.run(
                     trades,
@@ -605,6 +608,7 @@ async def _run_trade_backtest(args: argparse.Namespace) -> int:
 
     if args.export_csv:
         from neon_radar.infrastructure.exporters.trade_exporter import export_trades_to_csv
+
         export_trades_to_csv(trades, args.export_csv)
         logger.info("Exported trades to %s", args.export_csv)
 
@@ -636,20 +640,25 @@ def _export_bootstrap_json(report, path: Path) -> None:
 
 def _export_bootstrap_csv(report, path: Path) -> None:
     import csv
+
     with open(path, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
-        writer.writerow(["Metric", "Mean", "Median", "StdDev", "Min", "Max", "95% CI Lower", "95% CI Upper"])
+        writer.writerow(
+            ["Metric", "Mean", "Median", "StdDev", "Min", "Max", "95% CI Lower", "95% CI Upper"]
+        )
         for name, dist in report.metrics.items():
-            writer.writerow([
-                name,
-                f"{dist.mean:.4f}",
-                f"{dist.median:.4f}",
-                f"{dist.std_dev:.4f}",
-                f"{dist.min_val:.4f}",
-                f"{dist.max_val:.4f}",
-                f"{dist.ci_lower_95:.4f}",
-                f"{dist.ci_upper_95:.4f}",
-            ])
+            writer.writerow(
+                [
+                    name,
+                    f"{dist.mean:.4f}",
+                    f"{dist.median:.4f}",
+                    f"{dist.std_dev:.4f}",
+                    f"{dist.min_val:.4f}",
+                    f"{dist.max_val:.4f}",
+                    f"{dist.ci_lower_95:.4f}",
+                    f"{dist.ci_upper_95:.4f}",
+                ]
+            )
 
 
 def _strip_meta(data):
@@ -873,7 +882,6 @@ def print_trade_backtest_report(result, *, use_color: bool) -> None:
     print(f"Win Rate:        {result.win_rate:>7.1%}")
     print(f"Wins:          {result.wins}")
 
-
     print(f"Losses:        {result.losses}")
     print(f"Avg Win:       {result.net_avg_win_pct:>+7.2%}")
     print(f"Avg Loss:      {result.net_avg_loss_pct:>+7.2%}")
@@ -897,15 +905,23 @@ def print_trade_backtest_report(result, *, use_color: bool) -> None:
         print(_c("=== Statistical Validation ===", "bold", use_color))
 
         pval_color = "green" if result.validation.p_value < 0.05 else "yellow"
-        pval_msg = "<0.05 -> Edge Detected" if result.validation.p_value < 0.05 else ">=0.05 -> Insufficient Edge"
+        pval_msg = (
+            "<0.05 -> Edge Detected"
+            if result.validation.p_value < 0.05
+            else ">=0.05 -> Insufficient Edge"
+        )
 
-        print(f"P-Value (T-Test):       {_c(f'{result.validation.p_value:.4f} ({pval_msg})', pval_color, use_color)}")
+        print(
+            f"P-Value (T-Test):       {_c(f'{result.validation.p_value:.4f} ({pval_msg})', pval_color, use_color)}"
+        )
         print(f"T-Statistic:            {result.validation.t_statistic:.3f}")
 
         ci_lower = result.validation.mc_expectancy_95_ci_lower
         ci_upper = result.validation.mc_expectancy_95_ci_upper
         ci_color = "green" if ci_lower > 0 else "yellow"
-        print(f"MC Expectancy 95% CI:   {_c(f'[{ci_lower:>+5.2%}, {ci_upper:>+5.2%}]', ci_color, use_color)}")
+        print(
+            f"MC Expectancy 95% CI:   {_c(f'[{ci_lower:>+5.2%}, {ci_upper:>+5.2%}]', ci_color, use_color)}"
+        )
 
         loss_prob = result.validation.mc_probability_of_loss
         loss_color = "green" if loss_prob < 0.1 else ("yellow" if loss_prob < 0.3 else "red")
@@ -1091,10 +1107,16 @@ def print_walk_forward_report(report, *, use_color: bool) -> None:
     print()
     if report.best_cycle:
         best = report.best_cycle
-        print(_c("Best Cycle:", "bold", use_color) + f" OOS {best.oos_start} to {best.oos_end} (Exp: {best.oos_report.net_expectancy:+.2%})")
+        print(
+            _c("Best Cycle:", "bold", use_color)
+            + f" OOS {best.oos_start} to {best.oos_end} (Exp: {best.oos_report.net_expectancy:+.2%})"
+        )
     if report.worst_cycle:
         worst = report.worst_cycle
-        print(_c("Worst Cycle:", "bold", use_color) + f" OOS {worst.oos_start} to {worst.oos_end} (Exp: {worst.oos_report.net_expectancy:+.2%})")
+        print(
+            _c("Worst Cycle:", "bold", use_color)
+            + f" OOS {worst.oos_start} to {worst.oos_end} (Exp: {worst.oos_report.net_expectancy:+.2%})"
+        )
     print()
 
 
@@ -1121,7 +1143,9 @@ async def _run_paper_trade(args: argparse.Namespace) -> int:
 
     tf = TimeFrame(args.timeframe)
 
-    portfolio = VirtualPortfolio.load(args.portfolio, default_balance=args.balance, risk_per_trade=args.risk)
+    portfolio = VirtualPortfolio.load(
+        args.portfolio, default_balance=args.balance, risk_per_trade=args.risk
+    )
 
     engine = PaperTradingEngine(
         portfolio=portfolio,
@@ -1131,7 +1155,9 @@ async def _run_paper_trade(args: argparse.Namespace) -> int:
     )
 
     client = BinanceClient(config.api)
-    fetcher = LiveDataFetcher(exchange=client, engine=engine, poll_interval_seconds=args.poll_interval)
+    fetcher = LiveDataFetcher(
+        exchange=client, engine=engine, poll_interval_seconds=args.poll_interval
+    )
 
     def handle_shutdown(*_):
         print("\nShutting down Paper Trading...")
@@ -1146,7 +1172,9 @@ async def _run_paper_trade(args: argparse.Namespace) -> int:
         pass
 
     async with client:
-        print(f"Starting Paper Trading on {len(symbols)} symbols. Balance: {portfolio.balance:.2f} USDT. Risk: {args.risk:.2%}")
+        print(
+            f"Starting Paper Trading on {len(symbols)} symbols. Balance: {portfolio.balance:.2f} USDT. Risk: {args.risk:.2%}"
+        )
         await fetcher.run(symbols, tf)
 
     return 0

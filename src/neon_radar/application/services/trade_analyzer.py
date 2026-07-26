@@ -63,7 +63,9 @@ class TradeAnalyzer:
         sum_gross_losses = sum(abs(t.gross_pnl_pct) for t in gross_losses)
         gross_avg_win = sum_gross_wins / len(gross_wins) if gross_wins else 0.0
         gross_avg_loss = sum_gross_losses / len(gross_losses) if gross_losses else 0.0
-        gross_profit_factor = sum_gross_wins / sum_gross_losses if sum_gross_losses > 0 else float("inf")
+        gross_profit_factor = (
+            sum_gross_wins / sum_gross_losses if sum_gross_losses > 0 else float("inf")
+        )
         if len(gross_losses) == 0 and len(gross_wins) == 0:
             gross_profit_factor = 0.0
         gross_expectancy = (sum_gross_wins - sum_gross_losses) / total if total > 0 else 0.0
@@ -192,7 +194,9 @@ class TradeAnalyzer:
         if std_pnl > 0:
             t_statistic = mean_pnl / (std_pnl / math.sqrt(n))
         else:
-            t_statistic = 0.0 if mean_pnl == 0 else (float("inf") if mean_pnl > 0 else float("-inf"))
+            t_statistic = (
+                0.0 if mean_pnl == 0 else (float("inf") if mean_pnl > 0 else float("-inf"))
+            )
 
         if math.isinf(t_statistic):
             p_value = 0.0 if t_statistic > 0 else 1.0

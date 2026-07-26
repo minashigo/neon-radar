@@ -46,8 +46,12 @@ def test_bootstrap_analyzer_seed_reproducibility():
 
     # Both should be exactly the same due to identical seed
     assert report1.iterations == report2.iterations
-    assert report1.metrics["Win Rate (%)"].mean == pytest.approx(report2.metrics["Win Rate (%)"].mean)
-    assert report1.metrics["Expectancy (%)"].mean == pytest.approx(report2.metrics["Expectancy (%)"].mean)
+    assert report1.metrics["Win Rate (%)"].mean == pytest.approx(
+        report2.metrics["Win Rate (%)"].mean
+    )
+    assert report1.metrics["Expectancy (%)"].mean == pytest.approx(
+        report2.metrics["Expectancy (%)"].mean
+    )
 
 
 def test_bootstrap_analyzer_structure():
@@ -64,6 +68,6 @@ def test_bootstrap_analyzer_structure():
     assert "Max Drawdown (%)" in report.metrics
 
     dist = report.metrics["Max Drawdown (%)"]
-    assert dist.mean == pytest.approx(20.0) # 0.2 * 100
+    assert dist.mean == pytest.approx(20.0)  # 0.2 * 100
     assert len(dist.values) == 50
     assert dist.ci_lower_95 <= dist.ci_upper_95
