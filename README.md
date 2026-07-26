@@ -56,8 +56,8 @@
         infrastructure/      ← Binance API, кеш, файли
 ```
 
-Детальніше — [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
-Технічні рішення (ADR) — [`docs/DECISIONS.md`](docs/DECISIONS.md).
+Детальніше — [`docs/architecture/ARCHITECTURE.md`](docs/architecture/ARCHITECTURE.md).
+Технічні рішення (ADR) — [`docs/decisions/DECISIONS.md`](docs/decisions/DECISIONS.md).
 
 ## Швидкий старт
 

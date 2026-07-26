@@ -46,3 +46,8 @@ data/
 # Secrets (user-level)
 .env
 .env.local
+
+# Generated output
+*.csv
+results/tmp/
+~/
