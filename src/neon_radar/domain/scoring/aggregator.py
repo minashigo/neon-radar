@@ -59,6 +59,7 @@ def aggregate(
         confidences, plus confluence modifiers.
     """
     from collections import defaultdict
+
     from neon_radar.domain.scoring.value_objects import ConfluenceState
 
     if min_confidence < 0 or min_confidence > 1:

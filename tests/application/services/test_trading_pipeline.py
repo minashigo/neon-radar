@@ -11,8 +11,8 @@ from neon_radar.application.services.risk.sizing import FixedRiskStrategy, Posit
 from neon_radar.application.services.trading_pipeline import TradingPipeline
 from neon_radar.domain.enums import Bias
 from neon_radar.domain.market_state import MarketState
-from neon_radar.domain.models import Kline, KlineSeries, Symbol
-from neon_radar.domain.risk import AccountState, PortfolioState, PositionState
+from neon_radar.domain.models import OHLCV, KlineSeries, Symbol
+from neon_radar.domain.portfolio import AccountState, OpenPosition, PortfolioState
 from neon_radar.domain.scoring.value_objects import AnalysisResult, Score
 from neon_radar.domain.trading.backtest import TradeDiagnostics, TradeEntryReason
 from neon_radar.domain.trading.setup import FinalTradeSetup, TradeSetup, TradeSetupEngine
@@ -21,10 +21,10 @@ from neon_radar.domain.trading.setup import FinalTradeSetup, TradeSetup, TradeSe
 @pytest.fixture
 def dummy_series():
     return KlineSeries(
-        symbol=Symbol("BTC", "USDT"),
+        symbol=Symbol("BTCUSDT"),
         timeframe="1d",
         candles=(
-            Kline(
+            OHLCV(
                 open_time=int(datetime(2023, 1, 1, tzinfo=UTC).timestamp() * 1000),
                 open=10000.0,
                 high=10500.0,
@@ -44,7 +44,7 @@ def mock_analyze_result(dummy_series):
         indicator_series=()
     )
     return AnalysisResult(
-        score=Score(value=1.0, confidence=0.8, bias=Bias.BULLISH),
+        score=Score(value=1.0, confidence=0.8, long_score=1.0, short_score=0.0, contributing_signals=2),
         signals=(),
         summary="Mock",
         computed_at=dummy_series.candles[0].open_time,
@@ -104,12 +104,12 @@ def test_pipeline_valid_buy(mock_analyze_series, pipeline, dummy_series, mock_an
     assert isinstance(final_setup, FinalTradeSetup)
     assert final_setup.direction == Bias.BULLISH
     assert final_setup.risk_decision.is_allowed is True
-    # Default risk budget is 0.01 * 10000 = 100
+    # Default risk budget is 0.02 * 10000 = 200
     # Stop loss distance = 1000
-    # Base size = 100 / 1000 = 0.1
-    assert final_setup.position_size == 0.1
-    assert final_setup.quote_size == 1000.0
-    assert final_setup.risk_amount == 100.0
+    # Base size = 200 / 1000 = 0.2
+    assert final_setup.position_size == 0.2
+    assert final_setup.quote_size == 2000.0
+    assert final_setup.risk_amount == 200.0
 
 @patch("neon_radar.application.services.trading_pipeline.analyze_series")
 def test_pipeline_risk_rejection(mock_analyze_series, pipeline, dummy_series, mock_analyze_result, mock_trade_setup):
@@ -118,12 +118,15 @@ def test_pipeline_risk_rejection(mock_analyze_series, pipeline, dummy_series, mo
     pipeline.setup_engine.build_setup.return_value = mock_trade_setup
 
     # Portfolio already has 1 open position, max is 1
-    existing_pos = PositionState(
-        symbol=Symbol("ETH", "USDT"),
-        side=Bias.BULLISH,
+    existing_pos = OpenPosition(
+        symbol=Symbol("ETHUSDT"),
+        direction=Bias.BULLISH,
         entry_price=2000.0,
-        size=1.0,
-        stop_loss=1900.0
+        quantity=1.0,
+        position_size=2000.0,
+        stop_loss=1900.0,
+        take_profit=2200.0,
+        opened_at=1000
     )
     portfolio = PortfolioState(
         account=AccountState(total_capital=10000.0, free_capital=8000.0),
@@ -140,8 +143,8 @@ def test_pipeline_drawdown_block(mock_analyze_series, pipeline, dummy_series, mo
     mock_analyze_series.return_value = mock_analyze_result
     pipeline.setup_engine.build_setup.return_value = mock_trade_setup
 
-    # Configure RiskManager with max drawdown allowed
-    pipeline.risk_manager.config = RiskManagerConfig(max_drawdown_pct=0.10)
+    # Configure RiskManager with drawdown threshold
+    pipeline.risk_manager.config = RiskManagerConfig(drawdown_penalty_threshold_pct=10.0)
 
     portfolio = PortfolioState(account=AccountState(total_capital=8000.0, free_capital=8000.0))
     # ATH was 10000.0, current is 8000.0 => 20% drawdown
@@ -150,4 +153,7 @@ def test_pipeline_drawdown_block(mock_analyze_series, pipeline, dummy_series, mo
 
     final_setup = pipeline.evaluate(dummy_series, portfolio=portfolio, drawdown=drawdown)
 
-    assert final_setup is None
+    assert final_setup is not None
+    assert final_setup.risk_decision.risk_penalty_factor == 0.5
+    # Original base size was 0.16 (8000 * 0.02 / 1000), penalized by 0.5 = 0.08
+    assert final_setup.position_size == 0.08

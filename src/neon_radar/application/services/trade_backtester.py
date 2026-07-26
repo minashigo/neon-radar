@@ -10,19 +10,18 @@ from __future__ import annotations
 from datetime import UTC, date, datetime, timedelta
 from typing import TYPE_CHECKING, Protocol
 
-from neon_radar.application.services.analysis import analyze_series
-from neon_radar.domain.enums import Bias
+from neon_radar.application.services.execution import PaperExecutionEngine
+from neon_radar.application.services.portfolio_engine import PortfolioEngine
+from neon_radar.application.services.risk.drawdown import DrawdownMonitor
+from neon_radar.application.services.risk.manager import RiskManager, RiskManagerConfig
+from neon_radar.application.services.risk.sizing import FixedRiskStrategy, PositionSizingEngine
+from neon_radar.application.services.trading_pipeline import TradingPipeline
 from neon_radar.domain.models import KlineSeries, Symbol
 from neon_radar.domain.scoring.registry import RuleRegistry
 from neon_radar.domain.trading.backtest import Trade, TradeExitReason, TradeStatus
-from neon_radar.domain.trading.execution import CostModel, ExecutionType
-from neon_radar.domain.trading.setup import TradeSetup, FinalTradeSetup, TradeSetupEngine
+from neon_radar.domain.trading.execution import CostModel
+from neon_radar.domain.trading.setup import TradeSetupEngine
 from neon_radar.infrastructure.exchanges.base import ExchangeClient
-from neon_radar.application.services.trading_pipeline import TradingPipeline
-from neon_radar.application.services.risk.manager import RiskManager, RiskManagerConfig
-from neon_radar.application.services.risk.sizing import PositionSizingEngine, FixedRiskStrategy
-from neon_radar.application.services.risk.drawdown import DrawdownMonitor
-from neon_radar.domain.risk import AccountState, PortfolioState
 from neon_radar.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -30,10 +29,12 @@ logger = get_logger(__name__)
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
+    from neon_radar.application.services.market_context.history_service import (
+        MarketContextHistoryService,
+    )
     from neon_radar.config.models import ScoringRulesConfig, TimeFrame
     from neon_radar.domain.funding import FundingRate
     from neon_radar.domain.market_context import HistoricalMarketContext
-    from neon_radar.application.services.market_context.history_service import MarketContextHistoryService
     from neon_radar.domain.scoring.factor_rule import FactorRule
 
 
@@ -90,7 +91,7 @@ class TradeBacktester:
 
             self._regime_config = RegimeFilterConfig(**scoring_config.regime_filter)
             self._regime_classifier = RuleBasedRegimeClassifier(self._regime_config)
-            
+
         # Initialize the pipeline components
         setup_engine = TradeSetupEngine(
             min_confidence=scoring_config.min_confidence,
@@ -99,7 +100,7 @@ class TradeBacktester:
         )
         risk_manager = RiskManager(RiskManagerConfig())
         sizing_engine = PositionSizingEngine(FixedRiskStrategy())
-        
+
         self._pipeline = TradingPipeline(
             rules=self._rules,
             setup_engine=setup_engine,
@@ -174,7 +175,7 @@ class TradeBacktester:
                 await self._funding_provider.prefetch(symbols, start_date, end_date)
             except Exception as exc:
                 logger.warning(f"Failed to prefetch historical funding rates: {exc}")
-                
+
         if self._history_service is not None:
             for symbol in symbols:
                 if str(symbol) not in self._context_cache:
@@ -237,15 +238,10 @@ class TradeBacktester:
         while start_idx < len(series.candles) and series.candles[start_idx].open_time < start_ms:
             start_idx += 1
 
-        if start_idx < min_history_candles:
-            start_idx = min_history_candles
+        # Initialize Portfolio and Execution engines
+        portfolio_engine = PortfolioEngine(initial_capital=10000.0)
+        execution_engine = PaperExecutionEngine(portfolio_engine=portfolio_engine)
 
-        trades: list[Trade] = []
-        active_trade: Trade | None = None
-        pending_setup: FinalTradeSetup | None = None
-        
-        # Risk tracking per symbol simulation
-        account = AccountState(total_capital=10000.0, free_capital=10000.0)
         drawdown_monitor = DrawdownMonitor(initial_capital=10000.0)
 
         for i in range(start_idx, len(series.candles)):
@@ -253,187 +249,87 @@ class TradeBacktester:
             if candle.open_time >= end_ms:
                 break
 
-            # 1. Execution Phase (process active trade or pending setup)
-            if active_trade is not None:
-                closed = False
-                if active_trade.direction == Bias.BULLISH:
-                    if candle.low <= active_trade.stop_loss:
-                        active_trade = self._close_trade(
-                            active_trade,
-                            active_trade.stop_loss,
-                            candle.open_time,
-                            TradeStatus.LOSS,
-                            TradeExitReason.STOP_LOSS,
-                            ExecutionType.TAKER,
-                        )
-                        trades.append(active_trade)
-                        active_trade = None
-                        closed = True
-                    elif candle.high >= active_trade.take_profit:
-                        active_trade = self._close_trade(
-                            active_trade,
-                            active_trade.take_profit,
-                            candle.open_time,
-                            TradeStatus.WIN,
-                            TradeExitReason.TAKE_PROFIT,
-                            ExecutionType.MAKER,
-                        )
-                        trades.append(active_trade)
-                        active_trade = None
-                        closed = True
-                else:  # BEARISH
-                    if candle.high >= active_trade.stop_loss:
-                        active_trade = self._close_trade(
-                            active_trade,
-                            active_trade.stop_loss,
-                            candle.open_time,
-                            TradeStatus.LOSS,
-                            TradeExitReason.STOP_LOSS,
-                            ExecutionType.TAKER,
-                        )
-                        trades.append(active_trade)
-                        active_trade = None
-                        closed = True
-                    elif candle.low <= active_trade.take_profit:
-                        active_trade = self._close_trade(
-                            active_trade,
-                            active_trade.take_profit,
-                            candle.open_time,
-                            TradeStatus.WIN,
-                            TradeExitReason.TAKE_PROFIT,
-                            ExecutionType.MAKER,
-                        )
-                        trades.append(active_trade)
-                        active_trade = None
-                        closed = True
+            # 1. Process market tick (exits and entries from previous setups)
+            execution_engine.process_market_tick(symbol, candle)
 
-                if closed:
-            elif pending_setup is not None:
-                # Check entry trigger
-                if candle.low <= pending_setup.entry <= candle.high:
-                    active_trade = Trade(
-                        symbol=symbol,
-                        direction=pending_setup.direction,
-                        entry_time=candle.open_time,
-                        entry_price=pending_setup.entry,
-                        stop_loss=pending_setup.stop_loss,
-                        take_profit=pending_setup.take_profit,
-                        status=TradeStatus.OPEN,
-                        exit_reason=TradeExitReason.NONE,
-                        diagnostics=pending_setup.diagnostics,
-                    )
-                    pending_setup = None
+            # 2. Update drawdown with latest equity
+            drawdown = drawdown_monitor.update(portfolio_engine.state.account.total_capital, candle.open_time)
 
-            # 2. Analysis Phase (generate signals for NEXT candle)
-            if active_trade is None:
-                history = series.candles[: i + 1]
-                history_series = KlineSeries(
-                    symbol=series.symbol, timeframe=series.timeframe, candles=history
+            # 3. Build history up to current candle
+            history_candles = series.candles[: i + 1]
+            history = KlineSeries(series.symbol, series.timeframe, history_candles)
+
+            # 4. Context/Funding
+            funding_val = None
+            if self._funding_provider is not None:
+                funding_val = self._funding_provider.get_funding_rate_at(
+                    symbol, int(history.candles[-1].open_time)
                 )
 
-                higher_history_series = None
-                if higher_full_series is not None:
-                    from neon_radar.config.models import TimeFrame
-                    base_tf_enum = TimeFrame(series.timeframe)
-                    htf_enum = TimeFrame(higher_full_series.timeframe)
+            context_val = None
+            if str(symbol) in self._context_cache:
+                context_val = self._context_cache[str(symbol)].slice_at(int(history.candles[-1].open_time))
 
-                    current_close_time = candle.open_time + (base_tf_enum.seconds * 1000)
-                    htf_history = []
-                    for c in higher_full_series.candles:
-                        htf_close_time = c.open_time + (htf_enum.seconds * 1000)
-                        if htf_close_time <= current_close_time:
-                            htf_history.append(c)
+            higher_history_series = None
+            if higher_full_series is not None:
+                from neon_radar.config.models import TimeFrame
+                base_tf_enum = TimeFrame(series.timeframe)
+                htf_enum = TimeFrame(higher_full_series.timeframe)
 
-                    if htf_history:
-                        higher_history_series = KlineSeries(
-                            symbol=higher_full_series.symbol,
-                            timeframe=higher_full_series.timeframe,
-                            candles=tuple(htf_history)
-                        )
+                current_close_time = candle.open_time + (base_tf_enum.seconds * 1000)
+                htf_history = []
+                for c in higher_full_series.candles:
+                    htf_close_time = c.open_time + (htf_enum.seconds * 1000)
+                    if htf_close_time <= current_close_time:
+                        htf_history.append(c)
 
-                funding_val = None
-                if self._funding_provider is not None:
-                    funding_val = self._funding_provider.get_funding_rate_at(
-                        symbol, int(history[-1].open_time)
+                if htf_history:
+                    higher_history_series = KlineSeries(
+                        symbol=higher_full_series.symbol,
+                        timeframe=higher_full_series.timeframe,
+                        candles=tuple(htf_history)
                     )
-                    
-                context_val = None
-                if str(symbol) in self._context_cache:
-                    context_val = self._context_cache[str(symbol)].slice_at(int(history[-1].open_time))
 
-                try:
-                    positions = ()
-                    if active_trade is not None:
-                        from neon_radar.domain.risk import PositionState
-                        pos = PositionState(
-                            symbol=active_trade.symbol,
-                            side=active_trade.direction,
-                            entry_price=active_trade.entry_price,
-                            size=1.0,  # Mock size for risk evaluation of open positions
-                            stop_loss=active_trade.stop_loss,
-                            unrealized_pnl=0.0
-                        )
-                        positions = (pos,)
-                        
-                    portfolio = PortfolioState(account=account, positions=positions)
-                    drawdown = drawdown_monitor.update(account.total_capital, int(history[-1].open_time))
-                    
-                    pending_setup = self._pipeline.evaluate(
-                        series=history_series,
-                        portfolio=portfolio,
-                        drawdown=drawdown,
-                        timestamp=int(history[-1].open_time),
-                        higher_tf_series=higher_history_series,
-                        funding_rate=funding_val,
-                        market_context=context_val,
-                    )
-                except Exception:
-                    pending_setup = None
+            # 5. Evaluate pipeline
+            try:
+                setup = self._pipeline.evaluate(
+                    history,
+                    portfolio=portfolio_engine.state,
+                    drawdown=drawdown,
+                    timestamp=int(history.candles[-1].open_time),
+                    higher_tf_series=higher_history_series,
+                    funding_rate=funding_val,
+                    market_context=context_val,
+                )
+            except Exception:
+                setup = None
 
-        # Clean up any open trade at the end
-        if active_trade is not None:
-            last_candle = series.candles[-1]
-            status = TradeStatus.WIN if active_trade.gross_pnl_pct > 0 else TradeStatus.LOSS
-            if active_trade.gross_pnl_pct == 0:
-                status = TradeStatus.BREAK_EVEN
-            active_trade = self._close_trade(
-                active_trade,
-                last_candle.close,
-                last_candle.open_time,
-                status,
-                TradeExitReason.FORCE_CLOSE,
-                ExecutionType.TAKER,
+            # 6. If we got a setup, execute it
+            if setup is not None:
+                if str(symbol) not in execution_engine.pending_setups and not any(p.symbol == symbol for p in portfolio_engine.state.positions):
+                    execution_engine.execute_setup(setup, candle.open_time)
+
+        # Legacy trades mapping
+        legacy_trades = []
+        for p in portfolio_engine._history:
+            trade_status = TradeStatus.WIN if p.realized_pnl > 0 else TradeStatus.LOSS
+            if p.realized_pnl == 0:
+                trade_status = TradeStatus.BREAK_EVEN
+            exit_reason = TradeExitReason.TAKE_PROFIT if p.close_reason == "TAKE_PROFIT" else TradeExitReason.STOP_LOSS
+
+            legacy_trades.append(
+                Trade(
+                    symbol=str(p.symbol),
+                    direction=p.direction,
+                    entry_time=p.entry_time,
+                    entry_price=p.entry_price,
+                    stop_loss=0.0,
+                    take_profit=0.0,
+                    exit_time=p.exit_time,
+                    exit_price=p.exit_price,
+                    status=trade_status,
+                    exit_reason=exit_reason
+                )
             )
-            trades.append(active_trade)
 
-        return trades
-
-    def _close_trade(
-        self,
-        trade: Trade,
-        exit_price: float,
-        exit_time: int,
-        status: TradeStatus,
-        exit_reason: TradeExitReason,
-        exit_type: ExecutionType,
-    ) -> Trade:
-        from dataclasses import replace
-
-        costs = self._cost_model.calculate_costs(
-            symbol=trade.symbol,
-            direction=trade.direction,
-            entry_type=ExecutionType.MAKER,  # Entry is assumed MAKER per defaults
-            exit_type=exit_type,
-            entry_time=trade.entry_time,
-            exit_time=exit_time,
-            funding_provider=self._funding_provider,
-        )
-
-        return replace(
-            trade,
-            exit_price=exit_price,
-            exit_time=exit_time,
-            status=status,
-            exit_reason=exit_reason,
-            costs=costs,
-        )
+        return legacy_trades

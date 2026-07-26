@@ -308,8 +308,8 @@ class HistoricalMarketContext:
         fetching the full history once and slicing it in memory for each candle.
         """
         from dataclasses import replace
-        
-        # replace() will invoke __post_init__ on the new instance, 
+
+        # replace() will invoke __post_init__ on the new instance,
         # which will safely re-slice all underlying series using slice_by_publish_time
         # up to the new timestamp.
         return replace(self, timestamp=timestamp)

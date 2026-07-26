@@ -32,14 +32,16 @@ from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from neon_radar.application.services.analysis import analyze_series
+from neon_radar.application.services.market_context.history_service import (
+    MarketContextHistoryService,
+)
+from neon_radar.domain.market_context import HistoricalMarketContext
 from neon_radar.domain.models import OHLCV, KlineSeries, Symbol
 from neon_radar.domain.scoring import (
     AnalysisResult,
     EvaluationResult,
     RuleBasedEngine,
 )
-from neon_radar.application.services.market_context.history_service import MarketContextHistoryService
-from neon_radar.domain.market_context import HistoricalMarketContext
 from neon_radar.domain.scoring.backtest import (
     BacktestConfig,
     BacktestResult,
@@ -196,7 +198,7 @@ class WalkForwardBacktester:
         fetch_end = int(fetch_end_dt.timestamp() * 1000)
         # We fetch 1500 candles which is plenty for any reasonable window.
         limit = 1500
-        
+
         if self._history_service is not None:
             from datetime import UTC
             for symbol in symbols:
@@ -207,7 +209,7 @@ class WalkForwardBacktester:
                         self._context_cache[str(symbol)] = ctx
                     except Exception:
                         pass
-        
+
         for symbol in symbols:
             key = (str(symbol), timeframe)
             if key in self._series_cache:
@@ -258,11 +260,11 @@ class WalkForwardBacktester:
                     timeframe=series.timeframe,
                     candles=history,
                 )
-                
+
                 context_val = None
                 if str(symbol) in self._context_cache:
                     context_val = self._context_cache[str(symbol)].slice_at(int(history[-1].open_time))
-                    
+
                 result = self._score_at(history_series, context_val)
                 if result is None:
                     continue

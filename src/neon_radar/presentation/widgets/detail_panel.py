@@ -68,30 +68,6 @@ class DetailPanel(QFrame):
         self._signals_value.setText(str(len(result.signals)))
         self._view_chart_btn.setEnabled(True)
 
-        # Trade Setup
-        if result.trade_setup:
-            ts = result.trade_setup
-            self._entry_val.setText(f"{ts.entry_price:.4g}")
-            self._sl_val.setText(f"{ts.stop_loss:.4g}")
-            self._tp1_val.setText(f"{ts.take_profit_1:.4g}")
-            self._tp2_val.setText(f"{ts.take_profit_2:.4g}")
-
-            color = self._bias_color(ts.direction)
-            style = f"color: {color}; font-weight: bold;"
-            self._entry_val.setStyleSheet(style)
-            self._sl_val.setStyleSheet(style)
-            self._tp1_val.setStyleSheet(style)
-            self._tp2_val.setStyleSheet(style)
-        else:
-            self._entry_val.setText("—")
-            self._sl_val.setText("—")
-            self._tp1_val.setText("—")
-            self._tp2_val.setText("—")
-            self._entry_val.setStyleSheet("")
-            self._sl_val.setStyleSheet("")
-            self._tp1_val.setStyleSheet("")
-            self._tp2_val.setStyleSheet("")
-
         # Breakdown table.
         rows = list(result.breakdown())
         self._breakdown.setRowCount(len(rows))

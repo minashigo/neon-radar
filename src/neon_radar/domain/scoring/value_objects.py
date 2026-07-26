@@ -12,11 +12,12 @@ Kept as a separate module so the package layout is consistent:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING
 
 from neon_radar.domain.enums import Bias
+
 
 class SignalCategory(str, Enum):
     """Categorizes the source of a signal for Confluence detection."""

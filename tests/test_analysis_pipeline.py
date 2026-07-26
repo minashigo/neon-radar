@@ -34,9 +34,6 @@ class TestAnalyzeSeries:
         assert {i.name for i in result.market_state.indicator_series}.issuperset({
             "ema_12",
             "ema_26",
-            "atr_14",
-            "adx_14",
-            "rsi_14",
         })
         assert result.signal_count == 1
         assert result.signals[0].name == "ema_trend"
@@ -52,42 +49,12 @@ class TestAnalyzeSeries:
 
         assert result.market_state is not None
         ind_names = {i.name for i in result.market_state.indicator_series}
-        assert "atr_14" in ind_names
-        assert "adx_14" in ind_names
+        assert not ind_names
         assert result.signal_count == 1
         assert result.signals[0].name == "funding_rate"
         assert result.score.value == pytest.approx(result.signals[0].value)
 
-    def test_analyze_series_builds_trade_setup(self) -> None:
-        from neon_radar.domain.scoring.factor_rule import FactorRule, RuleDescription
-        from neon_radar.domain.scoring.value_objects import Bias, Signal
 
-        # Build series with dummy OHLCV
-        series = make_series([100.0] * 50)
-
-        # The rule must return a bullish signal to trigger trade setup logic
-        class AlwaysBullishRule(FactorRule):
-            NAME = "bullish_dummy"
-
-            @classmethod
-            def description(cls) -> RuleDescription:
-                return RuleDescription(cls.NAME, cls.NAME, "Dummy")
-
-            def required_indicators(self):
-                return ()
-
-            def evaluate(self, state):
-                return Signal(self.NAME, 1.0, 1.0, 1.0, "Bullish")
-
-        result = analyze_series(series, rules=(AlwaysBullishRule(),))
-
-        assert result.bias == Bias.BULLISH
-        assert result.trade_setup is not None
-        assert result.trade_setup.direction == Bias.BULLISH
-        assert result.trade_setup.entry_price == 100.0
-        # ATR is calculated internally since it's requested by TradeSetupEngine
-        assert result.trade_setup.stop_loss < 100.0
-        assert result.trade_setup.take_profit_1 > 100.0
 
     def test_higher_tf_indicators(self) -> None:
         from neon_radar.application.services.indicator_pipeline import IndicatorSpec

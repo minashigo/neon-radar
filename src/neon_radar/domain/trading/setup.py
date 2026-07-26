@@ -16,9 +16,9 @@ from neon_radar.domain.trading.regime import MarketRegime, RegimeClassifier, Reg
 
 if TYPE_CHECKING:
     from neon_radar.domain.market_state import MarketState
-    from neon_radar.domain.scoring.value_objects import AnalysisResult
-    from neon_radar.domain.risk import RiskDecision
     from neon_radar.domain.models import Symbol
+    from neon_radar.domain.risk import RiskDecision
+    from neon_radar.domain.scoring.value_objects import AnalysisResult
 
 
 @dataclass(slots=True, frozen=True)

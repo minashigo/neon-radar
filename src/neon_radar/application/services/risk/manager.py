@@ -6,7 +6,8 @@ to determine if a trade is permitted and what the maximum risk parameters should
 
 from dataclasses import dataclass
 
-from neon_radar.domain.risk import DrawdownState, PortfolioState, RiskDecision
+from neon_radar.domain.portfolio import PortfolioState
+from neon_radar.domain.risk import DrawdownState, RiskDecision
 from neon_radar.domain.scoring.value_objects import AnalysisResult
 
 

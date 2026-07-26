@@ -1,7 +1,7 @@
 """Tests for the TradeBacktester."""
 
 from datetime import date
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -74,48 +74,33 @@ async def test_trade_backtester_with_mocked_analysis(
     series = KlineSeries(symbol=Symbol("BTCUSDT"), timeframe="1d", candles=tuple(candles))
     mock_exchange.get_klines.return_value = series
 
-    # Mock analyze_series
-    from neon_radar.domain.scoring import AnalysisResult, Score
-    from neon_radar.domain.trading.setup import TradeSetup
+    # Mock pipeline evaluate
+    from neon_radar.domain.risk import RiskDecision
+    from neon_radar.domain.trading.setup import FinalTradeSetup
 
-    def fake_analyze(history, *args, **kwargs):
+    def fake_evaluate(self, series, *args, **kwargs):
         # Trigger a trade on candle index 5 (which is the 6th candle)
         # We look at history up to index 5, so history length is 6.
-        if len(history.candles) == 6:
-            return AnalysisResult(
-                score=Score(
-                    value=1.0,
-                    confidence=1.0,
-                    long_score=1.0,
-                    short_score=0.0,
-                    contributing_signals=1,
-                ),
-                signals=(),
-                summary="",
-                computed_at=0,
-                market_state=MagicMock(),
-                trade_setup=TradeSetup(
-                    direction=Bias.BULLISH,
-                    entry_price=106.0,  # The next candle (i=6) has low=101.0, high=111.0 -> will hit
-                    stop_loss=100.0,
-                    take_profit_1=110.0,
-                    take_profit_2=120.0,
-                    risk_reward=(1.5, 3.0),
-                ),
+        if len(series.candles) == 6:
+            return FinalTradeSetup(
+                symbol=Symbol("BTCUSDT"),
+                direction=Bias.BULLISH,
+                entry=106.0,  # The next candle (i=6) has low=101.0, high=111.0 -> will hit
+                stop_loss=100.0,
+                take_profit=110.0,
+                confidence=1.0,
+                score=1.0,
+                risk_decision=RiskDecision(True),
+                position_size=1.0,
+                quote_size=106.0,
+                risk_amount=6.0,
+                expected_reward=4.0,
+                diagnostics=None
             )
-        return AnalysisResult(
-            score=Score(
-                value=0.0, confidence=0.0, long_score=0.0, short_score=0.0, contributing_signals=0
-            ),
-            signals=(),
-            summary="",
-            computed_at=0,
-            market_state=MagicMock(),
-            trade_setup=None,
-        )
+        return None
 
     monkeypatch.setattr(
-        "neon_radar.application.services.trade_backtester.analyze_series", fake_analyze
+        "neon_radar.application.services.trading_pipeline.TradingPipeline.evaluate", fake_evaluate
     )
 
     tester = TradeBacktester(

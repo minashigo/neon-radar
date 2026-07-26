@@ -4,7 +4,7 @@ Combines the Analysis Layer (Rule Engine, Trade Setup Engine) with the Risk Laye
 (Risk Manager, Position Sizing Engine) into a single, cohesive decision-making pipeline.
 """
 
-from typing import Iterable
+from collections.abc import Iterable
 
 from neon_radar.application.services.analysis import analyze_series
 from neon_radar.application.services.indicator_pipeline import IndicatorSpec
@@ -13,7 +13,8 @@ from neon_radar.application.services.risk.sizing import PositionSizingEngine
 from neon_radar.domain.funding import FundingRate, OpenInterest
 from neon_radar.domain.market_context import MarketContext
 from neon_radar.domain.models import KlineSeries, TickerStats
-from neon_radar.domain.risk import DrawdownState, PortfolioState
+from neon_radar.domain.portfolio import PortfolioState
+from neon_radar.domain.risk import DrawdownState
 from neon_radar.domain.scoring.factor_rule import FactorRule
 from neon_radar.domain.trading.regime import RegimeClassifier, RegimeFilterConfig
 from neon_radar.domain.trading.setup import FinalTradeSetup, TradeSetupEngine
@@ -69,11 +70,11 @@ class TradingPipeline:
         market_context: MarketContext | None = None,
     ) -> FinalTradeSetup | None:
         """Run the full pipeline on a series and portfolio state."""
-        
+
         # 1. Analyze Market Data -> AnalysisResult
         # We pass setup_engine indicators via extra_indicators so they are available in MarketState
         extra_indicators = self.setup_engine.required_indicators()
-        
+
         analysis_result = analyze_series(
             series=series,
             rules=self.rules,
@@ -96,7 +97,7 @@ class TradingPipeline:
         # Ensure we have a market state and a valid setup before proceeding
         if analysis_result.market_state is None:
             return None
-            
+
         trade_setup = self.setup_engine.build_setup(
             analysis_result.market_state, analysis_result
         )

@@ -154,11 +154,11 @@ class BinanceContextProviders(FundingProvider, OpenInterestProvider, LongShortPr
         try:
             items = []
             ingest_time = int(time.time() * 1000)
-            
+
             # Fetch in chunks to respect Binance limits (1000 max for funding, 30 days for others)
             chunk_size_ms = 30 * 24 * 60 * 60 * 1000  # 30 days
             current_start = start_time
-            
+
             while current_start < end_time:
                 current_end = min(current_start + chunk_size_ms, end_time)
                 data = await self._transport.get("/fapi/v1/fundingRate", {
@@ -195,10 +195,10 @@ class BinanceContextProviders(FundingProvider, OpenInterestProvider, LongShortPr
         try:
             items = []
             ingest_time = int(time.time() * 1000)
-            
+
             chunk_size_ms = 30 * 24 * 60 * 60 * 1000  # 30 days
             current_start = start_time
-            
+
             while current_start < end_time:
                 current_end = min(current_start + chunk_size_ms, end_time)
                 data = await self._transport.get("/futures/data/openInterestHist", {
@@ -237,10 +237,10 @@ class BinanceContextProviders(FundingProvider, OpenInterestProvider, LongShortPr
         try:
             items = []
             ingest_time = int(time.time() * 1000)
-            
+
             chunk_size_ms = 30 * 24 * 60 * 60 * 1000  # 30 days
             current_start = start_time
-            
+
             while current_start < end_time:
                 current_end = min(current_start + chunk_size_ms, end_time)
                 data = await self._transport.get("/futures/data/globalLongShortAccountRatio", {
@@ -279,10 +279,10 @@ class BinanceContextProviders(FundingProvider, OpenInterestProvider, LongShortPr
         try:
             items = []
             ingest_time = int(time.time() * 1000)
-            
+
             chunk_size_ms = 30 * 24 * 60 * 60 * 1000  # 30 days
             current_start = start_time
-            
+
             while current_start < end_time:
                 current_end = min(current_start + chunk_size_ms, end_time)
                 data = await self._transport.get("/futures/data/takerlongshortRatio", {

@@ -96,7 +96,7 @@ def analyze_series(
         context=market_context,
     )
     engine = RuleBasedEngine(
-        rules=rules_tuple, 
+        rules=rules_tuple,
         min_confidence=min_confidence,
         confluence_bonus=confluence_bonus,
         confluence_penalty=confluence_penalty,

@@ -3,7 +3,8 @@ import pytest
 from neon_radar.application.services.risk.manager import RiskManager, RiskManagerConfig
 from neon_radar.domain.enums import Bias
 from neon_radar.domain.models import Symbol
-from neon_radar.domain.risk import AccountState, DrawdownState, PortfolioState, PositionState
+from neon_radar.domain.portfolio import AccountState, OpenPosition, PortfolioState
+from neon_radar.domain.risk import DrawdownState
 from neon_radar.domain.scoring.value_objects import AnalysisResult, Score
 
 
@@ -38,8 +39,19 @@ def test_risk_manager_rejects_max_open_positions(analysis):
     config = RiskManagerConfig(max_open_positions=1)
     rm = RiskManager(config)
 
-    pos = PositionState(Symbol("ETHUSDT"), Bias.BULLISH, 3000.0, 1.0)
-    portfolio = PortfolioState(AccountState(10000.0, 7000.0), positions=(pos,))
+    # Total capital = 10000, 1 existing position
+    acc = AccountState(total_capital=10000.0, free_capital=8000.0)
+    pos = OpenPosition(
+        symbol=Symbol("ETHUSDT"),
+        direction=Bias.BULLISH,
+        entry_price=2000.0,
+        quantity=1.0,
+        position_size=2000.0,
+        stop_loss=1900.0,
+        take_profit=2200.0,
+        opened_at=1000
+    )
+    portfolio = PortfolioState(acc, positions=(pos,))
 
     decision = rm.evaluate(analysis, portfolio)
     assert decision.is_allowed is False
@@ -62,8 +74,18 @@ def test_risk_manager_rejects_duplicate_symbol(analysis):
     )
 
     rm = RiskManager(RiskManagerConfig())
-    pos = PositionState(Symbol("BTCUSDT"), Bias.BULLISH, 50000.0, 0.1)
-    portfolio = PortfolioState(AccountState(10000.0, 5000.0), positions=(pos,))
+    acc = AccountState(total_capital=10000.0, free_capital=8000.0)
+    pos = OpenPosition(
+        symbol=Symbol("BTCUSDT"),
+        direction=Bias.BULLISH,
+        entry_price=30000.0,
+        quantity=0.1,
+        position_size=3000.0,
+        stop_loss=29000.0,
+        take_profit=32000.0,
+        opened_at=1000
+    )
+    portfolio = PortfolioState(acc, positions=(pos,))
 
     decision = rm.evaluate(analysis_with_symbol, portfolio)
     assert decision.is_allowed is False
@@ -74,7 +96,16 @@ def test_risk_manager_rejects_max_exposure(empty_portfolio, analysis):
     config = RiskManagerConfig(max_portfolio_exposure_pct=0.5)
     rm = RiskManager(config)
 
-    pos = PositionState(Symbol("ETHUSDT"), Bias.BULLISH, 3000.0, 2.0)  # Quote size: 6000
+    pos = OpenPosition(
+        symbol=Symbol("ETHUSDT"),
+        direction=Bias.BULLISH,
+        entry_price=3000.0,
+        quantity=2.0,
+        position_size=6000.0,
+        stop_loss=2900.0,
+        take_profit=3200.0,
+        opened_at=1000
+    )
     portfolio = PortfolioState(AccountState(10000.0, 4000.0), positions=(pos,))
 
     decision = rm.evaluate(analysis, portfolio)

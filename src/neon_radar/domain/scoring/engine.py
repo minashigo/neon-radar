@@ -69,7 +69,7 @@ class RuleBasedEngine(ScoringEngine):
     def evaluate(self, state: MarketState) -> AnalysisResult:
         signals = self.evaluate_signals(state)
         score = aggregate(
-            signals, 
+            signals,
             min_confidence=self.min_confidence,
             confluence_bonus=self.confluence_bonus,
             confluence_penalty=self.confluence_penalty,

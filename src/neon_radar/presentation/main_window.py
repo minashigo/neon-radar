@@ -293,7 +293,7 @@ class MainWindow(QMainWindow):
             return
         result = self._last_results.get(symbol)
         indicators = self._last_indicators.get(symbol, ())
-        trade_setup = result.trade_setup if result else None
+        trade_setup = None
         self._chart.render(series, indicators, trade_setup=trade_setup)
 
     # ------------------------------------------------------------------
