@@ -28,6 +28,9 @@ from neon_radar.infrastructure.providers.binance_dto import (
     BinancePremiumIndexDTO,
     BinanceTakerVolumeDTO,
 )
+from neon_radar.utils.logging import get_logger
+
+logger = get_logger(__name__)
 
 if TYPE_CHECKING:
     from neon_radar.application.services.market_context.cache import ContextCache
@@ -73,7 +76,8 @@ class BinanceContextProviders(
             # We can cache it for 1 minute safely.
             self._cache.set(cache_key, context, ttl_seconds=60.0)
             return context
-        except Exception:
+        except Exception as exc:
+            logger.warning("Failed to fetch binance context", exc_info=exc)
             return None
 
     async def get_open_interest(self, symbol: Symbol, timestamp: int) -> OpenInterestContext | None:
@@ -95,7 +99,8 @@ class BinanceContextProviders(
             context = normalize_binance_open_interest(dto, mark_price, int(time.time() * 1000))
             self._cache.set(cache_key, context, ttl_seconds=60.0)
             return context
-        except Exception:
+        except Exception as exc:
+            logger.warning("Failed to fetch binance context", exc_info=exc)
             return None
 
     async def get_long_short_ratio(
@@ -121,7 +126,8 @@ class BinanceContextProviders(
             # This data updates every 5m
             self._cache.set(cache_key, context, ttl_seconds=300.0)
             return context
-        except Exception:
+        except Exception as exc:
+            logger.warning("Failed to fetch binance context", exc_info=exc)
             return None
 
     async def get_taker_flow(self, symbol: Symbol, timestamp: int) -> TakerFlowContext | None:
@@ -143,8 +149,8 @@ class BinanceContextProviders(
 
             self._cache.set(cache_key, context, ttl_seconds=300.0)
             return context
-        except Exception as e:
-            print(f"DEBUG: get_taker_flow failed: {e}")
+        except Exception as exc:
+            logger.warning("Failed to fetch binance context (taker_flow)", exc_info=exc)
             return None
 
     async def get_funding_history(
@@ -188,7 +194,8 @@ class BinanceContextProviders(
             series = FundingSeries(symbol=symbol, items=tuple(items))
             self._cache.set_json(cache_key, series, ttl_seconds=3600.0)
             return series
-        except Exception:
+        except Exception as exc:
+            logger.warning("Failed to fetch binance context", exc_info=exc)
             return None
 
     async def get_open_interest_history(
@@ -233,7 +240,8 @@ class BinanceContextProviders(
             series = OpenInterestSeries(symbol=symbol, items=tuple(items))
             self._cache.set_json(cache_key, series, ttl_seconds=3600.0)
             return series
-        except Exception:
+        except Exception as exc:
+            logger.warning("Failed to fetch binance context", exc_info=exc)
             return None
 
     async def get_long_short_ratio_history(
@@ -278,7 +286,8 @@ class BinanceContextProviders(
             series = LongShortSeries(symbol=symbol, items=tuple(items))
             self._cache.set_json(cache_key, series, ttl_seconds=3600.0)
             return series
-        except Exception:
+        except Exception as exc:
+            logger.warning("Failed to fetch binance context", exc_info=exc)
             return None
 
     async def get_taker_flow_history(
@@ -323,5 +332,6 @@ class BinanceContextProviders(
             series = TakerFlowSeries(symbol=symbol, items=tuple(items))
             self._cache.set_json(cache_key, series, ttl_seconds=3600.0)
             return series
-        except Exception:
+        except Exception as exc:
+            logger.warning("Failed to fetch binance context", exc_info=exc)
             return None

@@ -230,5 +230,6 @@ class BinanceClient(ExchangeClient):
                 backoff *= 2
 
         # All retries exhausted.
-        assert last_error is not None  # one of the branches above always sets it
+        if last_error is None:
+            raise RuntimeError("Exhausted retries but no error was recorded")
         raise last_error

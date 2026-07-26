@@ -353,6 +353,9 @@ async def _score_one_symbol(
     limit: int,
     rules: tuple,
     min_confidence: float,
+    confluence_bonus: float = 0.20,
+    confluence_penalty: float = 0.15,
+    max_confidence_boost: float = 0.40,
 ) -> tuple[Symbol, MarketState, AnalysisResult]:
     """Fetch + compute + score one symbol. Returns (symbol, state, result)."""
     htf = timeframe.higher_timeframe
@@ -374,11 +377,15 @@ async def _score_one_symbol(
         series,
         rules,
         min_confidence=min_confidence,
+        confluence_bonus=confluence_bonus,
+        confluence_penalty=confluence_penalty,
+        max_confidence_boost=max_confidence_boost,
         timestamp=int(_now_ms()),
         funding_rate=funding_rate,
         higher_tf_series=higher_tf_series,
     )
-    assert result.market_state is not None
+    if result.market_state is None:
+        raise RuntimeError(f"Analysis for {symbol} returned no market_state")
     return symbol, result.market_state, result
 
 

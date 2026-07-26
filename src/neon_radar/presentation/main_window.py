@@ -280,7 +280,8 @@ class MainWindow(QMainWindow):
             )
         except Exception:
             return None, ()
-        assert result.market_state is not None
+        if result.market_state is None:
+            raise RuntimeError(f"Analysis returned no market_state for {series.symbol}")
         return result, tuple(result.market_state.indicator_series)
 
     # ------------------------------------------------------------------
@@ -291,7 +292,7 @@ class MainWindow(QMainWindow):
         series = self._last_klines.get(symbol)
         if series is None:
             return
-        self._last_results.get(symbol)
+        result = self._last_results.get(symbol)
         indicators = self._last_indicators.get(symbol, ())
         trade_setup = None
         self._chart.render(series, indicators, trade_setup=trade_setup)

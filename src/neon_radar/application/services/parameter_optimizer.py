@@ -105,5 +105,6 @@ class GridSearchOptimizer:
                 best_config = new_cfg
                 best_report = report
 
-        assert best_config is not None and best_report is not None
+        if best_config is None or best_report is None:
+            raise RuntimeError("Optimization failed: no best configuration found")
         return best_config, best_report
