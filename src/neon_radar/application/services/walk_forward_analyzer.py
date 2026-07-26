@@ -66,7 +66,7 @@ class WalkForwardAnalyzer:
         while True:
             tmp_is_end = _add_months(tmp_is_start, is_window_months)
             tmp_oos_start = tmp_is_end
-            tmp_oos_end = _add_months(tmp_oos_start, oos_window_months)
+            _add_months(tmp_oos_start, oos_window_months)
             if tmp_oos_start >= end_date:
                 break
             total_cycles += 1

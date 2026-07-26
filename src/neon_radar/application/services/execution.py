@@ -5,23 +5,23 @@ It manages the lifecycle of a trade by processing market ticks.
 """
 
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING
 
 from neon_radar.application.services.portfolio_engine import PortfolioEngine
 from neon_radar.domain.enums import Bias
+from neon_radar.domain.execution_costs import (
+    BinanceFundingModel,
+    BinanceFuturesFeeModel,
+    ExecutionCostSummary,
+    FeeModel,
+    FixedSlippageModel,
+    FundingModel,
+    SlippageModel,
+)
 from neon_radar.domain.models import OHLCV, Symbol
 from neon_radar.domain.portfolio import OpenPosition
-from neon_radar.domain.trading.setup import FinalTradeSetup
 from neon_radar.domain.trading.execution import ExecutionType
-from neon_radar.domain.execution_costs import (
-    FeeModel,
-    SlippageModel,
-    FundingModel,
-    ExecutionCostSummary,
-    BinanceFuturesFeeModel,
-    FixedSlippageModel,
-    BinanceFundingModel,
-)
-from typing import TYPE_CHECKING
+from neon_radar.domain.trading.setup import FinalTradeSetup
 
 if TYPE_CHECKING:
     from neon_radar.application.services.trade_backtester import HistoricalFundingProvider
@@ -83,37 +83,36 @@ class PaperExecutionEngine(ExecutionEngine):
 
         # 2. Check Pending Setups for entry
         setup = self.pending_setups.get(symbol_str)
-        if setup is not None:
-            if candle.low <= setup.entry <= candle.high:
-                # Trigger entry
-                try:
-                    entry_exec_type = ExecutionType.MAKER
-                    entry_fee = self.fee_model.calculate_entry_fee(
-                        setup.position_size, entry_exec_type
-                    )
-                    entry_slippage = self.slippage_model.calculate_slippage(
-                        setup.position_size, symbol, entry_exec_type, setup.direction
-                    )
+        if setup is not None and candle.low <= setup.entry <= candle.high:
+            # Trigger entry
+            try:
+                entry_exec_type = ExecutionType.MAKER
+                entry_fee = self.fee_model.calculate_entry_fee(
+                    setup.position_size, entry_exec_type
+                )
+                entry_slippage = self.slippage_model.calculate_slippage(
+                    setup.position_size, symbol, entry_exec_type, setup.direction
+                )
 
-                    pos = OpenPosition(
-                        symbol=symbol,
-                        direction=setup.direction,
-                        entry_price=setup.entry,
-                        quantity=setup.position_size
-                        / setup.entry,  # Approximation since quantity usually is base asset
-                        position_size=setup.position_size,  # Margin
-                        stop_loss=setup.stop_loss,
-                        take_profit=setup.take_profit,
-                        opened_at=candle.open_time,
-                        entry_fee=entry_fee,
-                        entry_slippage=entry_slippage,
-                        entry_execution_type=entry_exec_type.name,
-                    )
-                    self.portfolio_engine.open_position(pos)
-                    del self.pending_setups[symbol_str]
-                except ValueError:
-                    # E.g. insufficient funds
-                    del self.pending_setups[symbol_str]
+                pos = OpenPosition(
+                    symbol=symbol,
+                    direction=setup.direction,
+                    entry_price=setup.entry,
+                    quantity=setup.position_size
+                    / setup.entry,  # Approximation since quantity usually is base asset
+                    position_size=setup.position_size,  # Margin
+                    stop_loss=setup.stop_loss,
+                    take_profit=setup.take_profit,
+                    opened_at=candle.open_time,
+                    entry_fee=entry_fee,
+                    entry_slippage=entry_slippage,
+                    entry_execution_type=entry_exec_type.name,
+                )
+                self.portfolio_engine.open_position(pos)
+                del self.pending_setups[symbol_str]
+            except ValueError:
+                # E.g. insufficient funds
+                del self.pending_setups[symbol_str]
 
         # 3. Check Open Positions for exit (SL/TP)
         # Note: we fetch the latest state from PortfolioEngine

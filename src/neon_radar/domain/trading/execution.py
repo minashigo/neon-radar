@@ -113,8 +113,8 @@ class BinanceFundingModel:
         # Start at the next 8-hour boundary after entry
         import math
 
-        EIGHT_HOURS_MS = 8 * 60 * 60 * 1000
-        next_boundary = math.ceil(entry_time / EIGHT_HOURS_MS) * EIGHT_HOURS_MS
+        eight_hours_ms = 8 * 60 * 60 * 1000
+        next_boundary = math.ceil(entry_time / eight_hours_ms) * eight_hours_ms
 
         cost = 0.0
         current_time = next_boundary
@@ -125,7 +125,7 @@ class BinanceFundingModel:
                     cost += rate_obj.rate
                 else:
                     cost -= rate_obj.rate
-            current_time += EIGHT_HOURS_MS
+            current_time += eight_hours_ms
 
         return cost
 

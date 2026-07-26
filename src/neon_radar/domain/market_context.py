@@ -7,15 +7,17 @@ via explicit time markers, isolating the domain from raw API structures.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
 from dataclasses import dataclass, replace
-from enum import Enum
-from typing import Any, Generic, TypeVar
+from enum import StrEnum
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from neon_radar.domain.models import Symbol
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
-class SchemaVersion(str, Enum):
+
+class SchemaVersion(StrEnum):
     """Schema versioning to ensure backward compatibility in backtests."""
 
     V1 = "FeatureSchema_v1"
@@ -122,7 +124,7 @@ T_Context = TypeVar("T_Context")
 
 
 @dataclass(slots=True, frozen=True)
-class ContextSeries(Generic[T_Context]):
+class ContextSeries[T_Context]:
     """Base class for all historical context series.
 
     Provides iterable API, validation, slicing, latest(), and window().

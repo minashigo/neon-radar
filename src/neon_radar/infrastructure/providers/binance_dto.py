@@ -1,3 +1,4 @@
+# ruff: noqa: N815  # Binance API fields are camelCase
 """Raw Data Transfer Objects (DTOs) for Binance Microstructure API."""
 
 from __future__ import annotations

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 from typing import TYPE_CHECKING, Protocol
 
 from pydantic import BaseModel, Field
@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from neon_radar.domain.market_state import MarketState
 
 
-class MarketRegime(str, Enum):
+class MarketRegime(StrEnum):
     """Broad classification of the market environment."""
 
     BULL_TREND = "BULL_TREND"

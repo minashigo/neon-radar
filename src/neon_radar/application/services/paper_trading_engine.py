@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import csv
 import logging
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from neon_radar.application.services.analysis import analyze_series
@@ -17,6 +16,8 @@ from neon_radar.domain.trading.setup import TradeSetupEngine
 from neon_radar.utils.logging import get_logger
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from neon_radar.config.models import ScoringRulesConfig
     from neon_radar.domain.models import KlineSeries, Symbol
 

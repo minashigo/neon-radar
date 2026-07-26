@@ -7,15 +7,15 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from neon_radar.domain.enums import Bias
-from neon_radar.domain.models import Symbol
 from neon_radar.utils.logging import get_logger
 
 if TYPE_CHECKING:
-    from neon_radar.domain.models import Kline
+    from pathlib import Path
+
+    from neon_radar.domain.models import Kline, Symbol
     from neon_radar.domain.trading.backtest import TradeDiagnostics
     from neon_radar.domain.trading.setup import TradeSetup
 

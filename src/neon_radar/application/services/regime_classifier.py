@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from neon_radar.application.services.indicator_pipeline import IndicatorSpec
-from neon_radar.domain.market_state import MarketState
 from neon_radar.domain.trading.regime import MarketRegime, RegimeClassification, RegimeFilterConfig
+
+if TYPE_CHECKING:
+    from neon_radar.domain.market_state import MarketState
 
 
 class RuleBasedRegimeClassifier:
@@ -62,12 +66,11 @@ class RuleBasedRegimeClassifier:
 
         # 2. ADX Chop Check (Priority 2)
         adx_val = state.get_indicator_value(f"adx_{self._config.adx_period}", "adx")
-        if adx_val is not None:
-            if adx_val < self._config.adx_chop_threshold:
-                return RegimeClassification(
-                    regime=MarketRegime.CHOP,
-                    reason=f"ADX {adx_val:.2f} < {self._config.adx_chop_threshold:.2f}",
-                )
+        if adx_val is not None and adx_val < self._config.adx_chop_threshold:
+            return RegimeClassification(
+                regime=MarketRegime.CHOP,
+                reason=f"ADX {adx_val:.2f} < {self._config.adx_chop_threshold:.2f}",
+            )
 
         # 3. EMA Trend Check (Priority 3)
         ema_fast = state.get_indicator_value(f"ema_{self._config.ema_fast_period}")

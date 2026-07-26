@@ -9,7 +9,7 @@ import math
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol
 
-from neon_radar.domain.enums import Bias
+from neon_radar.domain.enums import Bias  # noqa: TC001
 
 if TYPE_CHECKING:
     from neon_radar.application.services.trade_backtester import HistoricalFundingProvider
@@ -121,8 +121,8 @@ class BinanceFundingModel:
         Thus: cost = rate if long else -rate.
         """
         # Start at the next 8-hour boundary after entry
-        EIGHT_HOURS_MS = 8 * 60 * 60 * 1000
-        next_boundary = math.ceil(entry_time / EIGHT_HOURS_MS) * EIGHT_HOURS_MS
+        eight_hours_ms = 8 * 60 * 60 * 1000
+        next_boundary = math.ceil(entry_time / eight_hours_ms) * eight_hours_ms
 
         cost_pct = 0.0
         current_time = next_boundary
@@ -133,6 +133,6 @@ class BinanceFundingModel:
                     cost_pct += rate_obj.rate
                 else:
                     cost_pct -= rate_obj.rate
-            current_time += EIGHT_HOURS_MS
+            current_time += eight_hours_ms
 
         return notional_value * cost_pct

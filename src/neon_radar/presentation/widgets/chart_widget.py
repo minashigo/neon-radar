@@ -70,10 +70,7 @@ class CandlestickItem(pg.GraphicsObject):
             # But the volume bar used width `(xs[1] - xs[0]) * 0.7`.
             # Let's use `(xs[1] - xs[0]) * 0.7` for candle width too!
 
-            if len(self.data) > 1:
-                w = (self.data[1][0] - self.data[0][0]) * 0.7
-            else:
-                w = 86400 * 0.7
+            w = (self.data[1][0] - self.data[0][0]) * 0.7 if len(self.data) > 1 else 86400 * 0.7
 
             for t, o, h, lo, c in self.data:
                 is_bull = c >= o
@@ -118,8 +115,9 @@ class CandlestickItem(pg.GraphicsObject):
     def boundingRect(self) -> pg.QtCore.QRectF:  # noqa: N802
         return self._bounding_rect
 
-    def dataBounds(
-        self, ax: int, frac: float = 1.0, orthoRange: tuple[float, float] | None = None
+    def dataBounds(  # noqa: N802
+
+        self, ax: int, frac: float = 1.0, orthoRange: tuple[float, float] | None = None,  # noqa: N803
     ) -> tuple[float, float] | None:
         """Provide accurate data bounds for auto-scaling.
 

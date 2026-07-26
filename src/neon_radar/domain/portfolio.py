@@ -11,16 +11,16 @@ Design notes
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from neon_radar.domain.enums import Bias
-    from neon_radar.domain.models import Symbol
     from neon_radar.domain.execution_costs import ExecutionCostSummary
+    from neon_radar.domain.models import Symbol
 
 
-class PositionCloseReason(str, Enum):
+class PositionCloseReason(StrEnum):
     """Reason for a position being closed."""
 
     STOP_LOSS = "STOP_LOSS"

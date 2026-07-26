@@ -21,7 +21,7 @@ from neon_radar.domain.scoring.registry import RuleRegistry
 from neon_radar.domain.trading.backtest import Trade, TradeExitReason, TradeStatus
 from neon_radar.domain.trading.execution import CostModel
 from neon_radar.domain.trading.setup import TradeSetupEngine
-from neon_radar.infrastructure.exchanges.base import ExchangeClient
+from neon_radar.infrastructure.exchanges.base import ExchangeClient  # noqa: TC001
 from neon_radar.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -324,11 +324,10 @@ class TradeBacktester:
                 setup = None
 
             # 6. If we got a setup, execute it
-            if setup is not None:
-                if str(symbol) not in execution_engine.pending_setups and not any(
-                    p.symbol == symbol for p in portfolio_engine.state.positions
-                ):
-                    execution_engine.execute_setup(setup, candle.open_time)
+            if setup is not None and str(symbol) not in execution_engine.pending_setups and not any(
+                p.symbol == symbol for p in portfolio_engine.state.positions
+            ):
+                execution_engine.execute_setup(setup, candle.open_time)
 
         # Legacy trades mapping
         from neon_radar.domain.trading.execution import TradeCosts

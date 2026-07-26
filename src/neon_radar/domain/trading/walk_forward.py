@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from datetime import date
+
     from neon_radar.config.scoring_models import ScoringRulesConfig
     from neon_radar.domain.trading.backtest import BacktestReport
 

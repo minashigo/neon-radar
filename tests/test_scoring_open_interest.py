@@ -12,7 +12,7 @@ def make_series(prices, volumes, timeframe=TimeFrame.D1):
     assert len(prices) == len(volumes)
     candles = []
     ts = 1_700_000_000_000
-    for p, v in zip(prices, volumes):
+    for p, v in zip(prices, volumes, strict=False):
         candles.append(OHLCV(open_time=ts, open=p, high=p, low=p, close=p, volume=v))
         ts += 86_400_000
     return KlineSeries(symbol=Symbol("BTCUSDT"), timeframe=timeframe, candles=tuple(candles))
@@ -24,7 +24,6 @@ def test_open_interest_confirms_price_move():
     volumes = [1.0, 1.0, 1.0]  # base volumes
     series = make_series(prices, volumes)
 
-    latest_close = series.latest().close
     # avg_quote_vol = mean(volume * close) ~ 101 -> set oi_quote high
     avg_quote_vol = sum([c.volume * c.close for c in series.candles]) / len(series.candles)
     oi_quote = avg_quote_vol * 5.0  # ratio = 5.0 (>= high_ratio default 3.0)

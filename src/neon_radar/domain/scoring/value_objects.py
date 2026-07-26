@@ -13,13 +13,13 @@ Kept as a separate module so the package layout is consistent:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 from typing import TYPE_CHECKING
 
 from neon_radar.domain.enums import Bias
 
 
-class SignalCategory(str, Enum):
+class SignalCategory(StrEnum):
     """Categorizes the source of a signal for Confluence detection."""
 
     TECHNICAL = "technical"
@@ -29,7 +29,7 @@ class SignalCategory(str, Enum):
     SENTIMENT = "sentiment"
 
 
-class ConfluenceState(str, Enum):
+class ConfluenceState(StrEnum):
     """Describes the alignment between different signal categories."""
 
     CONFIRMED = "confirmed"

@@ -91,7 +91,7 @@ class PortfolioEngine:
         if position.position_size > self._state.account.free_capital:
             raise ValueError("Insufficient free capital to open position.")
 
-        new_positions = list(self._state.positions) + [position]
+        new_positions = [*list(self._state.positions), position]
 
         account = AccountState(
             total_capital=self._state.account.total_capital,

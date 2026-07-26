@@ -95,14 +95,8 @@ class GridSearchOptimizer:
 
             # Selection logic
             is_better = False
-            if report.net_expectancy > best_expectancy:
+            if report.net_expectancy > best_expectancy or ((abs(report.net_expectancy - best_expectancy) < 1e-6) and ((report.net_profit_factor > best_profit_factor) or ((abs(report.net_profit_factor - best_profit_factor) < 1e-6) and (conf > best_confidence)))):
                 is_better = True
-            elif abs(report.net_expectancy - best_expectancy) < 1e-6:
-                if report.net_profit_factor > best_profit_factor:
-                    is_better = True
-                elif abs(report.net_profit_factor - best_profit_factor) < 1e-6:
-                    if conf > best_confidence:
-                        is_better = True
 
             if is_better or best_config is None:
                 best_expectancy = report.net_expectancy

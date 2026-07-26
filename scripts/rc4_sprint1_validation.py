@@ -102,7 +102,7 @@ async def run_correlation(
             continue
 
         # Create a dict of just this evaluation's rule values
-        val_map = {name: val for name, val in e.rule_values}
+        val_map = dict(e.rule_values)
         for r_name in rule_names:
             signal_series[r_name].append(val_map.get(r_name, 0.0))
 

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import numpy as np
 
 from neon_radar.domain.indicators._numpy_helpers import wilder_array
@@ -13,7 +15,9 @@ from neon_radar.domain.indicators.base import (
     IndicatorSnapshot,
     IndicatorValue,
 )
-from neon_radar.domain.models import KlineSeries
+
+if TYPE_CHECKING:
+    from neon_radar.domain.models import KlineSeries
 
 
 @IndicatorRegistry.register("adx")

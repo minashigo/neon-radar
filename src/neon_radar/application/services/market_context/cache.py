@@ -5,10 +5,12 @@ from __future__ import annotations
 import json
 import time
 from dataclasses import asdict, dataclass
-from pathlib import Path
-from typing import Any, Generic, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from neon_radar.utils.logging import get_logger
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 logger = get_logger(__name__)
 
@@ -16,7 +18,7 @@ T = TypeVar("T")
 
 
 @dataclass
-class CacheEntry(Generic[T]):
+class CacheEntry[T]:
     data: T
     expires_at: float
 

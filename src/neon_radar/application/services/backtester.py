@@ -32,10 +32,6 @@ from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from neon_radar.application.services.analysis import analyze_series
-from neon_radar.application.services.market_context.history_service import (
-    MarketContextHistoryService,
-)
-from neon_radar.domain.market_context import HistoricalMarketContext
 from neon_radar.domain.models import OHLCV, KlineSeries, Symbol
 from neon_radar.domain.scoring import (
     AnalysisResult,
@@ -54,7 +50,11 @@ from neon_radar.domain.scoring.backtest import (
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
+    from neon_radar.application.services.market_context.history_service import (
+        MarketContextHistoryService,
+    )
     from neon_radar.config.scoring_models import ScoringRulesConfig
+    from neon_radar.domain.market_context import HistoricalMarketContext
     from neon_radar.domain.scoring.factor_rule import FactorRule
     from neon_radar.infrastructure.exchanges.base import ExchangeClient
 

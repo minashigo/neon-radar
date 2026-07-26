@@ -291,7 +291,7 @@ class MainWindow(QMainWindow):
         series = self._last_klines.get(symbol)
         if series is None:
             return
-        result = self._last_results.get(symbol)
+        self._last_results.get(symbol)
         indicators = self._last_indicators.get(symbol, ())
         trade_setup = None
         self._chart.render(series, indicators, trade_setup=trade_setup)

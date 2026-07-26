@@ -1090,7 +1090,7 @@ def print_walk_forward_report(report, *, use_color: bool) -> None:
     print(header)
     print("-" * len(header))
 
-    for i, cycle in enumerate(report.cycles, 1):
+    for _i, cycle in enumerate(report.cycles, 1):
         is_period = f"{cycle.is_start} to {cycle.is_end}"
         oos_period = f"{cycle.oos_start} to {cycle.oos_end}"
         conf = f"{cycle.optimized_config.min_confidence:.2f}"

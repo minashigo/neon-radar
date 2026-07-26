@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 import time
 from typing import TYPE_CHECKING
 
-from neon_radar.application.services.market_context.cache import ContextCache
 from neon_radar.application.services.market_context.normalizers import (
     normalize_binance_funding,
     normalize_binance_funding_history,
@@ -30,6 +30,7 @@ from neon_radar.infrastructure.providers.binance_dto import (
 )
 
 if TYPE_CHECKING:
+    from neon_radar.application.services.market_context.cache import ContextCache
     from neon_radar.domain.market_context import (
         FundingContext,
         FundingSeries,

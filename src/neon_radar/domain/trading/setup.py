@@ -1,3 +1,4 @@
+# ruff: noqa: RUF002  # Allow Cyrillic letters in Ukrainian docstring
 """Trading Setup Engine models and logic.
 
 Provides the foundational architecture for converting an AnalysisResult

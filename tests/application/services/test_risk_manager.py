@@ -19,7 +19,7 @@ def analysis():
         score=Score(
             value=1.0, confidence=0.8, long_score=1.0, short_score=0.0, contributing_signals=2
         ),
-        signals=tuple(),
+        signals=(),
         computed_at=0,
         summary="test",
     )

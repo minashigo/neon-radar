@@ -24,7 +24,7 @@ def scoring_config():
 
 @pytest.fixture
 def empty_rules():
-    return tuple()
+    return ()
 
 
 @pytest.mark.asyncio

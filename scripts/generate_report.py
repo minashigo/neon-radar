@@ -29,8 +29,8 @@ def generate_markdown(results):
     overall_sharpe = []
     overall_wr = []
 
-    for period, tfs in results.items():
-        for tf, data in tfs.items():
+    for _period, tfs in results.items():
+        for _tf, data in tfs.items():
             b = data["baseline"]
             tr = b["total_trades"]
             wr = b["win_rate"]
@@ -48,7 +48,7 @@ def generate_markdown(results):
 
             # Format
             lines.append(
-                f"| {period} | {tf} | {tr} | {wr:.1%} | {g_pf:.2f} | {n_pf:.2f} | {g_exp:.2%} | {n_exp:.2%} | {sr:.2f} | {pval:.3f} |"
+                f"| {_period} | {_tf} | {tr} | {wr:.1%} | {g_pf:.2f} | {n_pf:.2f} | {g_exp:.2%} | {n_exp:.2%} | {sr:.2f} | {pval:.3f} |"
             )
 
     lines.append("\n**Key Findings (Performance):**\n")
@@ -69,8 +69,8 @@ def generate_markdown(results):
 
     # Aggregate feature scores
     feature_scores = {}
-    for period, tfs in results.items():
-        for tf, data in tfs.items():
+    for _period, tfs in results.items():
+        for _tf, data in tfs.items():
             for f in data.get("features", []):
                 name = f["rule_name"]
                 if name not in feature_scores:
