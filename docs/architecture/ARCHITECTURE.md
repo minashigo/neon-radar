@@ -27,7 +27,9 @@ src/neon_radar/
 ├── domain/                # Домен (pure, без I/O)
 │   ├── enums.py
 │   ├── models.py          #   OHLCV, KlineSeries, Symbol, TickerStats
-│   └── exceptions.py
+│   ├── exceptions.py
+│   ├── scoring/           #   Scoring Engine models and rules
+│   └── market_intelligence/ # Market Intelligence (сигнали, консенсус, наративи)
 │
 ├── infrastructure/        # Зовнішні інтеграції
 │   └── binance/
@@ -35,9 +37,10 @@ src/neon_radar/
 │       └── mapper.py      #   DTO → Domain конверсія
 │
 ├── application/           # Оркестрація (use cases)
-│   └── services/
-│       ├── market_data.py #   Завантаження + кеш
-│       └── analysis.py    #   Індикатори + scoring
+│   ├── services/
+│   │   ├── market_data.py #   Завантаження + кеш
+│   │   └── analysis.py    #   Індикатори + scoring
+│   └── intelligence/      #   Market Intelligence Providers & Service
 │
 ├── presentation/          # PySide6 UI
 │   ├── app.py             #   QApplication entry

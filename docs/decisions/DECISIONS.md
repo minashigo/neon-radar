@@ -597,3 +597,27 @@ MarketState(
   (spot-only біржі)
 - ⚠️ Validation: `higher_tf_series.timeframe` має бути **строго вищим**
   за primary. Перевіряється в `__post_init__`.
+
+---
+
+## ADR-011: Автономний Market Intelligence Layer
+
+**Дата:** 2026-07-28
+**Статус:** Accepted
+
+### Контекст
+
+Neon Radar потребує можливості агрегувати інформаційний фон (On-chain, соціальний сентимент, макроекономіка) для прийняття рішень. Потрібно спроєктувати архітектуру так, щоб не порушити Clean Architecture та Single Responsibility Principle (SRP) наявного Scoring Engine і моделі `MarketState`.
+
+### Рішення
+
+- Створити окремий шар **Market Intelligence** у `domain/market_intelligence` та `application/intelligence`.
+- Моделі (`SignalEvidence`, `MarketNarrative`, `MarketConsensus`, `IntelligenceReport`) повинні бути імутабельними (`frozen=True`) та незалежними від конкретних API.
+- Інтегрувати Noise Filter (дедуплікація та відсіювання низьконадійних джерел), Consensus Engine (оцінка консенсусу та рівня конфлікту) і Narrative Engine (оцінка активних наративів).
+- **Не інтегрувати** `IntelligenceReport` у `MarketState` (щоб уникнути God Object). Інтеграція зі Scoring Engine відбуватиметься на вищих рівнях оркестрації.
+
+### Наслідки
+
+- ✅ Збережено SRP для `MarketState`.
+- ✅ Market Intelligence повністю незалежний і може розроблятись / тестуватись ізольовано.
+- ✅ Можливість легко підключати нові джерела через Protocols (`IntelligenceProvider`).

@@ -1,12 +1,10 @@
 import argparse
-import asyncio
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from neon_radar.domain.models import KlineSeries, OHLCV, Symbol
-from neon_radar.config.models import TimeFrame
+from neon_radar.domain.models import OHLCV, KlineSeries, Symbol
 from neon_radar.presentation.cli import _run_scan
 
 
@@ -56,7 +54,7 @@ async def test_run_scan_success(minimal_config: Path, minimal_scoring: Path, cap
     )
 
     mock_client = AsyncMock()
-    
+
     def mock_get_klines(symbol, tf, limit=100, **kwargs):
         return KlineSeries(
             symbol=Symbol("BTCUSDT"),
