@@ -36,6 +36,8 @@ class NoiseFilter:
 
     def filter_signals(self, signals: Iterable[SignalEvidence]) -> tuple[SignalEvidence, ...]:
         """Apply noise filtering rules to a stream of signals."""
+        from collections import defaultdict
+
         signals_list = sorted(signals, key=lambda s: s.timestamp)
 
         if not signals_list:
@@ -49,32 +51,37 @@ class NoiseFilter:
         ]
 
         # 2. Deduplicate: same type, same direction, same provider_name within time_window
-        deduped: list[SignalEvidence] = []
+        provider_signals: dict[tuple[str, str], list[tuple[int, SignalEvidence]]] = defaultdict(list)
+
         for current in reliable_signals:
-            is_duplicate = False
-            for prev in reversed(deduped):
-                time_diff = current.timestamp - prev.timestamp
-                if time_diff > self.time_window_ms:
-                    break  # Outside window, no more duplicates to check
+            key = (current.type, current.source.provider_name)
+            group = provider_signals[key]
 
-                # Check for exact duplicate criteria
-                if (
-                    prev.type == current.type
-                    and prev.source.provider_name == current.source.provider_name
-                    # Consider same direction as duplicate if from same provider
-                    and (prev.direction * current.direction > 0 or prev.direction == current.direction)
-                ):
-                    is_duplicate = True
-                    break
+            if group:
+                anchor_ts, prev_sig = group[-1]
+                time_diff = current.timestamp - anchor_ts
+                if time_diff <= self.time_window_ms and (prev_sig.direction * current.direction > 0 or prev_sig.direction == current.direction):
+                    # Duplicate found. Replace the old one with the newer one, but keep the anchor!
+                    group[-1] = (anchor_ts, current)
+                    continue
 
-            if not is_duplicate:
-                deduped.append(current)
+            # If not a duplicate within the window, add it
+            group.append((current.timestamp, current))
+
+        # Flatten and re-sort
+        deduped = [s for group in provider_signals.values() for _, s in group]
+        deduped.sort(key=lambda s: s.timestamp)
 
         # 3. Independent confirmation
         if self.require_independent_confirmation:
             confirmed: list[SignalEvidence] = []
+
             # Group by (type, direction_sign)
-            # Find distinct providers for each group
+            direction_groups: dict[tuple[str, int], list[SignalEvidence]] = defaultdict(list)
+            for s in deduped:
+                direction_sign = 1 if s.direction > 0 else (-1 if s.direction < 0 else 0)
+                direction_groups[(s.type, direction_sign)].append(s)
+
             for s in deduped:
                 # High reliability sources bypass confirmation requirement
                 if s.source.reliability in (SourceReliability.OFFICIAL, SourceReliability.INSTITUTIONAL):
@@ -82,16 +89,12 @@ class NoiseFilter:
                     continue
 
                 direction_sign = 1 if s.direction > 0 else (-1 if s.direction < 0 else 0)
+                group = direction_groups[(s.type, direction_sign)]
 
                 # Count distinct providers in the same group within window
                 providers = set()
-                for other in deduped:
-                    other_sign = 1 if other.direction > 0 else (-1 if other.direction < 0 else 0)
-                    if (
-                        other.type == s.type
-                        and other_sign == direction_sign
-                        and abs(other.timestamp - s.timestamp) <= self.time_window_ms
-                    ):
+                for other in group:
+                    if abs(other.timestamp - s.timestamp) <= self.time_window_ms:
                         providers.add(other.source.provider_name)
 
                 if len(providers) >= 2:

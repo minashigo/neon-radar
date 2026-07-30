@@ -48,7 +48,7 @@ def test_deduplicates_same_provider_within_window(base_source):
 
     filtered = filter_engine.filter_signals([sig1, sig2, sig3])
     assert len(filtered) == 2
-    assert filtered[0].timestamp == 1000
+    assert filtered[0].timestamp == 1500
     assert filtered[1].timestamp == 2500
 
 

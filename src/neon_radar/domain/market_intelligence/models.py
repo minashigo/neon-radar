@@ -52,7 +52,7 @@ class SignalEvidence:
             raise ValueError(f"SignalEvidence.strength must be in [0, 1], got {self.strength}")
         # Enforce metadata immutability type check (not foolproof at runtime but catches direct dicts)
         if isinstance(self.metadata, dict):
-            object.__setattr__(self, "metadata", MappingProxyType(self.metadata))
+            object.__setattr__(self, "metadata", MappingProxyType(dict(self.metadata)))
 
 
 @dataclass(slots=True, frozen=True)

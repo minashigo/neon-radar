@@ -8,7 +8,7 @@ from neon_radar.domain.market_intelligence.enums import IntelligenceSignalType, 
 from neon_radar.domain.market_intelligence.models import MarketNarrative, SignalEvidence
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Callable, Iterable
 
 
 class NarrativeEngine:
@@ -35,14 +35,19 @@ class NarrativeEngine:
         # Helper to extract supporting signals for a specific condition
         def _evaluate_narrative(
             n_type: NarrativeType,
-            condition: callable
+            condition: Callable[[SignalEvidence], bool]
         ) -> MarketNarrative | None:
             supporting = [s for s in signals_list if condition(s)]
             if len(supporting) < self.min_evidence_count:
                 return None
 
-            # Calculate aggregate strength
-            strength = sum(s.strength * s.source.weight for s in supporting) / len(supporting)
+            # Calculate aggregate strength using independent probability (1 - prod(1 - p))
+            p_none = 1.0
+            for s in supporting:
+                power = s.strength * s.source.weight
+                p_none *= (1.0 - power)
+            strength = 1.0 - p_none
+
             # Duration based on the oldest supporting signal
             oldest_ts = min(s.timestamp for s in supporting)
             duration = max(0, current_timestamp - oldest_ts)

@@ -7,6 +7,7 @@ import time
 from typing import TYPE_CHECKING
 
 from neon_radar.domain.market_intelligence.consensus import ConsensusEngine
+from neon_radar.domain.market_intelligence.enums import ConsensusDirection, IntelligenceSignalType
 from neon_radar.domain.market_intelligence.models import (
     IntelligenceReport,
     IntelligenceScore,
@@ -106,15 +107,13 @@ class MarketIntelligenceService:
         # noise = (raw_signals - filtered_signals) / raw_signals
         noise_level = (len(raw_signals) - len(filtered_signals)) / len(raw_signals)
 
-        # Coverage = distinct signal types out of total known
-        from neon_radar.domain.market_intelligence.enums import IntelligenceSignalType
         unique_types = {s.type for s in filtered_signals}
         coverage = len(unique_types) / len(IntelligenceSignalType)
 
         # Map consensus to overall value
-        if consensus.direction.name == "BULLISH":
+        if consensus.direction == ConsensusDirection.BULLISH:
             base_value = consensus.confidence
-        elif consensus.direction.name == "BEARISH":
+        elif consensus.direction == ConsensusDirection.BEARISH:
             base_value = -consensus.confidence
         else:
             base_value = 0.0
@@ -153,7 +152,6 @@ class MarketIntelligenceService:
             return ()
 
     def _build_empty_report(self, timestamp: int) -> IntelligenceReport:
-        from neon_radar.domain.market_intelligence.enums import ConsensusDirection
         from neon_radar.domain.market_intelligence.models import MarketConsensus
 
         return IntelligenceReport(
