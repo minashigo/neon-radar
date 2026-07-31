@@ -87,9 +87,7 @@ class PaperExecutionEngine(ExecutionEngine):
             # Trigger entry
             try:
                 entry_exec_type = ExecutionType.MAKER
-                entry_fee = self.fee_model.calculate_entry_fee(
-                    setup.position_size, entry_exec_type
-                )
+                entry_fee = self.fee_model.calculate_entry_fee(setup.position_size, entry_exec_type)
                 entry_slippage = self.slippage_model.calculate_slippage(
                     setup.position_size, symbol, entry_exec_type, setup.direction
                 )

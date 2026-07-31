@@ -9,7 +9,7 @@ from neon_radar.domain.market_intelligence.enums import SourceReliability
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from neon_radar.domain.market_intelligence.models import SignalEvidence
+    from neon_radar.domain.market_intelligence.models import IntelligenceSignal
 
 
 class NoiseFilter:
@@ -34,68 +34,77 @@ class NoiseFilter:
         self.time_window_ms = time_window_ms
         self.require_independent_confirmation = require_independent_confirmation
 
-    def filter_signals(self, signals: Iterable[SignalEvidence]) -> tuple[SignalEvidence, ...]:
+    def filter_signals(
+        self, signals: Iterable[IntelligenceSignal]
+    ) -> tuple[IntelligenceSignal, ...]:
         """Apply noise filtering rules to a stream of signals."""
         from collections import defaultdict
 
-        signals_list = sorted(signals, key=lambda s: s.timestamp)
+        # Use event_timestamp for deduplication logic as it represents when the event actually happened
+        signals_list = sorted(signals, key=lambda s: s.event_timestamp)
 
         if not signals_list:
             return ()
 
         # 1. Filter out low reliability
         reliable_signals = [
-            s for s in signals_list
-            if s.source.weight >= self.min_reliability_threshold
-            or s.source.reliability in (SourceReliability.OFFICIAL, SourceReliability.INSTITUTIONAL)
+            s
+            for s in signals_list
+            if s.weight >= self.min_reliability_threshold
+            or s.reliability in (SourceReliability.OFFICIAL, SourceReliability.INSTITUTIONAL)
         ]
 
         # 2. Deduplicate: same type, same direction, same provider_name within time_window
-        provider_signals: dict[tuple[str, str], list[tuple[int, SignalEvidence]]] = defaultdict(list)
+        provider_signals: dict[tuple[str, str], list[tuple[int, IntelligenceSignal]]] = defaultdict(
+            list
+        )
 
         for current in reliable_signals:
-            key = (current.type, current.source.provider_name)
+            key = (current.type.name, current.provider_name)
             group = provider_signals[key]
 
             if group:
                 anchor_ts, prev_sig = group[-1]
-                time_diff = current.timestamp - anchor_ts
-                if time_diff <= self.time_window_ms and (prev_sig.direction * current.direction > 0 or prev_sig.direction == current.direction):
+                time_diff = current.event_timestamp - anchor_ts
+                if time_diff <= self.time_window_ms and (
+                    prev_sig.direction * current.direction > 0
+                    or prev_sig.direction == current.direction
+                ):
                     # Duplicate found. Replace the old one with the newer one, but keep the anchor!
                     group[-1] = (anchor_ts, current)
                     continue
 
             # If not a duplicate within the window, add it
-            group.append((current.timestamp, current))
+            group.append((current.event_timestamp, current))
 
         # Flatten and re-sort
         deduped = [s for group in provider_signals.values() for _, s in group]
-        deduped.sort(key=lambda s: s.timestamp)
+        deduped.sort(key=lambda s: s.event_timestamp)
 
         # 3. Independent confirmation
         if self.require_independent_confirmation:
-            confirmed: list[SignalEvidence] = []
+            confirmed: list[IntelligenceSignal] = []
 
             # Group by (type, direction_sign)
-            direction_groups: dict[tuple[str, int], list[SignalEvidence]] = defaultdict(list)
+            direction_groups: dict[tuple[str, int], list[IntelligenceSignal]] = defaultdict(list)
             for s in deduped:
                 direction_sign = 1 if s.direction > 0 else (-1 if s.direction < 0 else 0)
-                direction_groups[(s.type, direction_sign)].append(s)
+                direction_groups[(s.type.name, direction_sign)].append(s)
 
             for s in deduped:
                 # High reliability sources bypass confirmation requirement
-                if s.source.reliability in (SourceReliability.OFFICIAL, SourceReliability.INSTITUTIONAL):
+                if s.reliability in (SourceReliability.OFFICIAL, SourceReliability.INSTITUTIONAL):
                     confirmed.append(s)
                     continue
 
                 direction_sign = 1 if s.direction > 0 else (-1 if s.direction < 0 else 0)
-                group = direction_groups[(s.type, direction_sign)]
+                group = direction_groups[(s.type.name, direction_sign)]
 
                 # Count distinct providers in the same group within window
                 providers = set()
                 for other in group:
-                    if abs(other.timestamp - s.timestamp) <= self.time_window_ms:
-                        providers.add(other.source.provider_name)
+                    if abs(other.event_timestamp - s.event_timestamp) <= self.time_window_ms:
+                        providers.add(other.provider_name)
 
                 if len(providers) >= 2:
                     confirmed.append(s)

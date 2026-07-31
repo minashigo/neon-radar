@@ -76,7 +76,9 @@ class ConsensusEngine:
         # Confidence drops as conflict rises
         confidence = base_confidence * (1.0 - conflict_level * 0.5)
 
-        if conflict_level >= self.conflict_threshold and abs(net_score) < max(self.bullish_threshold, abs(self.bearish_threshold)):
+        if conflict_level >= self.conflict_threshold and abs(net_score) < max(
+            self.bullish_threshold, abs(self.bearish_threshold)
+        ):
             direction = ConsensusDirection.CONFLICTING
         elif net_score >= self.bullish_threshold:
             direction = ConsensusDirection.BULLISH

@@ -24,7 +24,9 @@ class NarrativeEngine:
         self.min_strength_threshold = min_strength_threshold
         self.min_evidence_count = min_evidence_count
 
-    def compute_narratives(self, signals: Iterable[SignalEvidence], current_timestamp: int) -> tuple[MarketNarrative, ...]:
+    def compute_narratives(
+        self, signals: Iterable[SignalEvidence], current_timestamp: int
+    ) -> tuple[MarketNarrative, ...]:
         """Compute the active narratives based on the provided signals."""
         signals_list = tuple(signals)
         if not signals_list:
@@ -34,8 +36,7 @@ class NarrativeEngine:
 
         # Helper to extract supporting signals for a specific condition
         def _evaluate_narrative(
-            n_type: NarrativeType,
-            condition: Callable[[SignalEvidence], bool]
+            n_type: NarrativeType, condition: Callable[[SignalEvidence], bool]
         ) -> MarketNarrative | None:
             supporting = [s for s in signals_list if condition(s)]
             if len(supporting) < self.min_evidence_count:
@@ -45,7 +46,7 @@ class NarrativeEngine:
             p_none = 1.0
             for s in supporting:
                 power = s.strength * s.source.weight
-                p_none *= (1.0 - power)
+                p_none *= 1.0 - power
             strength = 1.0 - p_none
 
             # Duration based on the oldest supporting signal
@@ -57,14 +58,14 @@ class NarrativeEngine:
                     type=n_type,
                     strength=min(1.0, strength),
                     duration=duration,
-                    evidence_count=len(supporting)
+                    evidence_count=len(supporting),
                 )
             return None
 
         # 1. ETF Accumulation
         etf_acc = _evaluate_narrative(
             NarrativeType.ETF_ACCUMULATION,
-            lambda s: s.type == IntelligenceSignalType.ETF_FLOW and s.direction > 0
+            lambda s: s.type == IntelligenceSignalType.ETF_FLOW and s.direction > 0,
         )
         if etf_acc:
             narratives.append(etf_acc)
@@ -72,8 +73,13 @@ class NarrativeEngine:
         # 2. Risk-On (Macro bullish + Tech/Market bullish)
         risk_on = _evaluate_narrative(
             NarrativeType.RISK_ON,
-            lambda s: (s.type in (IntelligenceSignalType.CPI, IntelligenceSignalType.FOMC) and s.direction > 0)
-                      or (s.type == IntelligenceSignalType.SOCIAL_SENTIMENT and s.direction > 0)
+            lambda s: (
+                (
+                    s.type in (IntelligenceSignalType.CPI, IntelligenceSignalType.FOMC)
+                    and s.direction > 0
+                )
+                or (s.type == IntelligenceSignalType.SOCIAL_SENTIMENT and s.direction > 0)
+            ),
         )
         if risk_on:
             narratives.append(risk_on)
@@ -81,8 +87,13 @@ class NarrativeEngine:
         # 3. Risk-Off
         risk_off = _evaluate_narrative(
             NarrativeType.RISK_OFF,
-            lambda s: (s.type in (IntelligenceSignalType.CPI, IntelligenceSignalType.FOMC) and s.direction < 0)
-                      or (s.type == IntelligenceSignalType.DXY and s.direction > 0)
+            lambda s: (
+                (
+                    s.type in (IntelligenceSignalType.CPI, IntelligenceSignalType.FOMC)
+                    and s.direction < 0
+                )
+                or (s.type == IntelligenceSignalType.DXY and s.direction > 0)
+            ),
         )
         if risk_off:
             narratives.append(risk_off)
@@ -90,7 +101,7 @@ class NarrativeEngine:
         # 4. Short Squeeze (High funding/OI bearish + liquidations bullish + sudden price up)
         short_sq = _evaluate_narrative(
             NarrativeType.SHORT_SQUEEZE,
-            lambda s: s.type == IntelligenceSignalType.LIQUIDATIONS and s.direction > 0
+            lambda s: s.type == IntelligenceSignalType.LIQUIDATIONS and s.direction > 0,
         )
         if short_sq:
             narratives.append(short_sq)
@@ -98,7 +109,7 @@ class NarrativeEngine:
         # 5. Long Squeeze
         long_sq = _evaluate_narrative(
             NarrativeType.LONG_SQUEEZE,
-            lambda s: s.type == IntelligenceSignalType.LIQUIDATIONS and s.direction < 0
+            lambda s: s.type == IntelligenceSignalType.LIQUIDATIONS and s.direction < 0,
         )
         if long_sq:
             narratives.append(long_sq)
@@ -106,7 +117,7 @@ class NarrativeEngine:
         # 6. Alt Season (BTC Dominance falling)
         alt_season = _evaluate_narrative(
             NarrativeType.ALT_SEASON,
-            lambda s: s.type == IntelligenceSignalType.BTC_DOMINANCE and s.direction < 0
+            lambda s: s.type == IntelligenceSignalType.BTC_DOMINANCE and s.direction < 0,
         )
         if alt_season:
             narratives.append(alt_season)
@@ -114,7 +125,7 @@ class NarrativeEngine:
         # 7. BTC Dominance Expansion
         btc_dom = _evaluate_narrative(
             NarrativeType.BTC_DOMINANCE_EXPANSION,
-            lambda s: s.type == IntelligenceSignalType.BTC_DOMINANCE and s.direction > 0
+            lambda s: s.type == IntelligenceSignalType.BTC_DOMINANCE and s.direction > 0,
         )
         if btc_dom:
             narratives.append(btc_dom)
@@ -122,7 +133,7 @@ class NarrativeEngine:
         # 8. Stablecoin Expansion
         stable_exp = _evaluate_narrative(
             NarrativeType.STABLECOIN_EXPANSION,
-            lambda s: s.type == IntelligenceSignalType.STABLECOIN_FLOW and s.direction > 0
+            lambda s: s.type == IntelligenceSignalType.STABLECOIN_FLOW and s.direction > 0,
         )
         if stable_exp:
             narratives.append(stable_exp)

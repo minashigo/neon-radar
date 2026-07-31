@@ -324,8 +324,10 @@ class TradeBacktester:
                 setup = None
 
             # 6. If we got a setup, execute it
-            if setup is not None and str(symbol) not in execution_engine.pending_setups and not any(
-                p.symbol == symbol for p in portfolio_engine.state.positions
+            if (
+                setup is not None
+                and str(symbol) not in execution_engine.pending_setups
+                and not any(p.symbol == symbol for p in portfolio_engine.state.positions)
             ):
                 execution_engine.execute_setup(setup, candle.open_time)
 

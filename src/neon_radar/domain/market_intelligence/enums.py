@@ -6,13 +6,13 @@ from enum import StrEnum
 class SourceReliability(StrEnum):
     """Reliability level of the signal source."""
 
-    OFFICIAL = "official"          # Exchanges, protocols themselves
-    INSTITUTIONAL = "institutional" # Funds, large data providers (e.g. Glassnode, CryptoQuant)
-    ANALYTICS = "analytics"        # Specialized analytics (e.g. CoinGlass)
-    RESEARCH = "research"          # Research papers, long-form fundamental analysis
-    NEWS = "news"                  # Mainstream/crypto news outlets
-    SOCIAL = "social"              # Influencers, X/Twitter, Telegram channels
-    ANONYMOUS = "anonymous"        # Unverified rumors, anonymous accounts
+    OFFICIAL = "official"  # Exchanges, protocols themselves
+    INSTITUTIONAL = "institutional"  # Funds, large data providers (e.g. Glassnode, CryptoQuant)
+    ANALYTICS = "analytics"  # Specialized analytics (e.g. CoinGlass)
+    RESEARCH = "research"  # Research papers, long-form fundamental analysis
+    NEWS = "news"  # Mainstream/crypto news outlets
+    SOCIAL = "social"  # Influencers, X/Twitter, Telegram channels
+    ANONYMOUS = "anonymous"  # Unverified rumors, anonymous accounts
 
 
 class IntelligenceSignalType(StrEnum):

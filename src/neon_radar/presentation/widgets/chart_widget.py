@@ -116,8 +116,10 @@ class CandlestickItem(pg.GraphicsObject):
         return self._bounding_rect
 
     def dataBounds(  # noqa: N802
-
-        self, ax: int, frac: float = 1.0, orthoRange: tuple[float, float] | None = None,  # noqa: N803
+        self,
+        ax: int,
+        frac: float = 1.0,
+        orthoRange: tuple[float, float] | None = None,  # noqa: N803
     ) -> tuple[float, float] | None:
         """Provide accurate data bounds for auto-scaling.
 

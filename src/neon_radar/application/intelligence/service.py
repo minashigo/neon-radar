@@ -4,26 +4,45 @@ from __future__ import annotations
 
 import asyncio
 import time
+import uuid
 from typing import TYPE_CHECKING
 
+from neon_radar.application.intelligence.pipeline import PipelineStep, SignalPipeline
+from neon_radar.application.intelligence.registry import provider_registry
 from neon_radar.domain.market_intelligence.consensus import ConsensusEngine
 from neon_radar.domain.market_intelligence.enums import ConsensusDirection, IntelligenceSignalType
 from neon_radar.domain.market_intelligence.models import (
     IntelligenceReport,
     IntelligenceScore,
+    IntelligenceSignal,
+    PipelineContext,
     SignalEvidence,
+    SignalSource,
 )
 from neon_radar.domain.market_intelligence.narrative import NarrativeEngine
 from neon_radar.domain.market_intelligence.noise_filter import NoiseFilter
 from neon_radar.utils.logging import get_logger
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Sequence
 
     from neon_radar.application.intelligence.providers import IntelligenceProvider
     from neon_radar.config.intelligence import IntelligenceConfig
 
 logger = get_logger(__name__)
+
+
+class NoiseFilterStep(PipelineStep):
+    """Adapter to wrap NoiseFilter into the signal pipeline."""
+
+    def __init__(self, filter: NoiseFilter) -> None:
+        self._filter = filter
+
+    async def process(
+        self, context: PipelineContext, signals: Sequence[IntelligenceSignal]
+    ) -> tuple[IntelligenceSignal, ...]:
+        """Filter noise out of signals."""
+        return self._filter.filter_signals(signals)
 
 
 class MarketIntelligenceService:
@@ -32,22 +51,38 @@ class MarketIntelligenceService:
     def __init__(
         self,
         config: IntelligenceConfig,
-        providers: Iterable[IntelligenceProvider],
+        pipeline: SignalPipeline | None = None,
     ) -> None:
         """Initialize the intelligence service.
 
         Args:
             config: The intelligence configuration.
-            providers: A collection of intelligence providers.
+            pipeline: Overridable pipeline for custom steps.
         """
         self._config = config
-        self._providers = tuple(providers)
 
-        self._filter = NoiseFilter(
+        # Instantiate providers dynamically from registry
+        self._providers: list[IntelligenceProvider] = []
+        for name in provider_registry.get_registered_names():
+            p_config = config.providers.get(name)
+            if p_config is not None and p_config.enabled:
+                self._providers.append(provider_registry.create_provider(name, p_config))
+            elif p_config is None:
+                # If config is missing, we might use default if the user wants it,
+                # but currently we require an explicit entry in config to instantiate,
+                # or we just instantiate with default ProviderConfig.
+                # Let's import ProviderConfig locally if needed.
+                from neon_radar.config.intelligence import ProviderConfig
+
+                self._providers.append(provider_registry.create_provider(name, ProviderConfig()))
+
+        noise_filter = NoiseFilter(
             min_reliability_threshold=config.noise_filter.min_reliability_threshold,
             time_window_ms=config.noise_filter.time_window_ms,
             require_independent_confirmation=config.noise_filter.require_independent_confirmation,
         )
+
+        self._pipeline = pipeline or SignalPipeline([NoiseFilterStep(noise_filter)])
 
         self._consensus = ConsensusEngine(
             bullish_threshold=config.consensus.bullish_threshold,
@@ -61,56 +96,68 @@ class MarketIntelligenceService:
         )
 
     async def generate_report(self) -> IntelligenceReport:
-        """Fetch signals, filter noise, and generate an intelligence report."""
+        """Fetch signals, run pipeline, and generate an intelligence report."""
         if not self._config.enabled:
             raise RuntimeError("Market Intelligence is disabled in config.")
 
         timestamp = int(time.time() * 1000)
+        run_id = str(uuid.uuid4())
 
-        # 1. Fetch from all active providers concurrently
-        active_providers = []
-        for p in self._providers:
-            p_config = self._config.providers.get(p.provider_name)
-            if p_config is None or p_config.enabled:
-                active_providers.append(p)
+        active_names = tuple(p.provider_name for p in self._providers)
 
-        if not active_providers:
+        if not active_names:
             logger.warning("No active intelligence providers found.")
             return self._build_empty_report(timestamp)
 
-        tasks = [
-            self._fetch_safe(provider, timestamp)
-            for provider in active_providers
-        ]
-        results = await asyncio.gather(*tasks)
+        context = PipelineContext(
+            run_id=run_id,
+            timestamp=timestamp,
+            active_providers=active_names,
+        )
 
-        raw_signals: list[SignalEvidence] = []
-        for res in results:
-            raw_signals.extend(res)
+        # 1. Fetch from providers
+        raw_signals = await self._fetch_all(context)
 
         if not raw_signals:
             return self._build_empty_report(timestamp)
 
-        # 2. Filter Noise
-        filtered_signals = self._filter.filter_signals(raw_signals)
+        # 2. Run pipeline
+        pipeline_signals = await self._pipeline.execute(context, raw_signals)
 
-        if not filtered_signals:
+        if not pipeline_signals:
             return self._build_empty_report(timestamp)
 
-        # 3. Compute Consensus
-        consensus = self._consensus.compute_consensus(filtered_signals)
+        # 3. Convert IntelligenceSignal -> SignalEvidence
+        evidence_signals = tuple(
+            SignalEvidence(
+                type=sig.type,
+                direction=sig.direction,
+                strength=sig.strength,
+                timestamp=sig.event_timestamp,
+                source=SignalSource(
+                    id=sig.source_id,
+                    provider_name=sig.provider_name,
+                    provider_type=sig.provider_type,
+                    reliability=sig.reliability,
+                    weight=sig.weight,
+                ),
+                metadata=sig.metadata,
+            )
+            for sig in pipeline_signals
+        )
 
-        # 4. Extract Narratives
-        narratives = self._narrative.compute_narratives(filtered_signals, timestamp)
+        # 4. Compute Consensus
+        consensus = self._consensus.compute_consensus(evidence_signals)
 
-        # 5. Build Final Score
-        # noise = (raw_signals - filtered_signals) / raw_signals
-        noise_level = (len(raw_signals) - len(filtered_signals)) / len(raw_signals)
+        # 5. Extract Narratives
+        narratives = self._narrative.compute_narratives(evidence_signals, timestamp)
 
-        unique_types = {s.type for s in filtered_signals}
+        # 6. Build Final Score
+        noise_level = (len(raw_signals) - len(pipeline_signals)) / len(raw_signals)
+
+        unique_types = {s.type for s in pipeline_signals}
         coverage = len(unique_types) / len(IntelligenceSignalType)
 
-        # Map consensus to overall value
         if consensus.direction == ConsensusDirection.BULLISH:
             base_value = consensus.confidence
         elif consensus.direction == ConsensusDirection.BEARISH:
@@ -131,21 +178,38 @@ class MarketIntelligenceService:
             score=score,
             consensus=consensus,
             narratives=narratives,
-            signals=filtered_signals,
+            signals=evidence_signals,
             timestamp=timestamp,
         )
 
-    async def _fetch_safe(self, provider: IntelligenceProvider, timestamp: int) -> tuple[SignalEvidence, ...]:
+    async def _fetch_all(self, context: PipelineContext) -> tuple[IntelligenceSignal, ...]:
+        """Fetch signals from all active providers concurrently."""
+        # Using asyncio.TaskGroup or asyncio.gather for fault tolerance
+        # The user mentioned Fault Tolerance using TaskGroup or gather + timeout.
+        tasks = [self._fetch_safe(provider, context) for provider in self._providers]
+        results = await asyncio.gather(*tasks)
+
+        raw_signals: list[IntelligenceSignal] = []
+        for res in results:
+            raw_signals.extend(res)
+
+        return tuple(raw_signals)
+
+    async def _fetch_safe(
+        self, provider: IntelligenceProvider, context: PipelineContext
+    ) -> tuple[IntelligenceSignal, ...]:
         """Fetch signals from a provider, suppressing exceptions."""
         try:
-            # We enforce timeout at the service level as a fallback
-            provider_cfg = self._config.providers.get(provider.provider_name)
-            timeout = provider_cfg.timeout_seconds if provider_cfg is not None else 10.0
+            p_config = self._config.providers.get(provider.provider_name)
+            timeout = p_config.timeout_seconds if p_config is not None else 10.0
 
             async with asyncio.timeout(timeout):
-                return await provider.fetch_signals(timestamp)
+                result = await provider.fetch_signals(context)
+                return result.signals
         except TimeoutError:
-            logger.warning("Provider %s timed out after %s seconds", provider.provider_name, timeout)
+            logger.warning(
+                "Provider %s timed out after %s seconds", provider.provider_name, timeout
+            )
             return ()
         except Exception as exc:
             logger.warning("Provider %s failed: %s", provider.provider_name, exc, exc_info=exc)

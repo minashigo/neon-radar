@@ -41,7 +41,7 @@ def test_signal_evidence_validation():
         strength=0.5,
         timestamp=1000,
         source=source,
-        metadata={"key": "value"}
+        metadata={"key": "value"},
     )
     assert sig.direction == 1.0
 
@@ -94,7 +94,7 @@ def test_intelligence_score_validation():
         confidence=0.8,
         conflict=0.2,
         noise=0.1,
-        coverage=0.9
+        coverage=0.9,
     )
     assert score.value == 0.5
 
