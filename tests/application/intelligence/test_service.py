@@ -101,10 +101,48 @@ async def test_service_handles_timeout(config):
 
     service = MarketIntelligenceService(config)
 
-    # Should not raise exception, just return empty report
+    # Should not raise    # They are just ignored and don't contribute to errors here
+    # The pipeline returns whatever successfully fetched
     report = await service.generate_report()
     assert report.score.direction == ConsensusDirection.NEUTRAL
     assert len(report.signals) == 0
+
+
+@provider_registry.register("MockCoinGlass")
+class MockCoinGlassProvider(BaseTestMockProvider):
+    def __init__(self, config: ProviderConfig):
+        super().__init__(config, "MockCoinGlass")
+
+    async def fetch_signals(self, context: PipelineContext) -> ProviderResult:
+        sig = IntelligenceSignal(
+            type=IntelligenceSignalType.FUNDING,
+            direction=1.0,
+            strength=1.0,
+            event_timestamp=1000,
+            ingestion_timestamp=1010,
+            source_id="cg_id",
+            provider_name="MockCoinGlass",
+            provider_type="API",
+            reliability=SourceReliability.ANALYTICS,
+            weight=1.0,
+        )
+        quality = DataQuality(latency_ms=10.0, error_count=0, is_stale=False)
+        return ProviderResult(signals=(sig,), quality=quality)
+
+
+@pytest.mark.asyncio
+async def test_service_default_config_passes_coinglass_signals():
+    # Uses default config which has require_independent_confirmation = True
+    # but also has exempt_signal_types for FUNDING.
+    cfg = IntelligenceConfig()
+    cfg.providers["MockCoinGlass"] = ProviderConfig(enabled=True)
+
+    service = MarketIntelligenceService(cfg)
+    report = await service.generate_report()
+
+    # The FUNDING signal should pass the NoiseFilter because it is exempt
+    assert len(report.signals) == 1
+    assert report.signals[0].type == IntelligenceSignalType.FUNDING
 
 
 @pytest.mark.asyncio

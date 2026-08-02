@@ -22,6 +22,14 @@ class NoiseFilterConfig(BaseModel):
     min_reliability_threshold: float = Field(default=0.2, ge=0.0, le=1.0)
     time_window_ms: int = Field(default=3600000, ge=0)
     require_independent_confirmation: bool = True
+    exempt_signal_types: set[str] = Field(
+        default_factory=lambda: {
+            "funding",
+            "open_interest",
+            "liquidations",
+            "long_short_ratio",
+        }
+    )
 
 
 class ConsensusConfig(BaseModel):

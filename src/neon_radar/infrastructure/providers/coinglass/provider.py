@@ -10,7 +10,12 @@ from neon_radar.application.intelligence.registry import provider_registry
 from neon_radar.domain.market_intelligence.models import DataQuality, ProviderResult
 from neon_radar.infrastructure.providers.base import BaseRateLimitedProvider
 from neon_radar.infrastructure.providers.coinglass.config import CoinGlassConfig
-from neon_radar.infrastructure.providers.coinglass.mapper import map_long_short_ratio_to_signal
+from neon_radar.infrastructure.providers.coinglass.mapper import (
+    map_funding_rate_to_signal,
+    map_liquidations_to_signal,
+    map_long_short_ratio_to_signal,
+    map_open_interest_to_signal,
+)
 from neon_radar.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -42,7 +47,7 @@ class CoinGlassProvider(BaseRateLimitedProvider):
                 "CoinGlassProvider initialized without API key! Requests will likely fail."
             )
 
-        self._client.headers.update({"accept": "application/json", "coinglassSecret": api_key})
+        self._client.headers.update({"accept": "application/json", "CG-API-KEY": api_key})
 
     @property
     def provider_name(self) -> str:
@@ -58,11 +63,13 @@ class CoinGlassProvider(BaseRateLimitedProvider):
         errors = 0
         start_time = time.monotonic()
 
-        # We will fetch the long/short ratio for each configured symbol
-        tasks = [
-            self._fetch_long_short_ratio(symbol, context.timestamp)
-            for symbol in self.coinglass_config.symbols
-        ]
+        # We will fetch all metrics for each configured symbol
+        tasks = []
+        for symbol in self.coinglass_config.symbols:
+            tasks.append(self._fetch_long_short_ratio(symbol, context.timestamp))
+            tasks.append(self._fetch_funding_rate(symbol, context.timestamp))
+            tasks.append(self._fetch_open_interest(symbol, context.timestamp))
+            tasks.append(self._fetch_liquidations(symbol, context.timestamp))
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -99,15 +106,133 @@ class CoinGlassProvider(BaseRateLimitedProvider):
             params=params,
             max_retries=self.coinglass_config.retry_count,
             base_backoff_ms=500,
+            timeout=self.coinglass_config.timeout_seconds,
         )
 
-        data = response.json()
+        try:
+            data = response.json()
+        except ValueError as e:
+            logger.error("CoinGlass API returned invalid JSON for long/short ratio.")
+            raise ValueError("Invalid JSON response from CoinGlass") from e
 
-        # API might return code != "0" on logical errors (e.g., invalid symbol)
         if data.get("code") != "0":
-            logger.warning(
-                "CoinGlass API returned error code %s: %s", data.get("code"), data.get("msg")
+            msg = data.get("msg", "Unknown error")
+            code = data.get("code", "unknown")
+            logger.error(
+                "CoinGlass API returned logical error for long/short ratio: %s - %s", code, msg
             )
-            return None
+            raise RuntimeError(f"CoinGlass API error: {code} - {msg}")
 
-        return map_long_short_ratio_to_signal(data, symbol, ingestion_timestamp)
+        signal = map_long_short_ratio_to_signal(data, symbol, ingestion_timestamp)
+        if signal is None:
+            logger.warning("Failed to map long/short ratio data for symbol %s", symbol)
+
+        return signal
+
+    async def _fetch_funding_rate(
+        self, symbol: str, ingestion_timestamp: int
+    ) -> IntelligenceSignal | None:
+        """Fetch the funding rate for a given symbol."""
+        url = f"{self.coinglass_config.base_url.rstrip('/')}/api/futures/funding-rate/history"
+        params = {"exchange": "Binance", "symbol": symbol, "interval": "4h", "limit": 1}
+
+        response = await self._request_with_retry(
+            method="GET",
+            url=url,
+            params=params,
+            max_retries=self.coinglass_config.retry_count,
+            base_backoff_ms=500,
+            timeout=self.coinglass_config.timeout_seconds,
+        )
+
+        try:
+            data = response.json()
+        except ValueError as e:
+            logger.error("CoinGlass API returned invalid JSON for funding rate.")
+            raise ValueError("Invalid JSON response from CoinGlass") from e
+
+        if data.get("code") != "0":
+            msg = data.get("msg", "Unknown error")
+            code = data.get("code", "unknown")
+            logger.error(
+                "CoinGlass API returned logical error for funding rate: %s - %s", code, msg
+            )
+            raise RuntimeError(f"CoinGlass API error: {code} - {msg}")
+
+        signal = map_funding_rate_to_signal(data, symbol, ingestion_timestamp)
+        if signal is None:
+            logger.warning("Failed to map funding rate data for symbol %s", symbol)
+
+        return signal
+
+    async def _fetch_open_interest(
+        self, symbol: str, ingestion_timestamp: int
+    ) -> IntelligenceSignal | None:
+        """Fetch the open interest for a given symbol."""
+        url = f"{self.coinglass_config.base_url.rstrip('/')}/api/futures/open-interest/history"
+        params = {"exchange": "Binance", "symbol": symbol, "interval": "4h", "limit": 2}
+
+        response = await self._request_with_retry(
+            method="GET",
+            url=url,
+            params=params,
+            max_retries=self.coinglass_config.retry_count,
+            base_backoff_ms=500,
+            timeout=self.coinglass_config.timeout_seconds,
+        )
+
+        try:
+            data = response.json()
+        except ValueError as e:
+            logger.error("CoinGlass API returned invalid JSON for open interest.")
+            raise ValueError("Invalid JSON response from CoinGlass") from e
+
+        if data.get("code") != "0":
+            msg = data.get("msg", "Unknown error")
+            code = data.get("code", "unknown")
+            logger.error(
+                "CoinGlass API returned logical error for open interest: %s - %s", code, msg
+            )
+            raise RuntimeError(f"CoinGlass API error: {code} - {msg}")
+
+        signal = map_open_interest_to_signal(data, symbol, ingestion_timestamp)
+        if signal is None:
+            logger.warning("Failed to map open interest data for symbol %s", symbol)
+
+        return signal
+
+    async def _fetch_liquidations(
+        self, symbol: str, ingestion_timestamp: int
+    ) -> IntelligenceSignal | None:
+        """Fetch liquidations for a given symbol."""
+        url = f"{self.coinglass_config.base_url.rstrip('/')}/api/futures/liquidation/history"
+        params = {"exchange": "Binance", "symbol": symbol, "interval": "4h", "limit": 1}
+
+        response = await self._request_with_retry(
+            method="GET",
+            url=url,
+            params=params,
+            max_retries=self.coinglass_config.retry_count,
+            base_backoff_ms=500,
+            timeout=self.coinglass_config.timeout_seconds,
+        )
+
+        try:
+            data = response.json()
+        except ValueError as e:
+            logger.error("CoinGlass API returned invalid JSON for liquidations.")
+            raise ValueError("Invalid JSON response from CoinGlass") from e
+
+        if data.get("code") != "0":
+            msg = data.get("msg", "Unknown error")
+            code = data.get("code", "unknown")
+            logger.error(
+                "CoinGlass API returned logical error for liquidations: %s - %s", code, msg
+            )
+            raise RuntimeError(f"CoinGlass API error: {code} - {msg}")
+
+        signal = map_liquidations_to_signal(data, symbol, ingestion_timestamp)
+        if signal is None:
+            logger.warning("Failed to map liquidations data for symbol %s", symbol)
+
+        return signal

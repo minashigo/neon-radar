@@ -42,10 +42,9 @@ class BaseRateLimitedProvider:
                 except httpx.HTTPError as e:
                     # Determine if error is retryable
                     retryable = False
-                    if isinstance(e, httpx.RequestError):
-                        retryable = True
-                    elif isinstance(e, httpx.HTTPStatusError) and (
-                        e.response.status_code == 429 or e.response.status_code >= 500
+                    if isinstance(e, httpx.RequestError) or (
+                        isinstance(e, httpx.HTTPStatusError)
+                        and (e.response.status_code == 429 or e.response.status_code >= 500)
                     ):
                         retryable = True
 

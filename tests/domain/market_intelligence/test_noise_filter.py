@@ -78,3 +78,29 @@ def test_official_bypasses_confirmation():
     sig1 = create_signal("Official", SourceReliability.OFFICIAL, 1.0, 1000)
     filtered = filter_engine.filter_signals([sig1])
     assert len(filtered) == 1
+
+
+def test_exempt_signals_bypass_confirmation():
+    filter_engine = NoiseFilter(
+        require_independent_confirmation=True, exempt_signal_types={"liquidations"}
+    )
+
+    sig1 = create_signal(
+        "CoinGlass",
+        SourceReliability.ANALYTICS,
+        1.0,
+        1000,
+        type_=IntelligenceSignalType.LIQUIDATIONS,
+    )
+    sig2 = create_signal(
+        "CoinGlass",
+        SourceReliability.ANALYTICS,
+        1.0,
+        1000,
+        type_=IntelligenceSignalType.RSI,
+    )
+
+    filtered = filter_engine.filter_signals([sig1, sig2])
+    # Liquidations passes because it's exempt, RSI gets dropped because it requires confirmation
+    assert len(filtered) == 1
+    assert filtered[0].type == IntelligenceSignalType.LIQUIDATIONS

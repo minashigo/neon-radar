@@ -72,6 +72,7 @@ class MarketIntelligenceService:
             min_reliability_threshold=config.noise_filter.min_reliability_threshold,
             time_window_ms=config.noise_filter.time_window_ms,
             require_independent_confirmation=config.noise_filter.require_independent_confirmation,
+            exempt_signal_types=config.noise_filter.exempt_signal_types,
         )
 
         self._pipeline = pipeline or SignalPipeline([NoiseFilterStep(noise_filter)])

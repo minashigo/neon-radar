@@ -20,6 +20,7 @@ class NoiseFilter:
         min_reliability_threshold: float = 0.2,
         time_window_ms: int = 3600000,  # 1 hour by default for deduplication
         require_independent_confirmation: bool = True,
+        exempt_signal_types: set[str] | None = None,
     ) -> None:
         """Initialize the noise filter.
 
@@ -33,6 +34,7 @@ class NoiseFilter:
         self.min_reliability_threshold = min_reliability_threshold
         self.time_window_ms = time_window_ms
         self.require_independent_confirmation = require_independent_confirmation
+        self.exempt_signal_types = exempt_signal_types or set()
 
     def filter_signals(
         self, signals: Iterable[IntelligenceSignal]
@@ -92,8 +94,11 @@ class NoiseFilter:
                 direction_groups[(s.type.name, direction_sign)].append(s)
 
             for s in deduped:
-                # High reliability sources bypass confirmation requirement
-                if s.reliability in (SourceReliability.OFFICIAL, SourceReliability.INSTITUTIONAL):
+                # High reliability sources or exempt signal types bypass confirmation requirement
+                if (
+                    s.reliability in (SourceReliability.OFFICIAL, SourceReliability.INSTITUTIONAL)
+                    or s.type.value in self.exempt_signal_types
+                ):
                     confirmed.append(s)
                     continue
 
