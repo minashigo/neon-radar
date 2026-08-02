@@ -27,6 +27,7 @@ class IntelligenceSignalType(StrEnum):
     FUNDING = "funding"
     OPEN_INTEREST = "open_interest"
     LIQUIDATIONS = "liquidations"
+    LONG_SHORT_RATIO = "long_short_ratio"
 
     # On-Chain
     WHALE_ACTIVITY = "whale_activity"

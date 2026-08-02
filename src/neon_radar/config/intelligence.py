@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 
@@ -11,6 +13,7 @@ class ProviderConfig(BaseModel):
     enabled: bool = True
     priority: int = 1
     timeout_seconds: float = 10.0
+    options: dict[str, Any] = Field(default_factory=dict)
 
 
 class NoiseFilterConfig(BaseModel):

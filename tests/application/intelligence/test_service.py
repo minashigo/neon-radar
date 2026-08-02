@@ -56,6 +56,9 @@ class BaseTestMockProvider(IntelligenceProvider):
         quality = DataQuality(latency_ms=10.0, error_count=0, is_stale=False)
         return ProviderResult(signals=(sig,), quality=quality)
 
+    async def close(self) -> None:
+        pass
+
 
 @provider_registry.register("Mock1")
 class MockProvider1(BaseTestMockProvider):

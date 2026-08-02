@@ -40,6 +40,18 @@ class BaseRateLimitedProvider:
                     response.raise_for_status()
                     return response
                 except httpx.HTTPError as e:
+                    # Determine if error is retryable
+                    retryable = False
+                    if isinstance(e, httpx.RequestError):
+                        retryable = True
+                    elif isinstance(e, httpx.HTTPStatusError) and (
+                        e.response.status_code == 429 or e.response.status_code >= 500
+                    ):
+                        retryable = True
+
+                    if not retryable:
+                        raise RuntimeError(f"Non-retryable HTTP error: {e}") from e
+
                     attempt += 1
                     if attempt >= max_retries:
                         raise RuntimeError(

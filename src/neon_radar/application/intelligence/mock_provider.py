@@ -6,7 +6,7 @@ import asyncio
 from typing import TYPE_CHECKING
 
 from neon_radar.application.intelligence.registry import provider_registry
-from neon_radar.domain.market_intelligence.enums import IntelligenceSignalType
+from neon_radar.domain.market_intelligence.enums import IntelligenceSignalType, SourceReliability
 from neon_radar.domain.market_intelligence.models import (
     DataQuality,
     IntelligenceSignal,
@@ -47,15 +47,23 @@ class MockProvider:
             event_timestamp=event_ts,
             ingestion_timestamp=context.timestamp,
             source_id="mock_source_1",
+            provider_name=self.provider_name,
+            provider_type=self.provider_type,
+            reliability=SourceReliability.ANALYTICS,
+            weight=0.5,
         )
 
         sig2 = IntelligenceSignal(
-            type=IntelligenceSignalType.SOCIAL_VOLUME,
+            type=IntelligenceSignalType.SOCIAL_SENTIMENT,
             direction=0.5,
             strength=0.5,
             event_timestamp=event_ts,
             ingestion_timestamp=context.timestamp,
-            source_id="mock_source_1",
+            source_id="mock_source_2",
+            provider_name=self.provider_name,
+            provider_type=self.provider_type,
+            reliability=SourceReliability.SOCIAL,
+            weight=0.3,
         )
 
         quality = DataQuality(
@@ -65,3 +73,7 @@ class MockProvider:
         )
 
         return ProviderResult(signals=(sig1, sig2), quality=quality)
+
+    async def close(self) -> None:
+        """Close the mock provider (no-op)."""
+        pass

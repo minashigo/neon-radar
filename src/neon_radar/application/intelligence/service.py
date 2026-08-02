@@ -67,14 +67,6 @@ class MarketIntelligenceService:
             p_config = config.providers.get(name)
             if p_config is not None and p_config.enabled:
                 self._providers.append(provider_registry.create_provider(name, p_config))
-            elif p_config is None:
-                # If config is missing, we might use default if the user wants it,
-                # but currently we require an explicit entry in config to instantiate,
-                # or we just instantiate with default ProviderConfig.
-                # Let's import ProviderConfig locally if needed.
-                from neon_radar.config.intelligence import ProviderConfig
-
-                self._providers.append(provider_registry.create_provider(name, ProviderConfig()))
 
         noise_filter = NoiseFilter(
             min_reliability_threshold=config.noise_filter.min_reliability_threshold,

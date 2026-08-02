@@ -26,6 +26,10 @@ class IntelligenceProvider(Protocol):
         """Fetch the latest signals available from this provider in the given context."""
         ...
 
+    async def close(self) -> None:
+        """Close any underlying resources used by the provider."""
+        ...
+
 
 @runtime_checkable
 class NewsProvider(IntelligenceProvider, Protocol):
