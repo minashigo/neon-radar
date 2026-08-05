@@ -90,16 +90,18 @@ class CoinGlassProvider(BaseRateLimitedProvider):
 
         return ProviderResult(signals=tuple(signals), quality=quality)
 
-    async def _fetch_long_short_ratio(
-        self, symbol: str, ingestion_timestamp: int
+    async def _fetch_metric(
+        self,
+        metric_name: str,
+        endpoint: str,
+        params: dict,
+        mapper: callable,
+        symbol: str,
+        ingestion_timestamp: int,
     ) -> IntelligenceSignal | None:
-        """Fetch the long/short ratio for a given symbol."""
-        url = f"{self.coinglass_config.base_url.rstrip('/')}/api/futures/global-long-short-account-ratio/history"
+        """Centralized method to fetch and map a CoinGlass metric."""
+        url = f"{self.coinglass_config.base_url.rstrip('/')}{endpoint}"
 
-        # According to API docs, we can pass symbol, exchange, interval
-        params = {"exchange": "Binance", "symbol": symbol, "interval": "4h", "limit": 1}
-
-        # Note: _request_with_retry is provided by BaseRateLimitedProvider
         response = await self._request_with_retry(
             method="GET",
             url=url,
@@ -112,127 +114,71 @@ class CoinGlassProvider(BaseRateLimitedProvider):
         try:
             data = response.json()
         except ValueError as e:
-            logger.error("CoinGlass API returned invalid JSON for long/short ratio.")
-            raise ValueError("Invalid JSON response from CoinGlass") from e
+            logger.error("CoinGlass API returned invalid JSON for %s.", metric_name)
+            raise ValueError(f"Invalid JSON response from CoinGlass for {metric_name}") from e
 
         if data.get("code") != "0":
             msg = data.get("msg", "Unknown error")
             code = data.get("code", "unknown")
             logger.error(
-                "CoinGlass API returned logical error for long/short ratio: %s - %s", code, msg
+                "CoinGlass API returned logical error for %s: %s - %s", metric_name, code, msg
             )
             raise RuntimeError(f"CoinGlass API error: {code} - {msg}")
 
-        signal = map_long_short_ratio_to_signal(data, symbol, ingestion_timestamp)
+        signal = mapper(data, symbol, ingestion_timestamp)
         if signal is None:
-            logger.warning("Failed to map long/short ratio data for symbol %s", symbol)
+            logger.warning("Failed to map %s data for symbol %s", metric_name, symbol)
 
         return signal
+
+    async def _fetch_long_short_ratio(
+        self, symbol: str, ingestion_timestamp: int
+    ) -> IntelligenceSignal | None:
+        """Fetch the long/short ratio for a given symbol."""
+        return await self._fetch_metric(
+            metric_name="long/short ratio",
+            endpoint="/api/futures/global-long-short-account-ratio/history",
+            params={"exchange": "Binance", "symbol": symbol, "interval": "4h", "limit": 1},
+            mapper=map_long_short_ratio_to_signal,
+            symbol=symbol,
+            ingestion_timestamp=ingestion_timestamp,
+        )
 
     async def _fetch_funding_rate(
         self, symbol: str, ingestion_timestamp: int
     ) -> IntelligenceSignal | None:
         """Fetch the funding rate for a given symbol."""
-        url = f"{self.coinglass_config.base_url.rstrip('/')}/api/futures/funding-rate/history"
-        params = {"exchange": "Binance", "symbol": symbol, "interval": "4h", "limit": 1}
-
-        response = await self._request_with_retry(
-            method="GET",
-            url=url,
-            params=params,
-            max_retries=self.coinglass_config.retry_count,
-            base_backoff_ms=500,
-            timeout=self.coinglass_config.timeout_seconds,
+        return await self._fetch_metric(
+            metric_name="funding rate",
+            endpoint="/api/futures/funding-rate/history",
+            params={"exchange": "Binance", "symbol": symbol, "interval": "4h", "limit": 1},
+            mapper=map_funding_rate_to_signal,
+            symbol=symbol,
+            ingestion_timestamp=ingestion_timestamp,
         )
-
-        try:
-            data = response.json()
-        except ValueError as e:
-            logger.error("CoinGlass API returned invalid JSON for funding rate.")
-            raise ValueError("Invalid JSON response from CoinGlass") from e
-
-        if data.get("code") != "0":
-            msg = data.get("msg", "Unknown error")
-            code = data.get("code", "unknown")
-            logger.error(
-                "CoinGlass API returned logical error for funding rate: %s - %s", code, msg
-            )
-            raise RuntimeError(f"CoinGlass API error: {code} - {msg}")
-
-        signal = map_funding_rate_to_signal(data, symbol, ingestion_timestamp)
-        if signal is None:
-            logger.warning("Failed to map funding rate data for symbol %s", symbol)
-
-        return signal
 
     async def _fetch_open_interest(
         self, symbol: str, ingestion_timestamp: int
     ) -> IntelligenceSignal | None:
         """Fetch the open interest for a given symbol."""
-        url = f"{self.coinglass_config.base_url.rstrip('/')}/api/futures/open-interest/history"
-        params = {"exchange": "Binance", "symbol": symbol, "interval": "4h", "limit": 2}
-
-        response = await self._request_with_retry(
-            method="GET",
-            url=url,
-            params=params,
-            max_retries=self.coinglass_config.retry_count,
-            base_backoff_ms=500,
-            timeout=self.coinglass_config.timeout_seconds,
+        return await self._fetch_metric(
+            metric_name="open interest",
+            endpoint="/api/futures/open-interest/history",
+            params={"exchange": "Binance", "symbol": symbol, "interval": "4h", "limit": 2},
+            mapper=map_open_interest_to_signal,
+            symbol=symbol,
+            ingestion_timestamp=ingestion_timestamp,
         )
-
-        try:
-            data = response.json()
-        except ValueError as e:
-            logger.error("CoinGlass API returned invalid JSON for open interest.")
-            raise ValueError("Invalid JSON response from CoinGlass") from e
-
-        if data.get("code") != "0":
-            msg = data.get("msg", "Unknown error")
-            code = data.get("code", "unknown")
-            logger.error(
-                "CoinGlass API returned logical error for open interest: %s - %s", code, msg
-            )
-            raise RuntimeError(f"CoinGlass API error: {code} - {msg}")
-
-        signal = map_open_interest_to_signal(data, symbol, ingestion_timestamp)
-        if signal is None:
-            logger.warning("Failed to map open interest data for symbol %s", symbol)
-
-        return signal
 
     async def _fetch_liquidations(
         self, symbol: str, ingestion_timestamp: int
     ) -> IntelligenceSignal | None:
         """Fetch liquidations for a given symbol."""
-        url = f"{self.coinglass_config.base_url.rstrip('/')}/api/futures/liquidation/history"
-        params = {"exchange": "Binance", "symbol": symbol, "interval": "4h", "limit": 1}
-
-        response = await self._request_with_retry(
-            method="GET",
-            url=url,
-            params=params,
-            max_retries=self.coinglass_config.retry_count,
-            base_backoff_ms=500,
-            timeout=self.coinglass_config.timeout_seconds,
+        return await self._fetch_metric(
+            metric_name="liquidations",
+            endpoint="/api/futures/liquidation/history",
+            params={"exchange": "Binance", "symbol": symbol, "interval": "4h", "limit": 1},
+            mapper=map_liquidations_to_signal,
+            symbol=symbol,
+            ingestion_timestamp=ingestion_timestamp,
         )
-
-        try:
-            data = response.json()
-        except ValueError as e:
-            logger.error("CoinGlass API returned invalid JSON for liquidations.")
-            raise ValueError("Invalid JSON response from CoinGlass") from e
-
-        if data.get("code") != "0":
-            msg = data.get("msg", "Unknown error")
-            code = data.get("code", "unknown")
-            logger.error(
-                "CoinGlass API returned logical error for liquidations: %s - %s", code, msg
-            )
-            raise RuntimeError(f"CoinGlass API error: {code} - {msg}")
-
-        signal = map_liquidations_to_signal(data, symbol, ingestion_timestamp)
-        if signal is None:
-            logger.warning("Failed to map liquidations data for symbol %s", symbol)
-
-        return signal

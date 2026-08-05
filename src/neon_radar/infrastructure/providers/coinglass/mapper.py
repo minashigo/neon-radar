@@ -10,6 +10,8 @@ from neon_radar.domain.market_intelligence.enums import (
 )
 from neon_radar.domain.market_intelligence.models import IntelligenceSignal
 
+DEFAULT_WEIGHT = 0.8
+
 
 def _get_history(data: dict[str, Any]) -> list[dict[str, Any]] | None:
     history = data.get("data")
@@ -18,11 +20,16 @@ def _get_history(data: dict[str, Any]) -> list[dict[str, Any]] | None:
     return history
 
 
-def _get_latest_item(history: list[dict[str, Any]]) -> dict[str, Any] | None:
+def _sort_history(history: list[dict[str, Any]]) -> list[dict[str, Any]]:
     try:
-        return max(history, key=lambda x: x.get("time", 0))
+        return sorted(history, key=lambda x: x.get("time", 0))
     except (ValueError, TypeError):
-        return None
+        return []
+
+
+def _get_latest_item(history: list[dict[str, Any]]) -> dict[str, Any] | None:
+    sorted_history = _sort_history(history)
+    return sorted_history[-1] if sorted_history else None
 
 
 def map_long_short_ratio_to_signal(
@@ -64,7 +71,7 @@ def map_long_short_ratio_to_signal(
         provider_name="CoinGlass",
         provider_type="API",
         reliability=SourceReliability.ANALYTICS,
-        weight=0.8,
+        weight=DEFAULT_WEIGHT,
         metadata={
             "symbol": symbol,
             "long_percent": str(long_pct),
@@ -112,7 +119,7 @@ def map_funding_rate_to_signal(
         provider_name="CoinGlass",
         provider_type="API",
         reliability=SourceReliability.ANALYTICS,
-        weight=0.8,
+        weight=DEFAULT_WEIGHT,
         metadata={
             "symbol": symbol,
             "funding_rate": str(funding_rate),
@@ -128,10 +135,8 @@ def map_open_interest_to_signal(
     if not history or len(history) < 2:
         return None
 
-    # Sort history by time to ensure correct order
-    try:
-        sorted_history = sorted(history, key=lambda x: x.get("time", 0))
-    except (ValueError, TypeError):
+    sorted_history = _sort_history(history)
+    if len(sorted_history) < 2:
         return None
 
     latest = sorted_history[-1]
@@ -167,7 +172,7 @@ def map_open_interest_to_signal(
         provider_name="CoinGlass",
         provider_type="API",
         reliability=SourceReliability.ANALYTICS,
-        weight=0.8,
+        weight=DEFAULT_WEIGHT,
         metadata={
             "symbol": symbol,
             "latest_oi": str(latest_oi),
@@ -223,7 +228,7 @@ def map_liquidations_to_signal(
         provider_name="CoinGlass",
         provider_type="API",
         reliability=SourceReliability.ANALYTICS,
-        weight=0.8,
+        weight=DEFAULT_WEIGHT,
         metadata={
             "symbol": symbol,
             "long_liquidation_usd": str(long_liq),

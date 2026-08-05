@@ -13,6 +13,7 @@ class ProviderConfig(BaseModel):
     enabled: bool = True
     priority: int = 1
     timeout_seconds: float = 10.0
+    max_concurrent_requests: int = Field(default=5, ge=1)
     options: dict[str, Any] = Field(default_factory=dict)
 
 

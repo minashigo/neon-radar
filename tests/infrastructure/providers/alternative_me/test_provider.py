@@ -88,11 +88,4 @@ async def test_alternative_me_provider_logical_error(provider_config, monkeypatc
     assert len(result.signals) == 0
 
 
-@pytest.mark.asyncio
-async def test_alternative_me_provider_inactive(provider_config):
-    provider = AlternativeMeProvider(provider_config)
-    context = PipelineContext(timestamp=2000, run_id="test", active_providers=("CoinGlass",))
-    result = await provider.fetch_signals(context)
 
-    assert result.quality.error_count == 0
-    assert len(result.signals) == 0

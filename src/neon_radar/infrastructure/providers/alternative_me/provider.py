@@ -37,13 +37,6 @@ class AlternativeMeProvider(BaseRateLimitedProvider):
 
     async def fetch_signals(self, context: PipelineContext) -> ProviderResult:
         """Fetch the Fear & Greed index signal."""
-        # Check if the provider is active in this run
-        if self.provider_name not in context.active_providers:
-            return ProviderResult(
-                signals=(),
-                quality=DataQuality(latency_ms=0.0, error_count=0, is_stale=False)
-            )
-
         signals = []
         error_count = 0
         success_count = 0
@@ -65,6 +58,9 @@ class AlternativeMeProvider(BaseRateLimitedProvider):
                 # API responded but data was invalid/missing
                 error_count += 1
 
+        except ValueError:
+            logger.error("Alternative.me API returned invalid JSON.")
+            error_count += 1
         except Exception as e:
             logger.error(f"Failed to fetch Alternative.me data: {e}")
             error_count += 1

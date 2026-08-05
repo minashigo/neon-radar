@@ -21,7 +21,7 @@ class BaseRateLimitedProvider:
         # Simple concurrent request limiting
         # In a real app, this might be a token bucket (aiolimiter)
         # based on requests_per_minute from config.
-        limit = getattr(config, "max_concurrent_requests", 5)
+        limit = config.max_concurrent_requests
         self._semaphore = asyncio.Semaphore(limit)
 
     async def close(self) -> None:

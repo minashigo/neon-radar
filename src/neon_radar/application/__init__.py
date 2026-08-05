@@ -16,11 +16,9 @@ from neon_radar.application.services.indicator_pipeline import (
     available_indicators,
     compute_indicators,
 )
-from neon_radar.application.services.market_data import MarketDataService
 
 __all__ = [
     "IndicatorSpec",
-    "MarketDataService",
     "analyze_series",
     "available_indicators",
     "collect_indicator_specs",
