@@ -8,5 +8,11 @@ from neon_radar.infrastructure.providers.base import BaseRateLimitedProvider
 with contextlib.suppress(ImportError):
     from neon_radar.infrastructure.providers.alternative_me import AlternativeMeProvider
     from neon_radar.infrastructure.providers.coinglass import CoinGlassProvider
+    from neon_radar.infrastructure.providers.deribit.provider import DeribitProvider
 
-__all__ = ["AlternativeMeProvider", "BaseRateLimitedProvider", "CoinGlassProvider"]
+__all__ = [
+    "AlternativeMeProvider",
+    "BaseRateLimitedProvider",
+    "CoinGlassProvider",
+    "DeribitProvider",
+]

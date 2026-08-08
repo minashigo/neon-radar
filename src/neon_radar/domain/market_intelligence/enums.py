@@ -28,6 +28,8 @@ class IntelligenceSignalType(StrEnum):
     OPEN_INTEREST = "open_interest"
     LIQUIDATIONS = "liquidations"
     LONG_SHORT_RATIO = "long_short_ratio"
+    DVOL = "dvol"
+    PUT_CALL_RATIO = "put_call_ratio"
 
     # On-Chain
     WHALE_ACTIVITY = "whale_activity"
