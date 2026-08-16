@@ -8,6 +8,7 @@ from neon_radar.domain.market_intelligence.enums import (
     IntelligenceSignalType,
     SourceReliability,
 )
+from neon_radar.domain.market_intelligence.history import IntelligenceObservation
 from neon_radar.domain.market_intelligence.models import IntelligenceSignal
 
 DEFAULT_WEIGHT = 0.8
@@ -63,6 +64,64 @@ def map_dvol_to_signal(
             "raw_value": str(dvol_val),
         },
     )
+
+
+def map_historical_dvol_to_observations(
+    data: dict[str, Any], symbol: str, ingestion_timestamp: int, resolution_ms: int = 86400000
+) -> tuple[IntelligenceObservation, ...]:
+    """Map historical DVOL data to point-in-time observations."""
+    result = data.get("result")
+    if not result:
+        return ()
+
+    history = result.get("data")
+    if not history or not isinstance(history, list):
+        return ()
+
+    observations = []
+    for item in history:
+        if len(item) < 5:
+            continue
+
+        event_time = item[0]
+        close_val = item[4]
+
+        try:
+            dvol_val = float(close_val)
+        except (ValueError, TypeError):
+            continue
+
+        obs_time = int(event_time)
+        # available_at is the close of the candle, so we add resolution_ms
+        available_at = obs_time + resolution_ms
+
+        sig = IntelligenceSignal(
+            type=IntelligenceSignalType.DVOL,
+            direction=0.0,
+            strength=0.0,
+            event_timestamp=obs_time,
+            ingestion_timestamp=ingestion_timestamp,
+            source_id="deribit",
+            provider_name="Deribit",
+            provider_type="API",
+            reliability=SourceReliability.ANALYTICS,
+            weight=DEFAULT_WEIGHT,
+            metadata={
+                "symbol": symbol,
+                "raw_value": str(dvol_val),
+            },
+        )
+
+        observations.append(
+            IntelligenceObservation(
+                signal=sig,
+                observation_timestamp=obs_time,
+                available_at=available_at,
+            )
+        )
+
+    observations.sort(key=lambda o: o.available_at)
+    return tuple(observations)
 
 
 def map_put_call_ratio_to_signal(

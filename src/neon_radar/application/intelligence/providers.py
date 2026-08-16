@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
+    from neon_radar.domain.market_intelligence.history import IntelligenceObservation
     from neon_radar.domain.market_intelligence.models import PipelineContext, ProviderResult
 
 
@@ -25,6 +26,10 @@ class IntelligenceProvider(Protocol):
     async def fetch_signals(self, context: PipelineContext) -> ProviderResult:
         """Fetch the latest signals available from this provider in the given context."""
         ...
+
+    async def fetch_historical_signals(self, start_time: int, end_time: int) -> tuple[IntelligenceObservation, ...]:
+        """Fetch historical intelligence observations within a time range (if supported)."""
+        return ()
 
     async def close(self) -> None:
         """Close any underlying resources used by the provider."""

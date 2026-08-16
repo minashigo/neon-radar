@@ -17,6 +17,7 @@ from neon_radar.infrastructure.providers.deribit.mapper import (
 
 if TYPE_CHECKING:
     from neon_radar.config.intelligence import ProviderConfig
+    from neon_radar.domain.market_intelligence.history import IntelligenceObservation
     from neon_radar.domain.market_intelligence.models import (
         IntelligenceSignal,
         PipelineContext,
@@ -149,3 +150,44 @@ class DeribitProvider(BaseRateLimitedProvider):
             logger.warning("Failed to map Put/Call Ratio data for symbol BTC")
 
         return signal
+
+    async def fetch_historical_signals(self, start_time: int, end_time: int) -> tuple[IntelligenceObservation, ...]:
+        """Fetch historical DVOL index."""
+        from neon_radar.infrastructure.providers.deribit.mapper import (
+            map_historical_dvol_to_observations,
+        )
+
+        # We only support historical DVOL here. PCR is not available.
+        # Fetch in 1D resolution.
+        url = f"{self.base_url}/api/v2/public/get_volatility_index_data"
+        params = {
+            "currency": "BTC",
+            "start_timestamp": start_time,
+            "end_timestamp": end_time,
+            "resolution": "1D",
+        }
+
+        try:
+            response = await self._request_with_retry(
+                method="GET",
+                url=url,
+                params=params,
+                max_retries=1,
+                base_backoff_ms=500,
+                timeout=self.config.timeout_seconds,
+            )
+            data = response.json()
+
+            # 1D = 86400000 ms
+            observations = map_historical_dvol_to_observations(data, "BTC", int(time.time() * 1000), 86400000)
+
+            # Filter just in case
+            filtered = [
+                obs for obs in observations
+                if start_time <= obs.available_at <= end_time
+            ]
+            return tuple(filtered)
+
+        except Exception as e:
+            logger.error(f"Failed to fetch historical Deribit DVOL data: {e}")
+            return ()

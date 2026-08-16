@@ -13,6 +13,7 @@ from neon_radar.utils.logging import get_logger
 
 if TYPE_CHECKING:
     from neon_radar.config.intelligence import ProviderConfig
+    from neon_radar.domain.market_intelligence.history import IntelligenceObservation
     from neon_radar.domain.market_intelligence.models import PipelineContext
 
 logger = get_logger(__name__)
@@ -77,3 +78,31 @@ class AlternativeMeProvider(BaseRateLimitedProvider):
         )
 
         return ProviderResult(signals=tuple(signals), quality=quality)
+
+    async def fetch_historical_signals(self, start_time: int, end_time: int) -> tuple[IntelligenceObservation, ...]:
+        """Fetch historical Fear & Greed index."""
+        from neon_radar.infrastructure.providers.alternative_me.mapper import (
+            map_historical_fng_to_observations,
+        )
+
+        # limit=0 returns all available history (up to current)
+        endpoint = "https://api.alternative.me/fng/?limit=0"
+
+        try:
+            response = await self._request_with_retry(method="GET", url=endpoint)
+            data = response.json()
+
+            # Map everything
+            observations = map_historical_fng_to_observations(data, int(time.time() * 1000))
+
+            # Filter by start_time and end_time
+            # available_at should fall within [start_time, end_time]
+            filtered = [
+                obs for obs in observations
+                if start_time <= obs.available_at <= end_time
+            ]
+            return tuple(filtered)
+
+        except Exception as e:
+            logger.error(f"Failed to fetch historical Alternative.me data: {e}")
+            return ()
