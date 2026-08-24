@@ -27,6 +27,8 @@ from pydantic import (
     model_validator,
 )
 
+from neon_radar.config.intelligence import IntelligenceConfig
+
 
 class TimeFrame(StrEnum):
     """Supported kline intervals (subset of Binance Futures intervals).
@@ -222,6 +224,7 @@ class AppConfig(BaseModel):
     cache: CacheConfig = Field(default_factory=CacheConfig)
     ui: UiConfig = Field(default_factory=UiConfig)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
+    intelligence: IntelligenceConfig = Field(default_factory=IntelligenceConfig)
 
     @model_validator(mode="after")
     def _validate_unique_symbols(self) -> AppConfig:

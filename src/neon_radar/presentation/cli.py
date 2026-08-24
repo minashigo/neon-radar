@@ -53,6 +53,7 @@ from neon_radar.utils.logging import configure_logging, get_logger
 
 if TYPE_CHECKING:
     from neon_radar.domain.funding import FundingRate
+    from neon_radar.domain.market_intelligence.features import MarketIntelligenceFeatures
     from neon_radar.domain.market_state import MarketState
     from neon_radar.domain.scoring.backtest import BacktestResult
 
@@ -356,6 +357,7 @@ async def _score_one_symbol(
     confluence_bonus: float = 0.20,
     confluence_penalty: float = 0.15,
     max_confidence_boost: float = 0.40,
+    intelligence: MarketIntelligenceFeatures | None = None,
 ) -> tuple[Symbol, MarketState, AnalysisResult]:
     """Fetch + compute + score one symbol. Returns (symbol, state, result)."""
     htf = timeframe.higher_timeframe
@@ -383,6 +385,7 @@ async def _score_one_symbol(
         timestamp=int(_now_ms()),
         funding_rate=funding_rate,
         higher_tf_series=higher_tf_series,
+        intelligence=intelligence,
     )
     if result.market_state is None:
         raise RuntimeError(f"Analysis for {symbol} returned no market_state")
@@ -415,6 +418,19 @@ async def _run_scan(args: argparse.Namespace) -> int:
     timeframe = args.timeframe or config.timeframes[0].value
     limit = args.limit
 
+    from neon_radar.application.intelligence.feature_service import IntelligenceFeatureService
+    from neon_radar.application.intelligence.service import MarketIntelligenceService
+    from neon_radar.infrastructure.storage.intelligence_store import HistoricalIntelligenceStore
+
+    mi_service = MarketIntelligenceService(config.intelligence)
+    mi_store = HistoricalIntelligenceStore(directory=config.cache.directory.parent / "intelligence")
+    feature_service = IntelligenceFeatureService(mi_service, mi_store)
+
+    logger.info("Fetching live Market Intelligence...")
+    intelligence_features = await feature_service.get_features()
+    if intelligence_features:
+        logger.info("Market Intelligence fetched successfully.")
+
     logger.info(
         "Scanning %d symbols on %s, %d candles each",
         len(config.enabled_symbols()),
@@ -438,6 +454,7 @@ async def _run_scan(args: argparse.Namespace) -> int:
                     confluence_bonus=scoring_cfg.confluence_bonus,
                     confluence_penalty=scoring_cfg.confluence_penalty,
                     max_confidence_boost=scoring_cfg.max_confidence_boost,
+                    intelligence=intelligence_features,
                 )
                 rows.append((symbol, result))
             except Exception as exc:

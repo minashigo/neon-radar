@@ -26,6 +26,7 @@ if TYPE_CHECKING:
 
     from neon_radar.domain.funding import FundingRate, OpenInterest
     from neon_radar.domain.market_context import MarketContext
+    from neon_radar.domain.market_intelligence.features import MarketIntelligenceFeatures
     from neon_radar.domain.models import KlineSeries, TickerStats
     from neon_radar.domain.scoring.factor_rule import FactorRule
     from neon_radar.domain.trading.regime import RegimeClassifier, RegimeFilterConfig
@@ -60,6 +61,7 @@ def analyze_series(
     funding_rate: FundingRate | None = None,
     open_interest: OpenInterest | None = None,
     market_context: MarketContext | None = None,
+    intelligence: MarketIntelligenceFeatures | None = None,
     extra_indicators: Iterable[IndicatorSpec] = (),
     regime_classifier: RegimeClassifier | None = None,
     regime_config: RegimeFilterConfig | None = None,
@@ -94,6 +96,7 @@ def analyze_series(
         funding_rate=funding_rate,
         open_interest=open_interest,
         context=market_context,
+        intelligence=intelligence,
     )
     engine = RuleBasedEngine(
         rules=rules_tuple,

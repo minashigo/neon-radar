@@ -8,7 +8,7 @@ from trade execution (using candle T+1).
 from __future__ import annotations
 
 from datetime import UTC, date, datetime, timedelta
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 from neon_radar.application.services.execution import PaperExecutionEngine
 from neon_radar.application.services.portfolio_engine import PortfolioEngine
@@ -36,6 +36,7 @@ if TYPE_CHECKING:
     from neon_radar.domain.funding import FundingRate
     from neon_radar.domain.market_context import HistoricalMarketContext
     from neon_radar.domain.scoring.factor_rule import FactorRule
+    from neon_radar.infrastructure.storage.intelligence_store import HistoricalIntelligenceStore
 
 
 class HistoricalFundingProvider(Protocol):
@@ -72,6 +73,7 @@ class TradeBacktester:
         preloaded_series: dict[tuple[str, str], KlineSeries] | None = None,
         preloaded_context: dict[str, HistoricalMarketContext] | None = None,
         cost_model: CostModel | None = None,
+        intelligence_store: HistoricalIntelligenceStore | None = None,
     ) -> None:
         self._exchange = exchange
         self._scoring_config = scoring_config
@@ -81,6 +83,15 @@ class TradeBacktester:
         self._series_cache: dict[tuple[str, str], KlineSeries] = preloaded_series or {}
         self._context_cache: dict[str, HistoricalMarketContext] = preloaded_context or {}
         self._cost_model = cost_model or CostModel()
+        self._intelligence_store = intelligence_store
+
+        self._raw_mi_map: dict[str, Any] | None = None
+        if intelligence_store is not None:
+            self._raw_mi_map = {}
+            for sig_type in ("fear_and_greed", "dvol"):
+                series = intelligence_store.load_series(sig_type)
+                if series is not None:
+                    self._raw_mi_map[sig_type] = series
 
         self._regime_config = None
         self._regime_classifier = None
@@ -309,6 +320,43 @@ class TradeBacktester:
                         candles=tuple(htf_history),
                     )
 
+            # 4.5. Market Intelligence Features
+            intelligence_features = None
+            if self._raw_mi_map is not None:
+                current_time = int(history.candles[-1].open_time)
+                from neon_radar.domain.market_intelligence.history import (
+                    HistoricalIntelligenceContext,
+                )
+
+                # Slice to point-in-time
+                sliced_mi = HistoricalIntelligenceContext(timestamp=current_time, series_map=self._raw_mi_map)
+
+                fng_series = sliced_mi.series_map.get("fear_and_greed")
+                dvol_series = sliced_mi.series_map.get("dvol")
+
+                features = {}
+                if fng_series is not None and not fng_series.is_empty:
+                    from neon_radar.application.intelligence.normalizer import (
+                        IntelligenceNormalizer,
+                    )
+                    features["fng_value"] = IntelligenceNormalizer.extract_raw_value(fng_series)
+                    features["fng_z_score_30d"] = IntelligenceNormalizer.calculate_rolling_z_score(fng_series, 30)
+                    features["fng_percentile_30d"] = IntelligenceNormalizer.calculate_percentile(fng_series, 30)
+
+                if dvol_series is not None and not dvol_series.is_empty:
+                    from neon_radar.application.intelligence.normalizer import (
+                        IntelligenceNormalizer,
+                    )
+                    features["dvol_value"] = IntelligenceNormalizer.extract_raw_value(dvol_series)
+                    features["dvol_z_score_30d"] = IntelligenceNormalizer.calculate_rolling_z_score(dvol_series, 30)
+                    features["dvol_percentile_30d"] = IntelligenceNormalizer.calculate_percentile(dvol_series, 30)
+
+                if features:
+                    from neon_radar.domain.market_intelligence.features import (
+                        MarketIntelligenceFeatures,
+                    )
+                    intelligence_features = MarketIntelligenceFeatures(**features)
+
             # 5. Evaluate pipeline
             try:
                 setup = self._pipeline.evaluate(
@@ -319,6 +367,7 @@ class TradeBacktester:
                     higher_tf_series=higher_history_series,
                     funding_rate=funding_val,
                     market_context=context_val,
+                    intelligence=intelligence_features,
                 )
             except Exception:
                 setup = None

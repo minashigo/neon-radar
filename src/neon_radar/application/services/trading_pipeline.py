@@ -12,6 +12,7 @@ from neon_radar.application.services.risk.manager import RiskManager
 from neon_radar.application.services.risk.sizing import PositionSizingEngine
 from neon_radar.domain.funding import FundingRate, OpenInterest
 from neon_radar.domain.market_context import MarketContext
+from neon_radar.domain.market_intelligence.features import MarketIntelligenceFeatures
 from neon_radar.domain.models import KlineSeries, TickerStats
 from neon_radar.domain.portfolio import PortfolioState
 from neon_radar.domain.risk import DrawdownState
@@ -68,6 +69,7 @@ class TradingPipeline:
         funding_rate: FundingRate | None = None,
         open_interest: OpenInterest | None = None,
         market_context: MarketContext | None = None,
+        intelligence: MarketIntelligenceFeatures | None = None,
     ) -> FinalTradeSetup | None:
         """Run the full pipeline on a series and portfolio state."""
 
@@ -88,6 +90,7 @@ class TradingPipeline:
             funding_rate=funding_rate,
             open_interest=open_interest,
             market_context=market_context,
+            intelligence=intelligence,
             extra_indicators=extra_indicators,
             regime_classifier=self.regime_classifier,
             regime_config=self.regime_config,
