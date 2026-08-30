@@ -61,8 +61,9 @@ class PortfolioEngine:
                     take_profit=pos.take_profit,
                     opened_at=pos.opened_at,
                     unrealized_pnl=unrealized,
-                    fees=pos.fees,
-                    funding_paid=pos.funding_paid,
+                    entry_fee=pos.entry_fee,
+                    entry_slippage=pos.entry_slippage,
+                    entry_execution_type=pos.entry_execution_type,
                 )
                 updated_positions.append(updated_pos)
                 total_unrealized += unrealized

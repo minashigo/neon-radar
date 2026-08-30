@@ -77,6 +77,10 @@ def analyze_series(
     for spec in extra_indicators:
         spec_map.setdefault(spec.series_name, spec)
 
+    if regime_classifier:
+        for spec in regime_classifier.required_indicators():
+            spec_map.setdefault(spec.series_name, spec)
+
     specs = tuple(spec_map.values())
 
     primary_specs = [s for s in specs if s.target == "primary"]
@@ -98,6 +102,12 @@ def analyze_series(
         context=market_context,
         intelligence=intelligence,
     )
+
+    if regime_classifier:
+        from dataclasses import replace
+        classification = regime_classifier.classify(state)
+        state = replace(state, regime=classification.regime)
+
     engine = RuleBasedEngine(
         rules=rules_tuple,
         min_confidence=min_confidence,

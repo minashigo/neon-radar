@@ -43,6 +43,7 @@ class FeatureImportanceAnalyzer:
         symbols: Iterable[Symbol],
         timeframe: TimeFrame = "1d",
         min_history_candles: int = 50,
+        system_ablations: dict[str, TradeBacktester] | None = None,
     ) -> FeatureImportanceReport:
         """Run full ablation analysis over the given period."""
         symbols = tuple(symbols)
@@ -97,61 +98,98 @@ class FeatureImportanceAnalyzer:
                 min_history_candles=min_history_candles,
             )
 
-            ablated_report = self._analyzer.analyze(ablated_trades)
-
-            a_pf = ablated_report.net_profit_factor
-            a_exp = ablated_report.net_expectancy
-            a_sharpe = ablated_report.net_sharpe_ratio
-            a_wr = ablated_report.win_rate
-            a_prob_loss = (
-                ablated_report.validation.mc_probability_of_loss
-                if ablated_report.validation
-                else 1.0
-            )
-            a_pval = ablated_report.validation.p_value if ablated_report.validation else 1.0
-
-            # Calculate Deltas (Positive means removing the rule made it worse, so the rule is good)
-            delta_pf = b_pf - a_pf
-            delta_exp = b_exp - a_exp
-            delta_sharpe = b_sharpe - a_sharpe
-            delta_wr = b_wr - a_wr
-
-            # For p_value and prob_loss, lower is better. So if Baseline is better (lower),
-            # Ablated is higher. Therefore Ablated - Baseline is positive when rule is good.
-            delta_prob_loss = a_prob_loss - b_prob_loss
-            delta_pval = a_pval - b_pval
-
-            # Calculate composite Feature Score
-            # To normalize somewhat, we map them based on typical scales.
-            # Delta PF is absolute. Delta WR and Exp are percentages.
-            # Example heuristic normalization for the score:
-            pf_score = delta_pf * 1.0  # Delta of 0.1 -> 0.1
-            exp_score = delta_exp * 10.0  # Delta of 1% (0.01) -> 0.1
-            sharpe_score = delta_sharpe * 0.2  # Delta of 0.5 -> 0.1
-            wr_score = delta_wr * 2.0  # Delta of 5% (0.05) -> 0.1
-            prob_loss_score = delta_prob_loss * 1.0  # Delta of 10% (0.1) -> 0.1
-
-            score = (
-                self.W_PROFIT_FACTOR * pf_score
-                + self.W_EXPECTANCY * exp_score
-                + self.W_SHARPE_RATIO * sharpe_score
-                + self.W_WIN_RATE * wr_score
-                + self.W_PROBABILITY_OF_LOSS * prob_loss_score
+            self._compute_and_append_metrics(
+                rule.name,
+                baseline_report,
+                ablated_trades,
+                b_pf, b_exp, b_sharpe, b_wr, b_prob_loss, b_pval,
+                features_metrics,
             )
 
-            metrics = FeatureImportanceMetrics(
-                rule_name=rule.name,
-                delta_profit_factor=delta_pf,
-                delta_expectancy=delta_exp,
-                delta_sharpe_ratio=delta_sharpe,
-                delta_win_rate=delta_wr,
-                delta_probability_of_loss=delta_prob_loss,
-                delta_p_value=delta_pval,
-                feature_score=score,
-            )
-            features_metrics.append(metrics)
+        # 3. Run System-Level Ablations
+        if system_ablations:
+            logger.info(f"Running {len(system_ablations)} system-level ablations...")
+            for feature_name, ablated_tester in system_ablations.items():
+                logger.info(f"  Ablating system feature: {feature_name}")
+                ablated_tester.cache = cache
+                ablated_trades = await ablated_tester.run(
+                    start_date=start_date,
+                    end_date=end_date,
+                    symbols=symbols,
+                    timeframe=timeframe,
+                    min_history_candles=min_history_candles,
+                )
+
+                self._compute_and_append_metrics(
+                    feature_name,
+                    baseline_report,
+                    ablated_trades,
+                    b_pf, b_exp, b_sharpe, b_wr, b_prob_loss, b_pval,
+                    features_metrics,
+                )
 
         # Sort by feature score descending
         features_metrics.sort(key=lambda x: x.feature_score, reverse=True)
 
         return FeatureImportanceReport(baseline=baseline_report, features=tuple(features_metrics))
+
+    def _compute_and_append_metrics(
+        self,
+        feature_name: str,
+        baseline_report,
+        ablated_trades,
+        b_pf, b_exp, b_sharpe, b_wr, b_prob_loss, b_pval,
+        features_metrics: list[FeatureImportanceMetrics],
+    ) -> None:
+        """Compute ablation metrics and append to the list."""
+        ablated_report = self._analyzer.analyze(ablated_trades)
+
+        a_pf = ablated_report.net_profit_factor
+        a_exp = ablated_report.net_expectancy
+        a_sharpe = ablated_report.net_sharpe_ratio
+        a_wr = ablated_report.win_rate
+        a_prob_loss = (
+            ablated_report.validation.mc_probability_of_loss
+            if ablated_report.validation
+            else 1.0
+        )
+        a_pval = ablated_report.validation.p_value if ablated_report.validation else 1.0
+
+        # Calculate Deltas (Positive means removing the rule made it worse, so the rule is good)
+        delta_pf = b_pf - a_pf
+        delta_exp = b_exp - a_exp
+        delta_sharpe = b_sharpe - a_sharpe
+        delta_wr = b_wr - a_wr
+
+        # For p_value and prob_loss, lower is better. So if Baseline is better (lower),
+        # Ablated is higher. Therefore Ablated - Baseline is positive when rule is good.
+        delta_prob_loss = a_prob_loss - b_prob_loss
+        delta_pval = a_pval - b_pval
+
+        # Calculate composite Feature Score
+        pf_score = delta_pf * 1.0
+        exp_score = delta_exp * 10.0
+        sharpe_score = delta_sharpe * 0.2
+        wr_score = delta_wr * 2.0
+        prob_loss_score = delta_prob_loss * 1.0
+
+        score = (
+            self.W_PROFIT_FACTOR * pf_score
+            + self.W_EXPECTANCY * exp_score
+            + self.W_SHARPE_RATIO * sharpe_score
+            + self.W_WIN_RATE * wr_score
+            + self.W_PROBABILITY_OF_LOSS * prob_loss_score
+        )
+
+        metrics = FeatureImportanceMetrics(
+            rule_name=feature_name,
+            delta_profit_factor=delta_pf,
+            delta_expectancy=delta_exp,
+            delta_sharpe_ratio=delta_sharpe,
+            delta_win_rate=delta_wr,
+            delta_probability_of_loss=delta_prob_loss,
+            delta_p_value=delta_pval,
+            feature_score=score,
+        )
+        features_metrics.append(metrics)
+

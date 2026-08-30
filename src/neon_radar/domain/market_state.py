@@ -32,6 +32,7 @@ if TYPE_CHECKING:
     from neon_radar.domain.indicators.base import IndicatorSeries
     from neon_radar.domain.market_context import HistoricalMarketContext, MarketContext
     from neon_radar.domain.market_intelligence.features import MarketIntelligenceFeatures
+    from neon_radar.domain.trading.regime import MarketRegime
 
 
 @dataclass(slots=True, frozen=True)
@@ -65,6 +66,12 @@ class MarketState:
     context
         Aggregated market context (Funding, OI, Long/Short ratio, etc).
         Optional.
+    historical_context
+        Historical market context. Optional.
+    intelligence
+        Market intelligence features (e.g., Fear & Greed, DVOL). Optional.
+    regime
+        Classified market regime. Optional.
     """
 
     symbol: Symbol
@@ -78,6 +85,7 @@ class MarketState:
     context: MarketContext | None = None
     historical_context: HistoricalMarketContext | None = None
     intelligence: MarketIntelligenceFeatures | None = None
+    regime: MarketRegime | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.symbol, Symbol):
