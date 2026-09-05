@@ -9,6 +9,16 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import TYPE_CHECKING, Protocol
 
+from neon_radar.domain.execution_costs import (
+    BinanceFundingModel as _CanonicalFundingModel,
+)
+from neon_radar.domain.execution_costs import (
+    BinanceFuturesFeeModel as _CanonicalFeeModel,
+)
+from neon_radar.domain.execution_costs import (
+    FixedSlippageModel as _CanonicalSlippageModel,
+)
+
 if TYPE_CHECKING:
     from neon_radar.application.services.trade_backtester import HistoricalFundingProvider
     from neon_radar.domain.enums import Bias
@@ -50,12 +60,13 @@ class BinanceFuturesFeeModel:
     def __init__(self, maker_fee: float = 0.0002, taker_fee: float = 0.0005) -> None:
         self.maker_fee = maker_fee
         self.taker_fee = taker_fee
+        self._canonical = _CanonicalFeeModel(maker_fee_pct=maker_fee, taker_fee_pct=taker_fee)
 
     def calculate_entry_fee_pct(self, order_type: ExecutionType) -> float:
-        return self.maker_fee if order_type == ExecutionType.MAKER else self.taker_fee
+        return self._canonical.calculate_entry_fee(1.0, order_type)
 
     def calculate_exit_fee_pct(self, order_type: ExecutionType) -> float:
-        return self.maker_fee if order_type == ExecutionType.MAKER else self.taker_fee
+        return self._canonical.calculate_exit_fee(1.0, order_type)
 
 
 class SlippageModel(Protocol):
@@ -71,14 +82,13 @@ class FixedSlippageModel:
 
     def __init__(self, slippage_pct: float = 0.0005) -> None:
         self.slippage_pct = slippage_pct
+        self._canonical = _CanonicalSlippageModel(slippage_pct=slippage_pct)
 
     def calculate_slippage_pct(
         self, symbol: Symbol, order_type: ExecutionType, trade_direction: Bias
     ) -> float:
         """Slippage only applies to TAKER orders usually."""
-        if order_type == ExecutionType.TAKER:
-            return self.slippage_pct
-        return 0.0
+        return self._canonical.calculate_slippage(1.0, symbol, order_type, trade_direction)
 
 
 class FundingModel(Protocol):
@@ -97,6 +107,9 @@ class FundingModel(Protocol):
 class BinanceFundingModel:
     """Calculates funding costs using the exact 8h funding rate intervals."""
 
+    def __init__(self) -> None:
+        self._canonical = _CanonicalFundingModel()
+
     def calculate_funding_cost_pct(
         self,
         symbol: Symbol,
@@ -105,29 +118,14 @@ class BinanceFundingModel:
         exit_time: int,
         provider: HistoricalFundingProvider,
     ) -> float:
-        """
-        Accumulates funding rates.
-        If long, you pay positive rate. If short, you pay negative rate.
-        Thus: cost = rate if long else -rate.
-        """
-        # Start at the next 8-hour boundary after entry
-        import math
-
-        eight_hours_ms = 8 * 60 * 60 * 1000
-        next_boundary = math.ceil(entry_time / eight_hours_ms) * eight_hours_ms
-
-        cost = 0.0
-        current_time = next_boundary
-        while current_time <= exit_time:
-            rate_obj = provider.get_funding_rate_at(symbol, current_time)
-            if rate_obj is not None:
-                if direction.name == "BULLISH":
-                    cost += rate_obj.rate
-                else:
-                    cost -= rate_obj.rate
-            current_time += eight_hours_ms
-
-        return cost
+        """Accumulates funding rates via canonical execution costs model."""
+        return self._canonical.calculate_funding_cost_pct(
+            symbol=symbol,
+            direction=direction,
+            entry_time=entry_time,
+            exit_time=exit_time,
+            provider=provider,
+        )
 
 
 class CostModel:

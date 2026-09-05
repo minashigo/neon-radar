@@ -31,6 +31,11 @@ class PortfolioEngine:
     def state(self) -> PortfolioState:
         return self._state
 
+    @property
+    def history(self) -> tuple[ClosedPosition, ...]:
+        """Closed positions history."""
+        return tuple(self._history)
+
     def subscribe(self, callback: Callable) -> None:
         self._subscribers.append(callback)
 
@@ -60,6 +65,7 @@ class PortfolioEngine:
                     stop_loss=pos.stop_loss,
                     take_profit=pos.take_profit,
                     opened_at=pos.opened_at,
+                    capital_at_entry=pos.capital_at_entry,
                     unrealized_pnl=unrealized,
                     entry_fee=pos.entry_fee,
                     entry_slippage=pos.entry_slippage,
@@ -139,6 +145,10 @@ class PortfolioEngine:
             close_reason=reason,
             entry_time=target_pos.opened_at,
             exit_time=closed_at,
+            stop_loss=target_pos.stop_loss,
+            take_profit=target_pos.take_profit,
+            initial_risk=target_pos.max_risk,
+            capital_at_entry=getattr(target_pos, "capital_at_entry", 0.0),
         )
         self._history.append(closed)
 

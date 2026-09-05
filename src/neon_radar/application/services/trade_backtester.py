@@ -16,7 +16,7 @@ from neon_radar.application.services.risk.drawdown import DrawdownMonitor
 from neon_radar.application.services.risk.manager import RiskManager, RiskManagerConfig
 from neon_radar.application.services.risk.sizing import FixedRiskStrategy, PositionSizingEngine
 from neon_radar.application.services.trading_pipeline import TradingPipeline
-from neon_radar.domain.models import KlineSeries, Symbol
+from neon_radar.domain.models import OHLCV, KlineSeries, Symbol
 from neon_radar.domain.scoring.registry import RuleRegistry
 from neon_radar.domain.trading.backtest import Trade, TradeExitReason, TradeStatus
 from neon_radar.domain.trading.execution import CostModel
@@ -156,6 +156,12 @@ class TradeBacktester:
             )
             all_trades.extend(trades)
 
+        all_trades.sort(
+            key=lambda t: (
+                t.exit_time if t.exit_time is not None else t.entry_time,
+                t.entry_time,
+            )
+        )
         return tuple(all_trades)
 
     async def _prefetch(
@@ -179,6 +185,10 @@ class TradeBacktester:
             end_date + timedelta(days=1), datetime.min.time(), tzinfo=UTC
         )
         fetch_end = int(fetch_end_dt.timestamp() * 1000)
+        start_ms = int(
+            datetime.combine(start_date, datetime.min.time(), tzinfo=UTC).timestamp()
+            * 1000
+        )
         limit = 1500
 
         if self._funding_provider is not None:
@@ -191,10 +201,6 @@ class TradeBacktester:
             for symbol in symbols:
                 if str(symbol) not in self._context_cache:
                     # Fetch using ms timestamps
-                    start_ms = int(
-                        datetime.combine(start_date, datetime.min.time(), tzinfo=UTC).timestamp()
-                        * 1000
-                    )
                     end_ms = fetch_end
                     try:
                         ctx = await self._history_service.get_historical_context(
@@ -211,21 +217,54 @@ class TradeBacktester:
                 key = (str(symbol), current_tf.value)
                 if key in self._series_cache:
                     continue
-                try:
-                    series = await self._exchange.get_klines(
-                        symbol,
-                        current_tf,
-                        end_time=fetch_end,
-                        limit=limit,
+                target_start_ms = max(0, start_ms - 200 * current_tf.seconds * 1000)
+                all_candles_map: dict[int, OHLCV] = {}
+                current_end: int | None = fetch_end
+                while True:
+                    try:
+                        series = await self._exchange.get_klines(
+                            symbol,
+                            current_tf,
+                            end_time=current_end,
+                            limit=limit,
+                        )
+                    except Exception as exc:
+                        logger.warning(
+                            f"Failed to fetch klines for {symbol} on {current_tf.value}: {exc}"
+                        )
+                        break
+
+                    if not series.candles:
+                        break
+
+                    new_candles_count = 0
+                    earliest_open_time = (
+                        current_end
+                        if current_end is not None
+                        else int(series.candles[-1].open_time)
                     )
-                    self._series_cache[key] = series
-                except Exception as exc:
-                    logger.warning(
-                        f"Failed to fetch klines for {symbol} on {current_tf.value}: {exc}"
-                    )
-                    self._series_cache[key] = KlineSeries(
-                        symbol=symbol, timeframe=current_tf, candles=()
-                    )
+                    for c in series.candles:
+                        if c.open_time not in all_candles_map:
+                            all_candles_map[c.open_time] = c
+                            new_candles_count += 1
+                        if c.open_time < earliest_open_time:
+                            earliest_open_time = c.open_time
+
+                    if (
+                        earliest_open_time <= target_start_ms
+                        or len(series.candles) < limit
+                        or new_candles_count == 0
+                    ):
+                        break
+
+                    current_end = earliest_open_time - 1
+
+                sorted_candles = tuple(
+                    sorted(all_candles_map.values(), key=lambda c: c.open_time)
+                )
+                self._series_cache[key] = KlineSeries(
+                    symbol=symbol, timeframe=current_tf, candles=sorted_candles
+                )
 
     def _simulate_symbol(
         self,
@@ -398,7 +437,11 @@ class TradeBacktester:
                 else TradeExitReason.STOP_LOSS
             )
 
-            notional = p.quantity * p.entry_price
+            notional = (
+                p.notional
+                if hasattr(p, "notional") and p.notional > 0
+                else p.quantity * p.entry_price
+            )
             trade_costs = None
             if notional > 0:
                 trade_costs = TradeCosts(
@@ -408,19 +451,34 @@ class TradeBacktester:
                     funding_pct=p.execution_summary.funding_cost / notional,
                 )
 
+            initial_risk = getattr(p, "initial_risk", 0.0)
+            if initial_risk == 0.0 and getattr(p, "stop_loss", 0.0) > 0.0 and p.quantity > 0.0:
+                initial_risk = abs(p.entry_price - p.stop_loss) * p.quantity
+
+            profit_r = getattr(p, "profit_r", 0.0)
+            if profit_r == 0.0 and initial_risk > 0.0:
+                profit_r = p.execution_summary.net_pnl / initial_risk
+
             legacy_trades.append(
                 Trade(
-                    symbol=str(p.symbol),
+                    symbol=Symbol(str(p.symbol)),
                     direction=p.direction,
                     entry_time=p.entry_time,
                     entry_price=p.entry_price,
-                    stop_loss=0.0,
-                    take_profit=0.0,
+                    stop_loss=getattr(p, "stop_loss", 0.0),
+                    take_profit=getattr(p, "take_profit", 0.0),
                     exit_time=p.exit_time,
                     exit_price=p.exit_price,
                     status=trade_status,
                     exit_reason=exit_reason,
                     costs=trade_costs,
+                    quantity=p.quantity,
+                    notional=notional,
+                    initial_risk_dollar=initial_risk,
+                    gross_pnl=p.execution_summary.gross_pnl,
+                    net_pnl=p.execution_summary.net_pnl,
+                    profit_r=profit_r,
+                    portfolio_capital_at_entry=getattr(p, "capital_at_entry", 0.0),
                 )
             )
 

@@ -40,6 +40,18 @@ class BootstrapAnalyzer:
         if total_trades == 0:
             return None
 
+        # Ensure chronological ordering by exit_time (fallback entry_time)
+        def _sort_key(t: Any) -> tuple[int, int]:
+            exit_t = getattr(t, "exit_time", None)
+            entry_t = getattr(t, "entry_time", None)
+            if not isinstance(exit_t, int):
+                exit_t = 0
+            if not isinstance(entry_t, int):
+                entry_t = 0
+            return (exit_t if exit_t != 0 else entry_t, entry_t)
+
+        trades = sorted(trades, key=_sort_key)
+
         # Fix the seed for reproducibility using standard library random
         rng = random.Random(random_seed)
 

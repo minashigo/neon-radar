@@ -60,6 +60,7 @@ class OpenPosition:
     stop_loss: float
     take_profit: float
     opened_at: int
+    capital_at_entry: float = 0.0
     unrealized_pnl: float = 0.0
     entry_fee: float = 0.0
     entry_slippage: float = 0.0
@@ -93,6 +94,10 @@ class ClosedPosition:
     exit_time: int
     execution_summary: ExecutionCostSummary
     close_reason: PositionCloseReason
+    stop_loss: float = 0.0
+    take_profit: float = 0.0
+    initial_risk: float = 0.0
+    capital_at_entry: float = 0.0
 
     @property
     def duration(self) -> int:
@@ -103,6 +108,23 @@ class ClosedPosition:
     def net_pnl(self) -> float:
         """Realized PnL net of all costs."""
         return self.execution_summary.net_pnl
+
+    @property
+    def gross_pnl(self) -> float:
+        """Realized gross PnL before costs."""
+        return self.execution_summary.gross_pnl
+
+    @property
+    def notional(self) -> float:
+        """Quote notional value at entry."""
+        return self.entry_price * self.quantity
+
+    @property
+    def profit_r(self) -> float:
+        """Realized profit in multiples of initial risk R."""
+        if self.initial_risk > 0:
+            return self.net_pnl / self.initial_risk
+        return 0.0
 
     @property
     def is_win(self) -> bool:

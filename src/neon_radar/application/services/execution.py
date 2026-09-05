@@ -87,21 +87,34 @@ class PaperExecutionEngine(ExecutionEngine):
             # Trigger entry
             try:
                 entry_exec_type = ExecutionType.MAKER
-                entry_fee = self.fee_model.calculate_entry_fee(setup.position_size, entry_exec_type)
+                if getattr(setup, "quote_size", 0.0) > 0:
+                    quantity = setup.position_size
+                    quote_size = setup.quote_size
+                else:
+                    quote_size = setup.position_size
+                    quantity = (
+                        setup.position_size / setup.entry
+                        if setup.entry > 0
+                        else setup.position_size
+                    )
+
+                entry_fee = self.fee_model.calculate_entry_fee(quote_size, entry_exec_type)
                 entry_slippage = self.slippage_model.calculate_slippage(
-                    setup.position_size, symbol, entry_exec_type, setup.direction
+                    quote_size, symbol, entry_exec_type, setup.direction
                 )
+
+                capital_at_entry = self.portfolio_engine.state.account.total_capital
 
                 pos = OpenPosition(
                     symbol=symbol,
                     direction=setup.direction,
                     entry_price=setup.entry,
-                    quantity=setup.position_size
-                    / setup.entry,  # Approximation since quantity usually is base asset
-                    position_size=setup.position_size,  # Margin
+                    quantity=quantity,
+                    position_size=quote_size,  # Margin / quote notional
                     stop_loss=setup.stop_loss,
                     take_profit=setup.take_profit,
                     opened_at=candle.open_time,
+                    capital_at_entry=capital_at_entry,
                     entry_fee=entry_fee,
                     entry_slippage=entry_slippage,
                     entry_execution_type=entry_exec_type.name,
@@ -124,17 +137,17 @@ class PaperExecutionEngine(ExecutionEngine):
 
             if pos.direction == Bias.BULLISH:
                 if candle.low <= pos.stop_loss:
-                    exit_price = pos.stop_loss
+                    exit_price = min(pos.stop_loss, candle.open)
                     reason = "STOP_LOSS"
                 elif candle.high >= pos.take_profit:
-                    exit_price = pos.take_profit
+                    exit_price = max(pos.take_profit, candle.open)
                     reason = "TAKE_PROFIT"
             else:
                 if candle.high >= pos.stop_loss:
-                    exit_price = pos.stop_loss
+                    exit_price = max(pos.stop_loss, candle.open)
                     reason = "STOP_LOSS"
                 elif candle.low <= pos.take_profit:
-                    exit_price = pos.take_profit
+                    exit_price = min(pos.take_profit, candle.open)
                     reason = "TAKE_PROFIT"
 
             if exit_price is not None:

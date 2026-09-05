@@ -73,6 +73,37 @@ class Trade:
     costs: TradeCosts | None = None
     diagnostics: TradeDiagnostics | None = None
 
+    # RC8: Real trade economics
+    quantity: float = 0.0
+    notional: float = 0.0
+    initial_risk_dollar: float = 0.0
+    gross_pnl: float = 0.0
+    net_pnl: float = 0.0
+    profit_r: float = 0.0
+    portfolio_capital_at_entry: float = 0.0
+
+    def __post_init__(self) -> None:
+        if self.notional == 0.0 and self.quantity > 0.0 and self.entry_price > 0.0:
+            object.__setattr__(self, "notional", self.quantity * self.entry_price)
+        if (
+            self.initial_risk_dollar == 0.0
+            and self.quantity > 0.0
+            and self.stop_loss > 0.0
+        ):
+            object.__setattr__(
+                self,
+                "initial_risk_dollar",
+                abs(self.entry_price - self.stop_loss) * self.quantity,
+            )
+        if (
+            self.profit_r == 0.0
+            and self.initial_risk_dollar > 0.0
+            and self.net_pnl != 0.0
+        ):
+            object.__setattr__(
+                self, "profit_r", self.net_pnl / self.initial_risk_dollar
+            )
+
     @property
     def gross_pnl_pct(self) -> float:
         """Gross percentage profit/loss of this trade."""

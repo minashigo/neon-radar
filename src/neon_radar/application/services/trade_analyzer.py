@@ -2,6 +2,7 @@
 
 import math
 from collections.abc import Iterable
+from datetime import UTC, date, datetime, timedelta
 
 import numpy as np
 
@@ -17,7 +18,16 @@ class TradeAnalyzer:
 
     def analyze(self, trades_iter: Iterable[Trade]) -> BacktestReport:
         """Compute metrics from an iterable of completed trades."""
-        trades = tuple(trades_iter)
+        # Chronological ordering across all symbols and executions
+        trades = tuple(
+            sorted(
+                trades_iter,
+                key=lambda t: (
+                    t.exit_time if t.exit_time is not None else t.entry_time,
+                    t.entry_time,
+                ),
+            )
+        )
         total = len(trades)
 
         if total == 0:
@@ -48,41 +58,118 @@ class TradeAnalyzer:
                 trades=(),
             )
 
-        # Net is the primary determiner for Win/Loss state now
-        # but to keep `wins` consistent with old definition, we can use net_pnl_pct
-        wins = [t for t in trades if t.net_pnl_pct > 0]
-        losses = [t for t in trades if t.net_pnl_pct < 0]
+        has_real_economics = any(t.quantity > 0.0 or t.net_pnl != 0.0 for t in trades)
+
+        # Win / loss partitioning
+        if has_real_economics:
+            wins = [t for t in trades if t.net_pnl > 0]
+            losses = [t for t in trades if t.net_pnl < 0]
+        else:
+            wins = [t for t in trades if t.net_pnl_pct > 0]
+            losses = [t for t in trades if t.net_pnl_pct < 0]
 
         n_wins = len(wins)
         n_losses = len(losses)
+        win_rate = n_wins / total if total > 0 else 0.0
+        loss_rate = n_losses / total if total > 0 else 0.0
 
         # Gross metrics
-        gross_wins = [t for t in trades if t.gross_pnl_pct > 0]
-        gross_losses = [t for t in trades if t.gross_pnl_pct < 0]
-        sum_gross_wins = sum(t.gross_pnl_pct for t in gross_wins)
-        sum_gross_losses = sum(abs(t.gross_pnl_pct) for t in gross_losses)
-        gross_avg_win = sum_gross_wins / len(gross_wins) if gross_wins else 0.0
-        gross_avg_loss = sum_gross_losses / len(gross_losses) if gross_losses else 0.0
-        gross_profit_factor = (
-            sum_gross_wins / sum_gross_losses if sum_gross_losses > 0 else float("inf")
+        if has_real_economics:
+            gross_wins = [t for t in trades if t.gross_pnl > 0]
+            gross_losses = [t for t in trades if t.gross_pnl < 0]
+            sum_gross_wins_dollars = sum(t.gross_pnl for t in gross_wins)
+            sum_gross_losses_dollars = sum(abs(t.gross_pnl) for t in gross_losses)
+            gross_profit_factor = (
+                sum_gross_wins_dollars / sum_gross_losses_dollars
+                if sum_gross_losses_dollars > 0
+                else (float("inf") if sum_gross_wins_dollars > 0 else 0.0)
+            )
+            has_risk = any(t.initial_risk_dollar > 0 for t in trades)
+            if has_risk:
+                gross_expectancy = float(
+                    np.mean(
+                        [
+                            (t.gross_pnl / t.initial_risk_dollar)
+                            if t.initial_risk_dollar > 0
+                            else 0.0
+                            for t in trades
+                        ]
+                    )
+                )
+            else:
+                gross_expectancy = (
+                    (sum_gross_wins_dollars - sum_gross_losses_dollars) / total
+                    if total > 0
+                    else 0.0
+                )
+        else:
+            gross_wins = [t for t in trades if t.gross_pnl_pct > 0]
+            gross_losses = [t for t in trades if t.gross_pnl_pct < 0]
+            sum_gross_wins_pct = sum(t.gross_pnl_pct for t in gross_wins)
+            sum_gross_losses_pct = sum(abs(t.gross_pnl_pct) for t in gross_losses)
+            gross_profit_factor = (
+                sum_gross_wins_pct / sum_gross_losses_pct
+                if sum_gross_losses_pct > 0
+                else (float("inf") if sum_gross_wins_pct > 0 else 0.0)
+            )
+            gross_expectancy = (
+                (sum_gross_wins_pct - sum_gross_losses_pct) / total if total > 0 else 0.0
+            )
+
+        gross_avg_win = (
+            sum(t.gross_pnl_pct for t in gross_wins) / len(gross_wins)
+            if gross_wins
+            else 0.0
+        )
+        gross_avg_loss = (
+            sum(abs(t.gross_pnl_pct) for t in gross_losses) / len(gross_losses)
+            if gross_losses
+            else 0.0
         )
         if len(gross_losses) == 0 and len(gross_wins) == 0:
             gross_profit_factor = 0.0
-        gross_expectancy = (sum_gross_wins - sum_gross_losses) / total if total > 0 else 0.0
 
         # Net metrics
-        sum_net_wins = sum(t.net_pnl_pct for t in wins)
-        sum_net_losses = sum(abs(t.net_pnl_pct) for t in losses)
-        net_avg_win = sum_net_wins / n_wins if n_wins > 0 else 0.0
-        net_avg_loss = sum_net_losses / n_losses if n_losses > 0 else 0.0
-        net_profit_factor = sum_net_wins / sum_net_losses if sum_net_losses > 0 else float("inf")
+        net_avg_win = sum(t.net_pnl_pct for t in wins) / n_wins if n_wins > 0 else 0.0
+        net_avg_loss = (
+            sum(abs(t.net_pnl_pct) for t in losses) / n_losses if n_losses > 0 else 0.0
+        )
+
+        if has_real_economics:
+            sum_net_wins_dollars = sum(t.net_pnl for t in wins)
+            sum_net_losses_dollars = sum(abs(t.net_pnl) for t in losses)
+            net_profit_factor = (
+                sum_net_wins_dollars / sum_net_losses_dollars
+                if sum_net_losses_dollars > 0
+                else (float("inf") if sum_net_wins_dollars > 0 else 0.0)
+            )
+            has_profit_r = any(
+                t.profit_r != 0.0 or t.initial_risk_dollar > 0 for t in trades
+            )
+            if has_profit_r:
+                net_expectancy = float(np.mean([t.profit_r for t in trades]))
+            else:
+                net_expectancy = (win_rate * net_avg_win) - (loss_rate * net_avg_loss)
+
+            initial_cap = (
+                trades[0].portfolio_capital_at_entry
+                if trades[0].portfolio_capital_at_entry > 0
+                else 10_000.0
+            )
+            net_profit_pct = sum(t.net_pnl for t in trades) / initial_cap
+        else:
+            sum_net_wins_pct = sum(t.net_pnl_pct for t in wins)
+            sum_net_losses_pct = sum(abs(t.net_pnl_pct) for t in losses)
+            net_profit_factor = (
+                sum_net_wins_pct / sum_net_losses_pct
+                if sum_net_losses_pct > 0
+                else (float("inf") if sum_net_wins_pct > 0 else 0.0)
+            )
+            net_expectancy = (win_rate * net_avg_win) - (loss_rate * net_avg_loss)
+            net_profit_pct = sum(t.net_pnl_pct for t in trades)
+
         if n_losses == 0 and n_wins == 0:
             net_profit_factor = 0.0
-
-        win_rate = n_wins / total
-        loss_rate = n_losses / total
-        net_expectancy = (win_rate * net_avg_win) - (loss_rate * net_avg_loss)
-        net_profit_pct = sum(t.net_pnl_pct for t in trades)
 
         # Cost metrics
         total_costs = 0.0
@@ -110,12 +197,14 @@ class TradeAnalyzer:
         closed_trades_count = 0
 
         for t in trades:
-            if t.net_pnl_pct > 0:
+            is_win_t = (t.net_pnl > 0) if has_real_economics else (t.net_pnl_pct > 0)
+            is_loss_t = (t.net_pnl < 0) if has_real_economics else (t.net_pnl_pct < 0)
+            if is_win_t:
                 curr_cons_wins += 1
                 curr_cons_losses = 0
                 if curr_cons_wins > max_cons_wins:
                     max_cons_wins = curr_cons_wins
-            elif t.net_pnl_pct < 0:
+            elif is_loss_t:
                 curr_cons_losses += 1
                 curr_cons_wins = 0
                 if curr_cons_losses > max_cons_losses:
@@ -132,23 +221,73 @@ class TradeAnalyzer:
             total_holding_time / closed_trades_count if closed_trades_count > 0 else 0.0
         )
 
-        if closed_trades_count > 1:
-            pnls = np.array([t.net_pnl_pct for t in trades if t.exit_time is not None], dtype=float)
-            if len(pnls) > 1:
-                mean_pnl = np.mean(pnls)
-                std_pnl = np.std(pnls, ddof=1)
-                net_sharpe_ratio = float(mean_pnl / std_pnl) if std_pnl > 0 else 0.0
-            else:
-                net_sharpe_ratio = 0.0
-        else:
-            net_sharpe_ratio = 0.0
+        # Time-based daily Sharpe ratio
+        closed_trades = [t for t in trades if t.exit_time is not None]
+        net_sharpe_ratio = 0.0
+        if closed_trades:
+            initial_cap = (
+                trades[0].portfolio_capital_at_entry
+                if trades[0].portfolio_capital_at_entry > 0
+                else 10_000.0
+            )
+            daily_pnl: dict[date, float] = {}
+            for t in closed_trades:
+                exit_d = datetime.fromtimestamp(
+                    (t.exit_time or t.entry_time) / 1000.0, tz=UTC
+                ).date()
+                pnl = t.net_pnl if has_real_economics else (t.net_pnl_pct * initial_cap)
+                daily_pnl[exit_d] = daily_pnl.get(exit_d, 0.0) + pnl
 
+            first_entry_ts = min(t.entry_time for t in closed_trades)
+            last_exit_ts = max((t.exit_time or t.entry_time) for t in closed_trades)
+            start_d = datetime.fromtimestamp(first_entry_ts / 1000.0, tz=UTC).date()
+            end_d = datetime.fromtimestamp(last_exit_ts / 1000.0, tz=UTC).date()
+
+            days_count = (end_d - start_d).days + 1
+            if days_count > 1:
+                daily_returns = []
+                current_equity = initial_cap
+                cur = start_d
+                while cur <= end_d:
+                    day_pnl = daily_pnl.get(cur, 0.0)
+                    ret = day_pnl / current_equity if current_equity > 0 else 0.0
+                    daily_returns.append(ret)
+                    current_equity += day_pnl
+                    cur += timedelta(days=1)
+
+                r_arr = np.array(daily_returns, dtype=float)
+                std_r = np.std(r_arr, ddof=1)
+                if std_r > 0:
+                    net_sharpe_ratio = float((np.mean(r_arr) / std_r) * math.sqrt(365))
+            elif len(closed_trades) > 1:
+                # Same-day or synthetic test timestamps fallback
+                pnls = np.array([t.net_pnl_pct for t in closed_trades], dtype=float)
+                std_pnl = np.std(pnls, ddof=1)
+                net_sharpe_ratio = (
+                    float(np.mean(pnls) / std_pnl) if std_pnl > 0 else 0.0
+                )
+
+        # Equity curve and Max Drawdown
         max_drawdown_pct = 0.0
         if trades:
-            equity_curve = np.cumsum([t.net_pnl_pct for t in trades], dtype=float)
-            peaks = np.maximum.accumulate(equity_curve)
-            drawdowns = peaks - equity_curve
-            max_drawdown_pct = float(np.max(drawdowns))
+            if has_real_economics:
+                initial_cap = (
+                    trades[0].portfolio_capital_at_entry
+                    if trades[0].portfolio_capital_at_entry > 0
+                    else 10_000.0
+                )
+                equity_vals = [initial_cap]
+                for t in trades:
+                    equity_vals.append(equity_vals[-1] + t.net_pnl)
+                equity_curve = np.array(equity_vals, dtype=float)
+                peaks = np.maximum.accumulate(equity_curve)
+                drawdowns = (peaks - equity_curve) / np.maximum(peaks, 1e-9)
+                max_drawdown_pct = float(np.max(drawdowns))
+            else:
+                equity_curve = np.cumsum([t.net_pnl_pct for t in trades], dtype=float)
+                peaks = np.maximum.accumulate(equity_curve)
+                drawdowns = peaks - equity_curve
+                max_drawdown_pct = float(np.max(drawdowns))
 
         validation = self.calculate_statistical_validation(trades)
 
@@ -182,11 +321,16 @@ class TradeAnalyzer:
     def calculate_statistical_validation(
         self, trades: tuple[Trade, ...], mc_simulations: int = 10_000
     ) -> StatisticalValidationReport:
-        """Calculate statistical significance and Monte Carlo bootstrap metrics based on NET PnL."""
+        """Calculate statistical significance and Monte Carlo bootstrap metrics based on NET PnL / R."""
         if len(trades) < 2:
             return StatisticalValidationReport(False, 1.0, 0.0, 0.0, 0.0, 1.0)
 
-        pnls = np.array([t.net_pnl_pct for t in trades], dtype=float)
+        has_r = any(t.profit_r != 0.0 for t in trades)
+        if has_r:
+            pnls = np.array([t.profit_r for t in trades], dtype=float)
+        else:
+            pnls = np.array([t.net_pnl_pct for t in trades], dtype=float)
+
         n = len(pnls)
         mean_pnl = np.mean(pnls)
         std_pnl = np.std(pnls, ddof=1)

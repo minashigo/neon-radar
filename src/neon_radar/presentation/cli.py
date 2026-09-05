@@ -534,12 +534,17 @@ async def _run_trade_backtest(args: argparse.Namespace) -> int:
 
     async with BinanceClient(config.api) as client:
         from neon_radar.config.scoring_loader import load_rules as _load
+        from neon_radar.infrastructure.providers.binance_funding import (
+            BinanceHistoricalFundingProvider,
+        )
 
         rules = tuple(_load(args.scoring))
+        funding_provider = BinanceHistoricalFundingProvider(client=client)
         backtester = TradeBacktester(
             exchange=client,
             scoring_config=scoring_cfg,
             rules=rules,
+            funding_provider=funding_provider,
         )
 
         from neon_radar.application.services.trade_analyzer import TradeAnalyzer

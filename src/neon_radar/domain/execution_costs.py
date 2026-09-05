@@ -106,21 +106,15 @@ class FundingModel(Protocol):
 class BinanceFundingModel:
     """Calculates funding costs using the exact 8h funding rate intervals."""
 
-    def calculate_funding_cost(
+    def calculate_funding_cost_pct(
         self,
-        notional_value: float,
         symbol: Symbol,
         direction: Bias,
         entry_time: int,
         exit_time: int,
         provider: HistoricalFundingProvider,
     ) -> float:
-        """
-        Accumulates funding rates as absolute quote value.
-        If long, you pay positive rate. If short, you pay negative rate.
-        Thus: cost = rate if long else -rate.
-        """
-        # Start at the next 8-hour boundary after entry
+        """Accumulates fractional funding rates over 8h boundaries between entry and exit."""
         eight_hours_ms = 8 * 60 * 60 * 1000
         next_boundary = math.ceil(entry_time / eight_hours_ms) * eight_hours_ms
 
@@ -135,4 +129,22 @@ class BinanceFundingModel:
                     cost_pct -= rate_obj.rate
             current_time += eight_hours_ms
 
-        return notional_value * cost_pct
+        return cost_pct
+
+    def calculate_funding_cost(
+        self,
+        notional_value: float,
+        symbol: Symbol,
+        direction: Bias,
+        entry_time: int,
+        exit_time: int,
+        provider: HistoricalFundingProvider,
+    ) -> float:
+        """Accumulates funding rates as absolute quote value."""
+        return notional_value * self.calculate_funding_cost_pct(
+            symbol=symbol,
+            direction=direction,
+            entry_time=entry_time,
+            exit_time=exit_time,
+            provider=provider,
+        )
