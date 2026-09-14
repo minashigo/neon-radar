@@ -118,19 +118,30 @@ class TradeSetupEngine:
             return None
 
         # Regime Evaluation
-        detected_regime = MarketRegime.UNKNOWN
-        regime_reason = "No classifier"
-        if self.regime_classifier and self.regime_config and self.regime_config.enabled:
+        detected_regime = state.regime if state.regime is not None else MarketRegime.UNKNOWN
+        regime_reason = "From market state" if state.regime is not None else "No classifier"
+        if self.regime_classifier:
             classification = self.regime_classifier.classify(state)
             detected_regime = classification.regime
             regime_reason = classification.reason
 
+        if self.regime_config and self.regime_config.enabled:
             if score.bias == Bias.BULLISH:
                 if detected_regime not in self.regime_config.allowed_long_regimes:
                     return None
             else:
                 if detected_regime not in self.regime_config.allowed_short_regimes:
                     return None
+
+        # Higher-TF Long Filter: Reject Long if Local BULL_TREND and Higher-TF Trend is BEAR
+        if (
+            score.bias == Bias.BULLISH
+            and detected_regime == MarketRegime.BULL_TREND
+            and (not self.regime_config or self.regime_config.filter_htf_bear_on_bull_long)
+        ):
+            htf_sig = analysis_result.signals_by_name().get("higher_tf_trend")
+            if htf_sig is not None and htf_sig.value < 0:
+                return None
 
         latest = state.primary_series.latest()
         if latest is None:

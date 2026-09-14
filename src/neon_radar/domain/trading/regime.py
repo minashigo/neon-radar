@@ -53,6 +53,11 @@ class RegimeFilterConfig(BaseModel):
         description="Regimes where SHORT trades are permitted.",
     )
 
+    filter_htf_bear_on_bull_long: bool = Field(
+        default=True,
+        description="Reject LONG setups when Local Regime is BULL_TREND but Higher-TF Trend is BEAR.",
+    )
+
 
 @dataclass(slots=True, frozen=True)
 class RegimeClassification:

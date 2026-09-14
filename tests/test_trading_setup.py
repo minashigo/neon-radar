@@ -2,9 +2,11 @@ import pytest
 
 from neon_radar.config.models import TimeFrame
 from neon_radar.domain.enums import Bias
+from neon_radar.domain.indicators.base import IndicatorKind, IndicatorSeries
 from neon_radar.domain.market_state import MarketState
 from neon_radar.domain.models import OHLCV, KlineSeries, Symbol
-from neon_radar.domain.scoring.value_objects import AnalysisResult, Score
+from neon_radar.domain.scoring.value_objects import AnalysisResult, Score, Signal, SignalCategory
+from neon_radar.domain.trading.regime import MarketRegime, RegimeFilterConfig
 from neon_radar.domain.trading.setup import TradeSetup, TradeSetupEngine
 
 
@@ -122,3 +124,179 @@ def test_trade_setup_engine_missing_atr_returns_none() -> None:
     result = AnalysisResult(score=score, signals=(), summary="", computed_at=0)
 
     assert engine.build_setup(state, result) is None
+
+
+def _create_setup_context(
+    direction: Bias,
+    local_regime: MarketRegime,
+    htf_value: float | None = None,
+    regime_config: RegimeFilterConfig | None = None,
+) -> tuple[TradeSetupEngine, MarketState, AnalysisResult]:
+    series = _make_series([100.0, 105.0, 110.0])
+    atr_series = IndicatorSeries(
+        name="atr_14", kind=IndicatorKind.META, snapshots=tuple([{"atr": 5.0}] * 3)
+    )
+    state = MarketState(
+        symbol=Symbol("BTCUSDT"),
+        timestamp=0,
+        primary_series=series,
+        indicator_series=(atr_series,),
+        regime=local_regime,
+    )
+
+    signals: list[Signal] = []
+    if htf_value is not None:
+        signals.append(
+            Signal(
+                name="higher_tf_trend",
+                weight=0.2,
+                value=htf_value,
+                confidence=1.0,
+                description="HTF trend signal",
+                category=SignalCategory.TECHNICAL,
+            )
+        )
+
+    score_val = 0.5 if direction == Bias.BULLISH else -0.5
+    score = Score(
+        value=score_val,
+        confidence=0.8,
+        long_score=0.5 if direction == Bias.BULLISH else 0.0,
+        short_score=0.5 if direction == Bias.BEARISH else 0.0,
+        contributing_signals=1,
+    )
+    result = AnalysisResult(
+        score=score,
+        signals=tuple(signals),
+        summary="",
+        computed_at=0,
+        market_state=state,
+    )
+
+    config = regime_config or RegimeFilterConfig(enabled=True)
+    engine = TradeSetupEngine(
+        atr_period=14,
+        min_confidence=0.5,
+        regime_config=config,
+    )
+    return engine, state, result
+
+
+def test_htf_long_filter_bull_local_bull_htf_allowed() -> None:
+    # 1. BULL local + BULL HTF + Long -> allowed
+    engine, state, result = _create_setup_context(
+        direction=Bias.BULLISH,
+        local_regime=MarketRegime.BULL_TREND,
+        htf_value=1.0,
+    )
+    setup = engine.build_setup(state, result)
+    assert setup is not None
+    assert setup.direction == Bias.BULLISH
+
+
+def test_htf_long_filter_bull_local_bear_htf_rejected() -> None:
+    # 2. BULL local + BEAR HTF + Long -> rejected
+    engine, state, result = _create_setup_context(
+        direction=Bias.BULLISH,
+        local_regime=MarketRegime.BULL_TREND,
+        htf_value=-1.0,
+    )
+    setup = engine.build_setup(state, result)
+    assert setup is None
+
+
+def test_htf_long_filter_bear_local_bear_htf_long_rejected_by_regime() -> None:
+    # 3. BEAR local + BEAR HTF + Long -> rejected by regime filter
+    engine, state, result = _create_setup_context(
+        direction=Bias.BULLISH,
+        local_regime=MarketRegime.BEAR_TREND,
+        htf_value=-1.0,
+    )
+    setup = engine.build_setup(state, result)
+    assert setup is None
+
+
+def test_htf_long_filter_bear_local_bull_htf_long_rejected_by_regime() -> None:
+    # 4. BEAR local + BULL HTF + Long -> rejected by regime filter
+    engine, state, result = _create_setup_context(
+        direction=Bias.BULLISH,
+        local_regime=MarketRegime.BEAR_TREND,
+        htf_value=1.0,
+    )
+    setup = engine.build_setup(state, result)
+    assert setup is None
+
+
+def test_htf_long_filter_short_setups_behavior_unchanged() -> None:
+    # 5. Short setups -> behavior not changed
+    # BEAR local + BEAR HTF + Short -> allowed
+    engine, state, result = _create_setup_context(
+        direction=Bias.BEARISH,
+        local_regime=MarketRegime.BEAR_TREND,
+        htf_value=-1.0,
+    )
+    setup = engine.build_setup(state, result)
+    assert setup is not None
+    assert setup.direction == Bias.BEARISH
+
+    # BEAR local + BULL HTF + Short -> allowed (Short logic untouched)
+    engine, state, result = _create_setup_context(
+        direction=Bias.BEARISH,
+        local_regime=MarketRegime.BEAR_TREND,
+        htf_value=1.0,
+    )
+    setup = engine.build_setup(state, result)
+    assert setup is not None
+    assert setup.direction == Bias.BEARISH
+
+    # BULL local + BEAR HTF + Short -> rejected by regime filter (unchanged)
+    engine, state, result = _create_setup_context(
+        direction=Bias.BEARISH,
+        local_regime=MarketRegime.BULL_TREND,
+        htf_value=-1.0,
+    )
+    setup = engine.build_setup(state, result)
+    assert setup is None
+
+
+def test_htf_long_filter_missing_or_unknown_htf_data() -> None:
+    # 6. Absence of HTF data / UNKNOWN -> does not invent direction
+    # BULL local + missing HTF + Long -> allowed
+    engine, state, result = _create_setup_context(
+        direction=Bias.BULLISH,
+        local_regime=MarketRegime.BULL_TREND,
+        htf_value=None,
+    )
+    setup = engine.build_setup(state, result)
+    assert setup is not None
+
+    # BULL local + neutral HTF (value == 0) + Long -> allowed
+    engine, state, result = _create_setup_context(
+        direction=Bias.BULLISH,
+        local_regime=MarketRegime.BULL_TREND,
+        htf_value=0.0,
+    )
+    setup = engine.build_setup(state, result)
+    assert setup is not None
+
+    # UNKNOWN local + BEAR HTF + Long -> allowed (UNKNOWN regime permitted by default)
+    engine, state, result = _create_setup_context(
+        direction=Bias.BULLISH,
+        local_regime=MarketRegime.UNKNOWN,
+        htf_value=-1.0,
+    )
+    setup = engine.build_setup(state, result)
+    assert setup is not None
+
+
+def test_htf_long_filter_toggle_off() -> None:
+    # With filter_htf_bear_on_bull_long=False, setup is allowed even if HTF is BEAR
+    config = RegimeFilterConfig(enabled=True, filter_htf_bear_on_bull_long=False)
+    engine, state, result = _create_setup_context(
+        direction=Bias.BULLISH,
+        local_regime=MarketRegime.BULL_TREND,
+        htf_value=-1.0,
+        regime_config=config,
+    )
+    setup = engine.build_setup(state, result)
+    assert setup is not None

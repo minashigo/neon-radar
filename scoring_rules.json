@@ -14,7 +14,8 @@
     "atr_period": 14,
     "atr_crash_threshold_pct": 0.08,
     "allowed_long_regimes": ["BULL_TREND", "UNKNOWN"],
-    "allowed_short_regimes": ["BEAR_TREND", "UNKNOWN"]
+    "allowed_short_regimes": ["BEAR_TREND", "UNKNOWN"],
+    "filter_htf_bear_on_bull_long": true
   },
 
   "rules": [
