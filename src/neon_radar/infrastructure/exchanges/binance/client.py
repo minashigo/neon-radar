@@ -63,6 +63,7 @@ _WEIGHT_KLINES = 2
 _WEIGHT_TICKER = 1
 _WEIGHT_PREMIUM_INDEX = 1
 _WEIGHT_OPEN_INTEREST = 1
+_WEIGHT_TIME = 1
 
 
 class BinanceClient(ExchangeClient):
@@ -176,6 +177,13 @@ class BinanceClient(ExchangeClient):
             return map_open_interest(raw, symbol=symbol)
         except (ParseError, ValueError):
             raise
+
+    async def get_server_time(self) -> int:
+        raw = await self._get_json("/fapi/v1/time", params={}, weight=_WEIGHT_TIME)
+        try:
+            return int(raw["serverTime"])
+        except (KeyError, ValueError, TypeError) as exc:
+            raise ParseError(f"Malformed server time response: {raw}") from exc
 
     # ------------------------------------------------------------------
     # HTTP plumbing

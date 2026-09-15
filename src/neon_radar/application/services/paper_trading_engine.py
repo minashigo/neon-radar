@@ -1,275 +1,449 @@
-"""Paper Trading Engine Service.
+"""Forward Paper Trading Orchestration Engine.
 
-Evaluates new kline data against the scoring engine to open virtual trades,
-and monitors active virtual trades for exit conditions (SL/TP).
+Manages real-time paper trading against live Binance Futures market data:
+- Strictly executes signal pipeline only on closed candles (point-in-time integrity).
+- Maintains a single, shared multi-asset PortfolioState across all canonical symbols.
+- Simulates realistic order fills, stop-loss, take-profit, fees, slippage, and funding costs.
+- Idempotently persists and recovers portfolio, orders, and processed candle timestamps.
+- Zero real order placement API calls under all conditions.
 """
 
 from __future__ import annotations
 
-import csv
-import logging
-from typing import TYPE_CHECKING
+import contextlib
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
 
-from neon_radar.application.services.analysis import analyze_series
-from neon_radar.domain.trading.paper import VirtualPortfolio, VirtualPosition
-from neon_radar.domain.trading.setup import TradeSetupEngine
+from neon_radar.application.services.execution import PaperExecutionEngine
+from neon_radar.application.services.portfolio_engine import PortfolioEngine
+from neon_radar.application.services.risk.drawdown import DrawdownMonitor
+from neon_radar.config.models import TimeFrame
+from neon_radar.domain.enums import Bias
+from neon_radar.domain.models import OHLCV, KlineSeries, Symbol
+from neon_radar.domain.risk import DrawdownState
+from neon_radar.domain.trading.paper import PaperTradingState
 from neon_radar.utils.logging import get_logger
 
 if TYPE_CHECKING:
-    from pathlib import Path
+    from collections.abc import Callable
 
-    from neon_radar.config.models import ScoringRulesConfig
-    from neon_radar.domain.models import KlineSeries, Symbol
+    from neon_radar.application.services.trading_pipeline import TradingPipeline
+    from neon_radar.domain.portfolio import ClosedPosition, OpenPosition
+    from neon_radar.domain.trading.setup import FinalTradeSetup
+    from neon_radar.infrastructure.exchanges.base import ExchangeClient
+    from neon_radar.infrastructure.storage.paper_state_store import JsonPaperStateStore
 
 logger = get_logger(__name__)
 
-# Setup a dedicated logger for paper trading events
-paper_logger = logging.getLogger("neon_radar.paper_events")
-paper_logger.setLevel(logging.INFO)
-# Don't propagate to root logger if we want it isolated, but root is fine for now
-# We will attach a FileHandler in the CLI
+CANONICAL_SYMBOLS = (
+    Symbol("BTCUSDT"),
+    Symbol("ETHUSDT"),
+    Symbol("SOLUSDT"),
+    Symbol("BNBUSDT"),
+    Symbol("XRPUSDT"),
+    Symbol("ADAUSDT"),
+)
 
 
-class PaperTradingEngine:
-    """Core logic for executing paper trades against incoming live data."""
+@dataclass(slots=True, frozen=True)
+class PaperCycleReport:
+    """Telemetry report produced by each polling cycle of the paper trading engine."""
+
+    timestamp: int
+    symbols_evaluated: tuple[Symbol, ...]
+    new_setups: tuple[FinalTradeSetup, ...]
+    new_fills: tuple[OpenPosition, ...]
+    new_exits: tuple[ClosedPosition, ...]
+    equity: float
+    free_capital: float
+    drawdown_pct: float
+    warnings: tuple[str, ...]
+
+
+class ForwardPaperTradingEngine:
+    """Forward paper trading orchestrator operating across multiple assets."""
 
     def __init__(
         self,
-        portfolio: VirtualPortfolio,
-        scoring_config: ScoringRulesConfig,
-        trades_csv_path: Path | None = None,
-        rules: tuple | None = None,
+        exchange: ExchangeClient,
+        pipeline: TradingPipeline,
+        portfolio_engine: PortfolioEngine | None = None,
+        drawdown_monitor: DrawdownMonitor | None = None,
+        execution_engine: PaperExecutionEngine | None = None,
+        state_store: JsonPaperStateStore | None = None,
+        symbols: tuple[Symbol, ...] = CANONICAL_SYMBOLS,
+        timeframe: TimeFrame = TimeFrame.D1,
+        higher_timeframe: TimeFrame | None = None,
+        max_stale_tolerance_seconds: int = 86400 * 2,
+        initial_capital: float = 10000.0,
+        on_signal: Callable[[FinalTradeSetup], None] | None = None,
+        on_trade_open: Callable[[OpenPosition], None] | None = None,
+        on_trade_close: Callable[[ClosedPosition], None] | None = None,
+        on_portfolio_update: Callable[[Any], None] | None = None,
     ) -> None:
-        self.portfolio = portfolio
-        self.scoring_config = scoring_config
-        self.trades_csv_path = trades_csv_path
-        self._last_eval_time: dict[str, int] = {}
+        self.exchange = exchange
+        self.pipeline = pipeline
+        self.symbols = tuple(symbols)
+        self.timeframe = timeframe
+        self.higher_timeframe = higher_timeframe or timeframe.higher_timeframe
+        self.max_stale_tolerance_ms = max_stale_tolerance_seconds * 1000
+        self.state_store = state_store
 
-        # New Evaluator
-        from neon_radar.domain.trading.evaluator import TradeOutcomeEvaluator
-
-        self.evaluator = TradeOutcomeEvaluator()
-
-        # Build rules and setup engine
-        self._rules = rules if rules is not None else ()
-        self._setup_engine = TradeSetupEngine(
-            min_confidence=0.5,  # Could be pulled from config if available
-            regime_classifier=None,  # Will configure below
-            regime_config=None,
+        # Single shared multi-asset portfolio and risk monitors
+        self.portfolio_engine = portfolio_engine or PortfolioEngine(initial_capital=initial_capital)
+        self.drawdown_monitor = drawdown_monitor or DrawdownMonitor(initial_capital=initial_capital)
+        self.execution_engine = execution_engine or PaperExecutionEngine(
+            portfolio_engine=self.portfolio_engine
         )
 
-        # Configure regime filter if enabled
-        if scoring_config.regime_filter:
-            from neon_radar.application.services.regime_classifier import RuleBasedRegimeClassifier
-            from neon_radar.domain.trading.regime import RegimeFilterConfig
+        # Idempotency tracking: last processed candle open_time per symbol
+        self.last_processed_candles: dict[str, int] = {}
 
-            regime_config = RegimeFilterConfig(**scoring_config.regime_filter)
-            self._setup_engine.regime_config = regime_config
-            self._setup_engine.regime_classifier = RuleBasedRegimeClassifier(regime_config)
+        # Observers / Callbacks
+        self.on_signal = on_signal
+        self.on_trade_open = on_trade_open
+        self.on_trade_close = on_trade_close
+        self.on_portfolio_update = on_portfolio_update
 
-        self._ensure_csv_headers()
+        # Wire PortfolioEngine event publishers
+        self.portfolio_engine.subscribe(self._on_portfolio_event)
 
-    def _ensure_csv_headers(self) -> None:
-        """Initialize the trades CSV and equity CSV if they don't exist."""
-        if not self.trades_csv_path:
-            return
+        # Auto-restore if state store is provided and state exists
+        if self.state_store is not None:
+            self.load_state()
 
-        from neon_radar.domain.trading.evaluator import TradeEvaluation
+    # ------------------------------------------------------------------
+    # Closed-candle & Stale Data Logic (Requirements 2, 7, 8)
+    # ------------------------------------------------------------------
 
-        if not self.trades_csv_path.exists():
-            self.trades_csv_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(self.trades_csv_path, "w", newline="", encoding="utf-8") as f:
-                writer = csv.writer(f)
-                writer.writerow(TradeEvaluation.csv_header())
+    def is_candle_closed(self, candle: OHLCV, server_time: int) -> bool:
+        """Determines if a candle is completely closed using exchange server time."""
+        if candle.close_time is not None:
+            return server_time > candle.close_time
+        return server_time >= candle.open_time + (self.timeframe.seconds * 1000)
 
-        equity_csv = self.trades_csv_path.parent / "equity_curve.csv"
-        if not equity_csv.exists():
-            with open(equity_csv, "w", newline="", encoding="utf-8") as f:
-                writer = csv.writer(f)
-                writer.writerow(
-                    ["TradeIndex", "Balance", "Equity", "DrawdownPct", "Profit", "ProfitR"]
+    def is_candle_stale(self, candle: OHLCV, server_time: int) -> bool:
+        """Checks if a candle is older than the configured stale tolerance."""
+        close_t = candle.close_time or (candle.open_time + self.timeframe.seconds * 1000)
+        return (server_time - close_t) > self.max_stale_tolerance_ms
+
+    # ------------------------------------------------------------------
+    # Polling & Execution Lifecycle (Requirements 2, 3, 4, 9, 10, 11)
+    # ------------------------------------------------------------------
+
+    async def poll_cycle(self) -> PaperCycleReport:
+        """Executes one polling cycle across all configured assets."""
+        warnings: list[str] = []
+        new_setups: list[FinalTradeSetup] = []
+        evaluated_symbols: list[Symbol] = []
+
+        # 1. Authoritative exchange server time
+        try:
+            server_time = await self.exchange.get_server_time()
+        except Exception as exc:
+            msg = f"Failed to retrieve exchange server time: {exc}"
+            logger.warning(msg)
+            warnings.append(msg)
+            import time
+
+            server_time = int(time.time() * 1000)
+
+        initial_open_count = len(self.portfolio_engine.state.positions)
+        initial_closed_count = len(self.portfolio_engine.history)
+
+        for symbol in self.symbols:
+            symbol_str = str(symbol)
+            try:
+                # 2. Fetch base series
+                series = await self.exchange.get_klines(symbol, self.timeframe, limit=200)
+                if not series or len(series.candles) == 0:
+                    warnings.append(f"{symbol_str}: Empty klines returned")
+                    continue
+
+                # 3. Filter only strictly closed candles
+                closed_candles = [c for c in series.candles if self.is_candle_closed(c, server_time)]
+                if not closed_candles:
+                    # All candles in batch are forming / unclosed
+                    continue
+
+                latest_closed_candle = closed_candles[-1]
+
+                # 4. Check for stale data (Requirement 7)
+                if self.is_candle_stale(latest_closed_candle, server_time):
+                    msg = f"{symbol_str}: Stale market data (candle closed at {latest_closed_candle.close_time}, server time {server_time})"
+                    logger.warning(msg)
+                    warnings.append(msg)
+                    continue
+
+                # 5. Check idempotency: avoid reprocessing the same closed candle
+                last_processed = self.last_processed_candles.get(symbol_str, 0)
+                is_new_candle = latest_closed_candle.open_time > last_processed
+
+                if not is_new_candle:
+                    # Already processed this candle for signals and ticks
+                    continue
+
+                evaluated_symbols.append(symbol)
+
+                # 6. Process tick on execution engine with the newly closed candle:
+                #    Checks pending setups for entry fills & open positions for SL/TP exits.
+                self.execution_engine.process_market_tick(symbol, latest_closed_candle)
+
+                # 7. Update Drawdown Monitor with updated equity
+                current_equity = self.portfolio_engine.state.account.total_capital
+                drawdown_state = self.drawdown_monitor.update(current_equity, latest_closed_candle.open_time)
+
+                # 8. Point-in-Time History for Signal Pipeline:
+                #    Slice strictly up to the latest closed candle.
+                closed_history = KlineSeries(
+                    symbol=symbol,
+                    timeframe=self.timeframe.value,
+                    candles=tuple(closed_candles),
                 )
 
-    def _log_trade_to_csv(
-        self,
-        position: VirtualPosition,
-        exit_price: float,
-        reason: str,
-        exit_time: int,
-        net_pnl: float,
-    ) -> None:
-        if not self.trades_csv_path:
-            return
+                # 9. Higher-Timeframe Data (if configured)
+                htf_series: KlineSeries | None = None
+                if self.higher_timeframe is not None:
+                    try:
+                        raw_htf = await self.exchange.get_klines(symbol, self.higher_timeframe, limit=100)
+                        if raw_htf and len(raw_htf.candles) > 0:
+                            candle_close_time = latest_closed_candle.close_time or (
+                                latest_closed_candle.open_time + self.timeframe.seconds * 1000
+                            )
+                            # Slice HTF strictly to point-in-time
+                            htf_closed = [
+                                c
+                                for c in raw_htf.candles
+                                if (c.close_time or (c.open_time + self.higher_timeframe.seconds * 1000))
+                                <= candle_close_time
+                            ]
+                            if htf_closed:
+                                htf_series = KlineSeries(
+                                    symbol=symbol,
+                                    timeframe=self.higher_timeframe.value,
+                                    candles=tuple(htf_closed),
+                                )
+                    except Exception as htf_exc:
+                        logger.warning(f"{symbol_str}: Failed to fetch HTF klines: {htf_exc}")
 
-        trade_idx = len(self.evaluator.evaluations) + 1
-        evaluation = self.evaluator.evaluate_trade(
-            trade_index=trade_idx,
-            position=position,
-            exit_price=exit_price,
-            exit_reason=reason,
-            exit_time=exit_time,
-            net_pnl=net_pnl,
-            new_balance=self.portfolio.balance,
+                # 10. Optional Funding Rate
+                funding_rate = None
+                with contextlib.suppress(Exception):
+                    funding_rate = await self.exchange.get_funding_rate(symbol)
+
+                # 11. Run Trading Pipeline
+                setup = self.pipeline.evaluate(
+                    series=closed_history,
+                    portfolio=self.portfolio_engine.state,
+                    drawdown=drawdown_state,
+                    timestamp=latest_closed_candle.open_time,
+                    higher_tf_series=htf_series,
+                    funding_rate=funding_rate,
+                )
+
+                if setup is not None:
+                    # Register pending paper setup for next candle execution
+                    registered = self.execution_engine.execute_setup(
+                        setup, timestamp=latest_closed_candle.open_time
+                    )
+                    if registered:
+                        new_setups.append(setup)
+                        logger.info(
+                            f"[PAPER ORDER REGISTERED] {setup.symbol} {setup.direction.value} "
+                            f"Entry: {setup.entry} SL: {setup.stop_loss} TP: {setup.take_profit} "
+                            f"Size: {setup.position_size:.4f} (${setup.quote_size:.2f})"
+                        )
+                        if self.on_signal:
+                            self.on_signal(setup)
+
+                # 12. Mark candle processed (idempotency key)
+                self.last_processed_candles[symbol_str] = latest_closed_candle.open_time
+
+            except Exception as sym_exc:
+                msg = f"{symbol_str}: Cycle error: {sym_exc}"
+                logger.error(msg, exc_info=True)
+                warnings.append(msg)
+
+        # 13. Detect newly filled or exited positions during this cycle
+        new_fills = tuple(self.portfolio_engine.state.positions[initial_open_count:])
+        new_exits = tuple(self.portfolio_engine.history[initial_closed_count:])
+
+        # 14. Atomic Persistence
+        if self.state_store is not None:
+            try:
+                self.save_state(server_time)
+            except Exception as save_exc:
+                msg = f"Failed to persist paper trading state: {save_exc}"
+                logger.error(msg, exc_info=True)
+                warnings.append(msg)
+
+        # 15. Create Report
+        state = self.portfolio_engine.state
+        report = PaperCycleReport(
+            timestamp=server_time,
+            symbols_evaluated=tuple(evaluated_symbols),
+            new_setups=tuple(new_setups),
+            new_fills=new_fills,
+            new_exits=new_exits,
+            equity=state.account.total_capital,
+            free_capital=state.account.free_capital,
+            drawdown_pct=self.drawdown_monitor.max_drawdown_pct,
+            warnings=tuple(warnings),
         )
 
-        with open(self.trades_csv_path, "a", newline="", encoding="utf-8") as f:
-            writer = csv.writer(f)
-            writer.writerow(evaluation.to_csv_row())
+        if self.on_portfolio_update:
+            self.on_portfolio_update(report)
 
-        equity_csv = self.trades_csv_path.parent / "equity_curve.csv"
-        with open(equity_csv, "a", newline="", encoding="utf-8") as f:
-            writer = csv.writer(f)
-            writer.writerow(
-                [
-                    evaluation.trade_index,
-                    f"{self.portfolio.balance:.4f}",
-                    f"{self.portfolio.balance:.4f}",  # For now equity is just balance after trade
-                    f"{self.evaluator.generate_summary().max_drawdown_pct:.4%}",
-                    f"{net_pnl:.4f}",
-                    f"{evaluation.profit_r:.2f}",
-                ]
-            )
+        return report
 
-    def generate_summary_report(self) -> None:
-        if not self.trades_csv_path:
-            return
+    # ------------------------------------------------------------------
+    # Intraday Tick / Mark-to-Market (Requirement 3, 5)
+    # ------------------------------------------------------------------
 
-        summary = self.evaluator.generate_summary()
-        summary_csv = self.trades_csv_path.parent / "paper_trade_summary.csv"
+    def process_live_tick(self, symbol: Symbol, price: float, timestamp: int) -> None:
+        """Processes real-time market ticks for mark-to-market updates and immediate SL/TP exits."""
+        symbol_str = str(symbol)
 
-        with open(summary_csv, "w", newline="", encoding="utf-8") as f:
-            writer = csv.writer(f)
-            writer.writerow(summary.csv_header())
-            writer.writerow(summary.to_csv_row())
-        paper_logger.info(f"Summary written to {summary_csv}")
+        # Update mark-to-market price
+        self.portfolio_engine.update_market_prices({symbol_str: price})
 
-    def process_kline(self, symbol: Symbol, series: KlineSeries) -> None:
-        """Process the latest market data for a symbol.
+        # Check pending setups for entry trigger at tick price
+        setup = self.execution_engine.pending_setups.get(symbol_str)
+        if setup is not None:
+            should_fill = False
+            if (setup.direction == Bias.BULLISH and price <= setup.entry) or (setup.direction == Bias.BEARISH and price >= setup.entry):
+                should_fill = True
 
-        1. Checks if an active position hits SL/TP against the current incomplete candle.
-        2. If no position, evaluates the *closed* series for a new setup.
-        """
-        if series.is_empty or len(series.candles) < 2:
-            return
-
-        latest_kline = series.candles[-1]  # This is the current, incomplete candle
-
-        from neon_radar.domain.models import KlineSeries
-
-        closed_series = KlineSeries(
-            symbol=series.symbol, timeframe=series.timeframe, candles=series.candles[:-1]
-        )
-
-        sym_str = str(symbol)
-
-        # 1. Manage existing position
-        if sym_str in self.portfolio.positions:
-            position = self.portfolio.positions[sym_str]
-            exit_reason = position.update(latest_kline)
-
-            if exit_reason:
-                # Close position
-                exit_price = position.stop_loss if exit_reason == "SL" else position.take_profit
-
-                net_pnl = self.portfolio.close_position(
-                    sym_str, exit_price, exit_reason, latest_kline.open_time
+            if should_fill:
+                candle = OHLCV(
+                    open_time=timestamp,
+                    open=price,
+                    high=price,
+                    low=price,
+                    close=price,
+                    volume=0.0,
                 )
+                self.execution_engine.process_market_tick(symbol, candle)
 
-                msg = f"CLOSED {position.direction.value} {sym_str} | Reason: {exit_reason} | PnL: {net_pnl:.2f} | Bal: {self.portfolio.balance:.2f}"
-                paper_logger.info(msg)
+        # Check active positions for SL/TP breach at tick price
+        for pos in list(self.portfolio_engine.state.positions):
+            if str(pos.symbol) != symbol_str:
+                continue
 
-                self._log_trade_to_csv(
-                    position, exit_price, exit_reason, latest_kline.open_time, net_pnl
-                )
-
-            return  # Skip opening a new trade on the same candle we exited
-
-        # 2. Evaluate for new entry (only if no active position)
-        if not self.portfolio.can_open_position(sym_str):
-            return
-
-        last_eval_time = self._last_eval_time.get(sym_str, 0)
-        last_closed_candle = closed_series.candles[-1]
-
-        if last_closed_candle.open_time <= last_eval_time:
-            return  # Already evaluated this candle
-
-        self._last_eval_time[sym_str] = last_closed_candle.open_time
-
-        analysis = analyze_series(closed_series, self._rules)
-        setup = self._setup_engine.build_setup(analysis.market_state, analysis)
-
-        score_val = analysis.score.value
-        conf_val = analysis.score.confidence
-        bias_str = analysis.score.bias.name
-
-        setup_status = "YES" if setup else "NO"
-        reason = ""
-        if not setup:
-            if bias_str == "NEUTRAL":
-                reason = "Neutral Bias"
-            elif conf_val < self._setup_engine.min_confidence:
-                reason = f"Low Conf ({conf_val:.2f} < {self._setup_engine.min_confidence:.2f})"
+            reason = None
+            if pos.direction == Bias.BULLISH:
+                if price <= pos.stop_loss:
+                    reason = "STOP_LOSS"
+                elif price >= pos.take_profit:
+                    reason = "TAKE_PROFIT"
             else:
-                reason = "Regime/ATR Filter"
+                if price >= pos.stop_loss:
+                    reason = "STOP_LOSS"
+                elif price <= pos.take_profit:
+                    reason = "TAKE_PROFIT"
 
-        msg_log = f"[{sym_str}] Score: {score_val:+.2f} (Conf: {conf_val:.2f}) | Dir: {bias_str} | Setup: {setup_status}"
-        if reason:
-            msg_log += f" | Reason: {reason}"
-        paper_logger.info(msg_log)
-
-        if setup:
-            # We enter at market, which is effectively the latest_kline's current price (close)
-            entry_price = latest_kline.close
-
-            # Position Sizing
-            qty = self.portfolio.calculate_position_size(entry_price, setup.stop_loss)
-
-            if qty > 0:
-                setup = type(setup)(
-                    direction=setup.direction,
-                    entry_price=entry_price,
-                    stop_loss=setup.stop_loss,
-                    take_profit_1=setup.take_profit_1,
-                    take_profit_2=setup.take_profit_2,
-                    risk_reward=setup.risk_reward,
-                    diagnostics=setup.diagnostics,
+            if reason is not None:
+                candle = OHLCV(
+                    open_time=timestamp,
+                    open=price,
+                    high=price,
+                    low=price,
+                    close=price,
+                    volume=0.0,
                 )
+                self.execution_engine.process_market_tick(symbol, candle)
 
-                # Build snapshot for analysis
-                factors = {}
-                if setup.diagnostics and setup.diagnostics.triggered_rules:
-                    # Convert triggered_rules string to dict if possible
-                    # format usually "ema_trend:0.5, rsi:0.2"
-                    parts = setup.diagnostics.triggered_rules.split(",")
-                    for part in parts:
-                        if ":" in part:
-                            k, v = part.split(":", 1)
-                            try:
-                                factors[k.strip()] = float(v.strip())
-                            except ValueError:
-                                factors[k.strip()] = v.strip()
+        # Update drawdown
+        self.drawdown_monitor.update(self.portfolio_engine.state.account.total_capital, timestamp)
 
-                analysis_snapshot = {
-                    "score": score_val,
-                    "confidence": conf_val,
-                    "regime": setup.diagnostics.regime if setup.diagnostics else "",
-                    "factors": factors,
-                    "indicators": {
-                        "atr": setup.diagnostics.atr if setup.diagnostics else None,
-                        "rsi": setup.diagnostics.rsi if setup.diagnostics else None,
-                        "adx": setup.diagnostics.adx if setup.diagnostics else None,
-                        "ema_spread": setup.diagnostics.ema_spread_pct
-                        if setup.diagnostics
-                        else None,
-                        "htf_trend": setup.diagnostics.htf_trend if setup.diagnostics else None,
-                    },
-                }
+    # ------------------------------------------------------------------
+    # Persistence & Recovery (Requirements 6, 11)
+    # ------------------------------------------------------------------
 
-                pos = VirtualPosition.from_setup(
-                    symbol, setup, qty, latest_kline.open_time, analysis_snapshot=analysis_snapshot
-                )
-                self.portfolio.open_position(pos)
+    def save_state(self, timestamp: int | None = None) -> None:
+        """Persists current state snapshot atomically to disk."""
+        if self.state_store is None:
+            return
 
-                msg = f"OPENED {pos.direction.value} {sym_str} | Entry: {entry_price:.4f} | SL: {setup.stop_loss:.4f} | TP: {setup.take_profit_1:.4f} | Qty: {qty:.6f}"
-                paper_logger.info(msg)
+        import time
+
+        ts = timestamp if timestamp is not None else int(time.time() * 1000)
+        drawdown_state = DrawdownState(
+            current_equity=self.portfolio_engine.state.account.total_capital,
+            ath_equity=self.drawdown_monitor.ath_equity,
+            max_drawdown_pct=self.drawdown_monitor.max_drawdown_pct,
+            timestamp=ts,
+        )
+
+        state = PaperTradingState(
+            account=self.portfolio_engine.state.account,
+            drawdown=drawdown_state,
+            open_positions=self.portfolio_engine.state.positions,
+            pending_setups=dict(self.execution_engine.pending_setups),
+            last_processed_candles=dict(self.last_processed_candles),
+            completed_trades=self.portfolio_engine.history,
+            updated_at=ts,
+        )
+        self.state_store.save(state)
+
+    def load_state(self) -> bool:
+        """Restores state from persistence store. Returns True if restored."""
+        if self.state_store is None:
+            return False
+
+        saved = self.state_store.load()
+        if saved is None:
+            return False
+
+        # Restore PortfolioEngine
+        self.portfolio_engine.restore_state(
+            account=saved.account,
+            positions=saved.open_positions,
+            history=saved.completed_trades,
+            timestamp=saved.updated_at,
+        )
+
+        # Restore DrawdownMonitor
+        self.drawdown_monitor.restore_state(
+            ath_equity=saved.drawdown.ath_equity,
+            max_drawdown_pct=saved.drawdown.max_drawdown_pct,
+        )
+
+        # Restore Pending Setups
+        self.execution_engine.pending_setups = dict(saved.pending_setups)
+
+        # Restore Processed Candle Timestamps
+        self.last_processed_candles = dict(saved.last_processed_candles)
+
+        logger.info(
+            f"Forward paper trading state restored: {len(saved.open_positions)} open positions, "
+            f"{len(saved.pending_setups)} pending setups, equity: ${saved.account.total_capital:.2f}"
+        )
+        return True
+
+    # ------------------------------------------------------------------
+    # Internal Event Handlers
+    # ------------------------------------------------------------------
+
+    def _on_portfolio_event(self, event: Any) -> None:
+        from neon_radar.domain.events import PositionClosed, PositionOpened
+
+        if isinstance(event, PositionOpened):
+            logger.info(
+                f"[PAPER FILL] {event.position.symbol} {event.position.direction.value} "
+                f"Entry: {event.position.entry_price} Qty: {event.position.quantity:.4f} "
+                f"Notional: ${event.position.position_size:.2f} Fee: ${event.position.entry_fee:.4f}"
+            )
+            if self.on_trade_open:
+                self.on_trade_open(event.position)
+        elif isinstance(event, PositionClosed):
+            p = event.position
+            s = p.execution_summary
+            logger.info(
+                f"[PAPER EXIT] {p.symbol} {p.direction.value} Exit: {p.exit_price} "
+                f"Reason: {p.close_reason.value if hasattr(p.close_reason, 'value') else p.close_reason} "
+                f"Net PnL: ${s.net_pnl:.2f} (Fees: ${s.entry_fee + s.exit_fee:.2f}, "
+                f"Slippage: ${s.slippage_cost:.2f}, Funding: ${s.funding_cost:.2f})"
+            )
+            if self.on_trade_close:
+                self.on_trade_close(p)

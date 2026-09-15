@@ -59,6 +59,7 @@ class PaperExecutionEngine(ExecutionEngine):
         self.funding_provider = funding_provider
         # Dictionary of pending setups that are waiting for an entry trigger
         self.pending_setups: dict[str, FinalTradeSetup] = {}
+        self.pending_setup_timestamps: dict[str, int] = {}
 
     def execute_setup(self, setup: FinalTradeSetup, timestamp: int) -> bool:
         """Register a setup to be triggered when the price hits the entry level.
@@ -71,7 +72,9 @@ class PaperExecutionEngine(ExecutionEngine):
         if not setup.risk_decision.is_allowed:
             return False
 
-        self.pending_setups[str(setup.symbol)] = setup
+        symbol_str = str(setup.symbol)
+        self.pending_setups[symbol_str] = setup
+        self.pending_setup_timestamps[symbol_str] = timestamp
         return True
 
     def process_market_tick(self, symbol: Symbol, candle: OHLCV) -> None:
@@ -105,6 +108,10 @@ class PaperExecutionEngine(ExecutionEngine):
 
                 capital_at_entry = self.portfolio_engine.state.account.total_capital
 
+                htf_regime_val = None
+                if setup.diagnostics and setup.diagnostics.htf_trend is not None:
+                    htf_regime_val = "BEAR" if setup.diagnostics.htf_trend < 0 else "BULL"
+
                 pos = OpenPosition(
                     symbol=symbol,
                     direction=setup.direction,
@@ -118,12 +125,17 @@ class PaperExecutionEngine(ExecutionEngine):
                     entry_fee=entry_fee,
                     entry_slippage=entry_slippage,
                     entry_execution_type=entry_exec_type.name,
+                    diagnostics=setup.diagnostics,
+                    timeframe=getattr(setup, "timeframe", "1d"),
+                    signal_time=self.pending_setup_timestamps.pop(symbol_str, candle.open_time),
+                    htf_regime=htf_regime_val,
                 )
                 self.portfolio_engine.open_position(pos)
                 del self.pending_setups[symbol_str]
             except ValueError:
                 # E.g. insufficient funds
                 del self.pending_setups[symbol_str]
+                self.pending_setup_timestamps.pop(symbol_str, None)
 
         # 3. Check Open Positions for exit (SL/TP)
         # Note: we fetch the latest state from PortfolioEngine

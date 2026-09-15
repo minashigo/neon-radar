@@ -5,6 +5,7 @@ It handles opening/closing positions, updating market prices, and applying domai
 """
 
 from collections.abc import Callable
+from dataclasses import replace
 
 from neon_radar.domain.enums import Bias
 from neon_radar.domain.events import PositionClosed, PositionOpened
@@ -39,6 +40,23 @@ class PortfolioEngine:
     def subscribe(self, callback: Callable) -> None:
         self._subscribers.append(callback)
 
+    def restore_state(
+        self,
+        account: AccountState,
+        positions: tuple[OpenPosition, ...] = (),
+        history: tuple[ClosedPosition, ...] = (),
+        statistics: PortfolioStatistics | None = None,
+        timestamp: int | None = None,
+    ) -> None:
+        """Restore portfolio state and history from persistence."""
+        self._state = PortfolioState(
+            account=account,
+            positions=positions,
+            statistics=statistics or self._state.statistics,
+            timestamp=timestamp,
+        )
+        self._history = list(history)
+
     def _publish(self, event) -> None:
         for cb in self._subscribers:
             cb(event)
@@ -56,21 +74,7 @@ class PortfolioEngine:
                 else:
                     unrealized = (pos.entry_price - price) * pos.quantity
 
-                updated_pos = OpenPosition(
-                    symbol=pos.symbol,
-                    direction=pos.direction,
-                    entry_price=pos.entry_price,
-                    quantity=pos.quantity,
-                    position_size=pos.position_size,
-                    stop_loss=pos.stop_loss,
-                    take_profit=pos.take_profit,
-                    opened_at=pos.opened_at,
-                    capital_at_entry=pos.capital_at_entry,
-                    unrealized_pnl=unrealized,
-                    entry_fee=pos.entry_fee,
-                    entry_slippage=pos.entry_slippage,
-                    entry_execution_type=pos.entry_execution_type,
-                )
+                updated_pos = replace(pos, unrealized_pnl=unrealized)
                 updated_positions.append(updated_pos)
                 total_unrealized += unrealized
             else:
@@ -149,6 +153,10 @@ class PortfolioEngine:
             take_profit=target_pos.take_profit,
             initial_risk=target_pos.max_risk,
             capital_at_entry=getattr(target_pos, "capital_at_entry", 0.0),
+            diagnostics=getattr(target_pos, "diagnostics", None),
+            timeframe=getattr(target_pos, "timeframe", "1d"),
+            signal_time=getattr(target_pos, "signal_time", None),
+            htf_regime=getattr(target_pos, "htf_regime", None),
         )
         self._history.append(closed)
 

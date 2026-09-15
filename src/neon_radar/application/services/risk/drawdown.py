@@ -43,3 +43,12 @@ class DrawdownMonitor:
     @property
     def max_drawdown_pct(self) -> float:
         return self._max_drawdown_pct
+
+    def restore_state(self, ath_equity: float, max_drawdown_pct: float) -> None:
+        """Restore ATH equity and maximum drawdown from persistence."""
+        if ath_equity <= 0:
+            raise ValueError("ath_equity must be positive")
+        if max_drawdown_pct < 0:
+            raise ValueError("max_drawdown_pct cannot be negative")
+        self._ath_equity = ath_equity
+        self._max_drawdown_pct = max_drawdown_pct

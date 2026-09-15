@@ -133,6 +133,16 @@ class ExchangeClient(ABC):
         """
         raise _not_implemented(self.name, "get_open_interest")
 
+    async def get_server_time(self) -> int:
+        """Return the exchange server time in Unix milliseconds.
+
+        Default implementation falls back to the system clock. Concrete
+        clients should query the exchange server time endpoint.
+        """
+        import time
+
+        return int(time.time() * 1000)
+
     async def close(self) -> None:
         """Release any resources held by the client.
 

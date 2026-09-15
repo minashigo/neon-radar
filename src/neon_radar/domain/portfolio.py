@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from neon_radar.domain.enums import Bias
     from neon_radar.domain.execution_costs import ExecutionCostSummary
     from neon_radar.domain.models import Symbol
+    from neon_radar.domain.trading.backtest import TradeDiagnostics
 
 
 class PositionCloseReason(StrEnum):
@@ -65,6 +66,10 @@ class OpenPosition:
     entry_fee: float = 0.0
     entry_slippage: float = 0.0
     entry_execution_type: str = "taker"
+    diagnostics: TradeDiagnostics | None = None
+    timeframe: str = "1d"
+    signal_time: int | None = None
+    htf_regime: str | None = None
 
     def __post_init__(self) -> None:
         if self.entry_price <= 0:
@@ -98,6 +103,10 @@ class ClosedPosition:
     take_profit: float = 0.0
     initial_risk: float = 0.0
     capital_at_entry: float = 0.0
+    diagnostics: TradeDiagnostics | None = None
+    timeframe: str = "1d"
+    signal_time: int | None = None
+    htf_regime: str | None = None
 
     @property
     def duration(self) -> int:
