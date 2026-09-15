@@ -273,13 +273,13 @@ def build_parser() -> argparse.ArgumentParser:
         "--risk",
         type=float,
         default=0.01,
-        help="Risk per trade as decimal (default: 0.01 = 1%)",
+        help="Risk per trade as decimal (default: 0.01 = 1%%)",
     )
     paper.add_argument(
         "--portfolio",
         type=Path,
-        default=Path("portfolio.json"),
-        help="Path to save/load virtual portfolio state",
+        default=Path("paper_state.json"),
+        help="Path to save/load paper portfolio state (default: paper_state.json)",
     )
     paper.add_argument(
         "--trades-csv",
@@ -292,6 +292,11 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=60,
         help="How often to fetch new data in seconds (default: 60)",
+    )
+    paper.add_argument(
+        "--once",
+        action="store_true",
+        help="Run a single evaluation cycle and exit",
     )
 
     backtest.add_argument(
@@ -1152,61 +1157,126 @@ def print_walk_forward_report(report, *, use_color: bool) -> None:
 async def _run_paper_trade(args: argparse.Namespace) -> int:
     import signal
 
-    from neon_radar.application.services.live_data_fetcher import LiveDataFetcher
-    from neon_radar.application.services.paper_trading_engine import PaperTradingEngine
+    from neon_radar.application.services.paper_trading_engine import (
+        CANONICAL_SYMBOLS,
+        ForwardPaperTradingEngine,
+        PaperCycleReport,
+    )
+    from neon_radar.application.services.portfolio_engine import PortfolioEngine
+    from neon_radar.application.services.risk.drawdown import DrawdownMonitor
+    from neon_radar.application.services.risk.manager import RiskManager
+    from neon_radar.application.services.risk.sizing import FixedRiskStrategy, PositionSizingEngine
+    from neon_radar.application.services.trading_pipeline import TradingPipeline
     from neon_radar.config.loader import ConfigLoader
     from neon_radar.config.models import TimeFrame
     from neon_radar.config.scoring_loader import ScoringRulesConfig, load_rules
     from neon_radar.domain.models import Symbol
-    from neon_radar.domain.trading.paper import VirtualPortfolio
+    from neon_radar.domain.risk import PortfolioRiskPolicy
+    from neon_radar.domain.trading.setup import TradeSetupEngine
     from neon_radar.infrastructure.exchanges.binance import BinanceClient
+    from neon_radar.infrastructure.storage.paper_state_store import JsonPaperStateStore
 
     config = ConfigLoader(args.config).load()
     scoring_cfg = ScoringRulesConfig.model_validate(_strip_meta(_read_json(args.scoring)))
     rules = tuple(load_rules(args.scoring))
 
     if args.symbols:
-        symbols = [Symbol.from_str(s.strip()) for s in args.symbols.split(",")]
+        symbols = tuple(Symbol(s.strip()) for s in args.symbols.split(",") if s.strip())
     else:
-        symbols = [Symbol(s.symbol) for s in config.enabled_symbols()]
+        symbols = CANONICAL_SYMBOLS
 
     tf = TimeFrame(args.timeframe)
 
-    portfolio = VirtualPortfolio.load(
-        args.portfolio, default_balance=args.balance, risk_per_trade=args.risk
-    )
+    regime_config = None
+    regime_classifier = None
+    if scoring_cfg.regime_filter:
+        from neon_radar.application.services.regime_classifier import RuleBasedRegimeClassifier
+        from neon_radar.domain.trading.regime import RegimeFilterConfig
 
-    engine = PaperTradingEngine(
-        portfolio=portfolio,
-        scoring_config=scoring_cfg,
-        trades_csv_path=args.trades_csv,
+        regime_config = RegimeFilterConfig(**scoring_cfg.regime_filter)
+        regime_classifier = RuleBasedRegimeClassifier(regime_config)
+
+    setup_engine = TradeSetupEngine(
+        min_confidence=scoring_cfg.min_confidence,
+        regime_classifier=regime_classifier,
+        regime_config=regime_config,
+    )
+    risk_policy = PortfolioRiskPolicy(base_risk_per_trade_pct=args.risk)
+    risk_manager = RiskManager(risk_policy)
+    sizing_engine = PositionSizingEngine(FixedRiskStrategy())
+
+    pipeline = TradingPipeline(
         rules=rules,
+        setup_engine=setup_engine,
+        risk_manager=risk_manager,
+        sizing_engine=sizing_engine,
+        min_confidence=scoring_cfg.min_confidence,
+        confluence_bonus=scoring_cfg.confluence_bonus,
+        confluence_penalty=scoring_cfg.confluence_penalty,
+        max_confidence_boost=scoring_cfg.max_confidence_boost,
+        regime_classifier=regime_classifier,
+        regime_config=regime_config,
     )
 
-    client = BinanceClient(config.api)
-    fetcher = LiveDataFetcher(
-        exchange=client, engine=engine, poll_interval_seconds=args.poll_interval
-    )
+    state_store = JsonPaperStateStore(args.portfolio)
+    portfolio_engine = PortfolioEngine(initial_capital=args.balance)
+    drawdown_monitor = DrawdownMonitor(initial_capital=args.balance)
 
-    def handle_shutdown(*_):
-        print("\nShutting down Paper Trading...")
-        engine.generate_summary_report()
-        portfolio.save()
-        fetcher.stop()
-
-    try:
-        signal.signal(signal.SIGINT, handle_shutdown)
-        signal.signal(signal.SIGTERM, handle_shutdown)
-    except Exception:
-        pass
-
-    async with client:
-        print(
-            f"Starting Paper Trading on {len(symbols)} symbols. Balance: {portfolio.balance:.2f} USDT. Risk: {args.risk:.2%}"
+    async with BinanceClient(config.api) as client:
+        engine = ForwardPaperTradingEngine(
+            exchange=client,
+            pipeline=pipeline,
+            portfolio_engine=portfolio_engine,
+            drawdown_monitor=drawdown_monitor,
+            state_store=state_store,
+            symbols=symbols,
+            timeframe=tf,
+            initial_capital=args.balance,
         )
-        await fetcher.run(symbols, tf)
 
-    return 0
+        running = True
+
+        def handle_shutdown(*_):
+            nonlocal running
+            print("\n[Forward Paper Trading] Shutting down gracefully...")
+            running = False
+
+        try:
+            signal.signal(signal.SIGINT, handle_shutdown)
+            signal.signal(signal.SIGTERM, handle_shutdown)
+        except Exception:
+            pass
+
+        print("=== Neon Radar — Forward Paper Trading Engine ===", flush=True)
+        print(f"Assets ({len(symbols)}): {', '.join(str(s) for s in symbols)}", flush=True)
+        print(f"Timeframe: {tf.value} (HTF: {engine.higher_timeframe.value if engine.higher_timeframe else 'None'})", flush=True)
+        print(f"Equity: ${portfolio_engine.state.account.total_capital:.2f} | Free: ${portfolio_engine.state.account.free_capital:.2f}", flush=True)
+        print(f"State Store: {args.portfolio}", flush=True)
+        print("Polling Binance Futures market data (READ-ONLY). Press Ctrl+C to stop.\n", flush=True)
+
+        cycle_count = 0
+        while running:
+            cycle_count += 1
+            print(f"--- Cycle #{cycle_count} ---", flush=True)
+            report: PaperCycleReport = await engine.poll_cycle()
+            print(f"Time: {datetime.fromtimestamp(report.timestamp / 1000).strftime('%Y-%m-%d %H:%M:%S')} UTC", flush=True)
+            print(f"Evaluated: {len(report.symbols_evaluated)} symbols | New Setups: {len(report.new_setups)} | Fills: {len(report.new_fills)} | Exits: {len(report.new_exits)}", flush=True)
+            print(f"Equity: ${report.equity:.2f} | Free: ${report.free_capital:.2f} | Max DD: {report.drawdown_pct:.2f}%", flush=True)
+            if report.warnings:
+                for w in report.warnings:
+                    print(f"  [WARN] {w}", flush=True)
+            print(flush=True)
+
+            if getattr(args, "once", False) or not running:
+                break
+
+            try:
+                await asyncio.sleep(args.poll_interval)
+            except asyncio.CancelledError:
+                break
+
+        print("[Forward Paper Trading] Finished.")
+        return 0
 
 
 if __name__ == "__main__":

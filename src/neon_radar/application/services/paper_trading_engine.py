@@ -197,7 +197,7 @@ class ForwardPaperTradingEngine:
                 #    Slice strictly up to the latest closed candle.
                 closed_history = KlineSeries(
                     symbol=symbol,
-                    timeframe=self.timeframe.value,
+                    timeframe=self.timeframe,
                     candles=tuple(closed_candles),
                 )
 
@@ -220,7 +220,7 @@ class ForwardPaperTradingEngine:
                             if htf_closed:
                                 htf_series = KlineSeries(
                                     symbol=symbol,
-                                    timeframe=self.higher_timeframe.value,
+                                    timeframe=self.higher_timeframe,
                                     candles=tuple(htf_closed),
                                 )
                     except Exception as htf_exc:
