@@ -28,6 +28,7 @@ from pydantic import (
 )
 
 from neon_radar.config.intelligence import IntelligenceConfig
+from neon_radar.config.risk import RiskPolicyConfig
 
 
 class TimeFrame(StrEnum):
@@ -225,6 +226,7 @@ class AppConfig(BaseModel):
     ui: UiConfig = Field(default_factory=UiConfig)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
     intelligence: IntelligenceConfig = Field(default_factory=IntelligenceConfig)
+    risk: RiskPolicyConfig = Field(default_factory=RiskPolicyConfig)
 
     @model_validator(mode="after")
     def _validate_unique_symbols(self) -> AppConfig:

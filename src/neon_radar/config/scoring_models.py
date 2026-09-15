@@ -83,6 +83,10 @@ class ScoringRulesConfig(BaseModel):
         default_factory=dict,
         description="Configuration for the Regime Filter.",
     )
+    risk_policy: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Optional configuration for portfolio risk policy.",
+    )
 
     def enabled_rules(self) -> list[RuleSpec]:
         """Return only rules with ``enabled=True``."""

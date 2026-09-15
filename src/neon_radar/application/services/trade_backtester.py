@@ -61,6 +61,16 @@ class TradeBacktester:
     3. Triggers `analyze_series()` to generate trading signals exactly
        as it would happen live.
     4. Evaluates executions and generates Trade objects.
+
+    Architectural Note on Portfolio Risk Management
+    -----------------------------------------------
+    Currently, this backtester simulates each symbol independently via
+    `_simulate_symbol()`, maintaining an isolated `PortfolioEngine` per asset.
+    Therefore, multi-asset portfolio-level rules (such as global Portfolio Heat
+    across different symbols and Maximum Concurrent Trades across the entire portfolio)
+    cannot be validated through this per-symbol loop. Full historical validation
+    of cross-asset portfolio risk rules requires a dedicated synchronized
+    multi-asset backtesting mode stepping through all symbols in lockstep at timestamp T.
     """
 
     def __init__(
