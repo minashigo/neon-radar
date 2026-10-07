@@ -1,0 +1,2351 @@
+{
+  "isolated_results": {
+    "BTCUSDT": {
+      "IMMEDIATE_CLOSE": {
+        "symbol": "BTCUSDT",
+        "timeframe": "4h",
+        "variant": "IMMEDIATE_CLOSE",
+        "initial_capital": 10000.0,
+        "final_wallet": 9860.47,
+        "final_equity": 9860.47,
+        "net_pnl": -139.53,
+        "return_pct": -0.014,
+        "max_drawdown_pct": 0.0184,
+        "sharpe_ratio": -0.649,
+        "sortino_ratio": -0.3499,
+        "total_maker_fees": 30.68,
+        "total_taker_fees": 21.28,
+        "total_churn_cost": 665.57,
+        "total_realized_grid_profit": 546.01,
+        "is_bankrupt": false,
+        "liquidations_count": 0,
+        "churn_metrics": {
+          "variant": "IMMEDIATE_CLOSE",
+          "total_regime_exits": 127,
+          "immediate_exits": 127,
+          "atr_trailing_exits": 0,
+          "sl_exits": 0,
+          "recenter_exits": 0,
+          "timeout_exits": 0,
+          "total_taker_fees": 21.28,
+          "total_slippage_cost": 42.56,
+          "total_churn_cost": 63.85,
+          "avg_churn_cost_per_exit": 0.5,
+          "net_pnl_at_exit": -654.86,
+          "protective_exits_count": 27,
+          "protective_exit_rate": 0.2126,
+          "spurious_exits_count": 59,
+          "spurious_exit_rate": 0.4646,
+          "indeterminate_exits_count": 41
+        }
+      },
+      "FREEZE": {
+        "symbol": "BTCUSDT",
+        "timeframe": "4h",
+        "variant": "FREEZE",
+        "initial_capital": 10000.0,
+        "final_wallet": 9578.12,
+        "final_equity": 9578.12,
+        "net_pnl": -421.88,
+        "return_pct": -0.0422,
+        "max_drawdown_pct": 0.0666,
+        "sharpe_ratio": -0.5704,
+        "sortino_ratio": -0.6376,
+        "total_maker_fees": 30.68,
+        "total_taker_fees": 21.51,
+        "total_churn_cost": 0.0,
+        "total_realized_grid_profit": 546.01,
+        "is_bankrupt": false,
+        "liquidations_count": 0,
+        "churn_metrics": {
+          "variant": "FREEZE",
+          "total_regime_exits": 126,
+          "immediate_exits": 0,
+          "atr_trailing_exits": 0,
+          "sl_exits": 0,
+          "recenter_exits": 126,
+          "timeout_exits": 0,
+          "total_taker_fees": 21.41,
+          "total_slippage_cost": 42.82,
+          "total_churn_cost": 64.23,
+          "avg_churn_cost_per_exit": 0.51,
+          "net_pnl_at_exit": -935.11,
+          "protective_exits_count": 28,
+          "protective_exit_rate": 0.2222,
+          "spurious_exits_count": 60,
+          "spurious_exit_rate": 0.4762,
+          "indeterminate_exits_count": 38
+        }
+      },
+      "FREEZE_ATR": {
+        "symbol": "BTCUSDT",
+        "timeframe": "4h",
+        "variant": "FREEZE_ATR",
+        "initial_capital": 10000.0,
+        "final_wallet": 9765.78,
+        "final_equity": 9765.78,
+        "net_pnl": -234.22,
+        "return_pct": -0.0234,
+        "max_drawdown_pct": 0.0318,
+        "sharpe_ratio": -0.7055,
+        "sortino_ratio": -0.4776,
+        "total_maker_fees": 30.68,
+        "total_taker_fees": 21.16,
+        "total_churn_cost": 0.0,
+        "total_realized_grid_profit": 546.01,
+        "is_bankrupt": false,
+        "liquidations_count": 0,
+        "churn_metrics": {
+          "variant": "FREEZE_ATR",
+          "total_regime_exits": 127,
+          "immediate_exits": 0,
+          "atr_trailing_exits": 91,
+          "sl_exits": 0,
+          "recenter_exits": 36,
+          "timeout_exits": 0,
+          "total_taker_fees": 21.15,
+          "total_slippage_cost": 42.31,
+          "total_churn_cost": 63.46,
+          "avg_churn_cost_per_exit": 0.5,
+          "net_pnl_at_exit": -749.55,
+          "protective_exits_count": 29,
+          "protective_exit_rate": 0.2283,
+          "spurious_exits_count": 52,
+          "spurious_exit_rate": 0.4094,
+          "indeterminate_exits_count": 46
+        }
+      },
+      "HYSTERESIS": {
+        "symbol": "BTCUSDT",
+        "timeframe": "4h",
+        "variant": "HYSTERESIS",
+        "initial_capital": 10000.0,
+        "final_wallet": 9882.16,
+        "final_equity": 9882.16,
+        "net_pnl": -117.84,
+        "return_pct": -0.0118,
+        "max_drawdown_pct": 0.0162,
+        "sharpe_ratio": -0.5242,
+        "sortino_ratio": -0.2842,
+        "total_maker_fees": 32.96,
+        "total_taker_fees": 21.95,
+        "total_churn_cost": 627.63,
+        "total_realized_grid_profit": 526.4,
+        "is_bankrupt": false,
+        "liquidations_count": 0,
+        "churn_metrics": {
+          "variant": "HYSTERESIS",
+          "total_regime_exits": 126,
+          "immediate_exits": 126,
+          "atr_trailing_exits": 0,
+          "sl_exits": 0,
+          "recenter_exits": 0,
+          "timeout_exits": 0,
+          "total_taker_fees": 21.95,
+          "total_slippage_cost": 43.9,
+          "total_churn_cost": 65.84,
+          "avg_churn_cost_per_exit": 0.52,
+          "net_pnl_at_exit": -611.28,
+          "protective_exits_count": 25,
+          "protective_exit_rate": 0.1984,
+          "spurious_exits_count": 63,
+          "spurious_exit_rate": 0.5,
+          "indeterminate_exits_count": 38
+        }
+      }
+    },
+    "ETHUSDT": {
+      "IMMEDIATE_CLOSE": {
+        "symbol": "ETHUSDT",
+        "timeframe": "4h",
+        "variant": "IMMEDIATE_CLOSE",
+        "initial_capital": 10000.0,
+        "final_wallet": 9813.94,
+        "final_equity": 9813.94,
+        "net_pnl": -186.06,
+        "return_pct": -0.0186,
+        "max_drawdown_pct": 0.0336,
+        "sharpe_ratio": -0.497,
+        "sortino_ratio": -0.2736,
+        "total_maker_fees": 57.16,
+        "total_taker_fees": 30.89,
+        "total_churn_cost": 1214.95,
+        "total_realized_grid_profit": 1062.17,
+        "is_bankrupt": false,
+        "liquidations_count": 0,
+        "churn_metrics": {
+          "variant": "IMMEDIATE_CLOSE",
+          "total_regime_exits": 144,
+          "immediate_exits": 144,
+          "atr_trailing_exits": 0,
+          "sl_exits": 0,
+          "recenter_exits": 0,
+          "timeout_exits": 0,
+          "total_taker_fees": 30.88,
+          "total_slippage_cost": 61.76,
+          "total_churn_cost": 92.64,
+          "avg_churn_cost_per_exit": 0.64,
+          "net_pnl_at_exit": -1191.11,
+          "protective_exits_count": 39,
+          "protective_exit_rate": 0.2708,
+          "spurious_exits_count": 52,
+          "spurious_exit_rate": 0.3611,
+          "indeterminate_exits_count": 53
+        }
+      },
+      "FREEZE": {
+        "symbol": "ETHUSDT",
+        "timeframe": "4h",
+        "variant": "FREEZE",
+        "initial_capital": 10000.0,
+        "final_wallet": 9212.9,
+        "final_equity": 9212.9,
+        "net_pnl": -787.1,
+        "return_pct": -0.0787,
+        "max_drawdown_pct": 0.1036,
+        "sharpe_ratio": -0.7239,
+        "sortino_ratio": -0.7384,
+        "total_maker_fees": 57.16,
+        "total_taker_fees": 30.79,
+        "total_churn_cost": 0.0,
+        "total_realized_grid_profit": 1062.17,
+        "is_bankrupt": false,
+        "liquidations_count": 0,
+        "churn_metrics": {
+          "variant": "FREEZE",
+          "total_regime_exits": 143,
+          "immediate_exits": 0,
+          "atr_trailing_exits": 0,
+          "sl_exits": 1,
+          "recenter_exits": 142,
+          "timeout_exits": 0,
+          "total_taker_fees": 30.65,
+          "total_slippage_cost": 61.31,
+          "total_churn_cost": 91.96,
+          "avg_churn_cost_per_exit": 0.64,
+          "net_pnl_at_exit": -1751.36,
+          "protective_exits_count": 33,
+          "protective_exit_rate": 0.2308,
+          "spurious_exits_count": 67,
+          "spurious_exit_rate": 0.4685,
+          "indeterminate_exits_count": 43
+        }
+      },
+      "FREEZE_ATR": {
+        "symbol": "ETHUSDT",
+        "timeframe": "4h",
+        "variant": "FREEZE_ATR",
+        "initial_capital": 10000.0,
+        "final_wallet": 9292.28,
+        "final_equity": 9292.28,
+        "net_pnl": -707.72,
+        "return_pct": -0.0708,
+        "max_drawdown_pct": 0.0743,
+        "sharpe_ratio": -1.3038,
+        "sortino_ratio": -0.8516,
+        "total_maker_fees": 57.16,
+        "total_taker_fees": 30.7,
+        "total_churn_cost": 0.0,
+        "total_realized_grid_profit": 1062.17,
+        "is_bankrupt": false,
+        "liquidations_count": 0,
+        "churn_metrics": {
+          "variant": "FREEZE_ATR",
+          "total_regime_exits": 144,
+          "immediate_exits": 0,
+          "atr_trailing_exits": 99,
+          "sl_exits": 0,
+          "recenter_exits": 45,
+          "timeout_exits": 0,
+          "total_taker_fees": 30.7,
+          "total_slippage_cost": 61.39,
+          "total_churn_cost": 92.09,
+          "avg_churn_cost_per_exit": 0.64,
+          "net_pnl_at_exit": -1712.77,
+          "protective_exits_count": 41,
+          "protective_exit_rate": 0.2847,
+          "spurious_exits_count": 54,
+          "spurious_exit_rate": 0.375,
+          "indeterminate_exits_count": 49
+        }
+      },
+      "HYSTERESIS": {
+        "symbol": "ETHUSDT",
+        "timeframe": "4h",
+        "variant": "HYSTERESIS",
+        "initial_capital": 10000.0,
+        "final_wallet": 9975.51,
+        "final_equity": 9975.51,
+        "net_pnl": -24.49,
+        "return_pct": -0.0024,
+        "max_drawdown_pct": 0.0282,
+        "sharpe_ratio": -0.0554,
+        "sortino_ratio": -0.0304,
+        "total_maker_fees": 61.22,
+        "total_taker_fees": 29.45,
+        "total_churn_cost": 1097.48,
+        "total_realized_grid_profit": 1091.65,
+        "is_bankrupt": false,
+        "liquidations_count": 0,
+        "churn_metrics": {
+          "variant": "HYSTERESIS",
+          "total_regime_exits": 136,
+          "immediate_exits": 136,
+          "atr_trailing_exits": 0,
+          "sl_exits": 0,
+          "recenter_exits": 0,
+          "timeout_exits": 0,
+          "total_taker_fees": 29.44,
+          "total_slippage_cost": 58.89,
+          "total_churn_cost": 88.33,
+          "avg_churn_cost_per_exit": 0.65,
+          "net_pnl_at_exit": -1054.97,
+          "protective_exits_count": 45,
+          "protective_exit_rate": 0.3309,
+          "spurious_exits_count": 49,
+          "spurious_exit_rate": 0.3603,
+          "indeterminate_exits_count": 42
+        }
+      }
+    },
+    "SOLUSDT": {
+      "IMMEDIATE_CLOSE": {
+        "symbol": "SOLUSDT",
+        "timeframe": "4h",
+        "variant": "IMMEDIATE_CLOSE",
+        "initial_capital": 10000.0,
+        "final_wallet": 9727.17,
+        "final_equity": 9727.17,
+        "net_pnl": -272.83,
+        "return_pct": -0.0273,
+        "max_drawdown_pct": 0.0457,
+        "sharpe_ratio": -0.4321,
+        "sortino_ratio": -0.2316,
+        "total_maker_fees": 82.64,
+        "total_taker_fees": 31.41,
+        "total_churn_cost": 1795.33,
+        "total_realized_grid_profit": 1583.12,
+        "is_bankrupt": false,
+        "liquidations_count": 0,
+        "churn_metrics": {
+          "variant": "IMMEDIATE_CLOSE",
+          "total_regime_exits": 116,
+          "immediate_exits": 116,
+          "atr_trailing_exits": 0,
+          "sl_exits": 0,
+          "recenter_exits": 0,
+          "timeout_exits": 0,
+          "total_taker_fees": 31.36,
+          "total_slippage_cost": 62.72,
+          "total_churn_cost": 94.09,
+          "avg_churn_cost_per_exit": 0.81,
+          "net_pnl_at_exit": -1773.01,
+          "protective_exits_count": 42,
+          "protective_exit_rate": 0.3621,
+          "spurious_exits_count": 42,
+          "spurious_exit_rate": 0.3621,
+          "indeterminate_exits_count": 32
+        }
+      },
+      "FREEZE": {
+        "symbol": "SOLUSDT",
+        "timeframe": "4h",
+        "variant": "FREEZE",
+        "initial_capital": 10000.0,
+        "final_wallet": 9664.88,
+        "final_equity": 9664.88,
+        "net_pnl": -335.12,
+        "return_pct": -0.0335,
+        "max_drawdown_pct": 0.1083,
+        "sharpe_ratio": -0.1875,
+        "sortino_ratio": -0.2113,
+        "total_maker_fees": 82.64,
+        "total_taker_fees": 31.73,
+        "total_churn_cost": 0.0,
+        "total_realized_grid_profit": 1583.12,
+        "is_bankrupt": false,
+        "liquidations_count": 0,
+        "churn_metrics": {
+          "variant": "FREEZE",
+          "total_regime_exits": 112,
+          "immediate_exits": 0,
+          "atr_trailing_exits": 0,
+          "sl_exits": 4,
+          "recenter_exits": 108,
+          "timeout_exits": 0,
+          "total_taker_fees": 30.61,
+          "total_slippage_cost": 61.23,
+          "total_churn_cost": 91.84,
+          "avg_churn_cost_per_exit": 0.82,
+          "net_pnl_at_exit": -2349.74,
+          "protective_exits_count": 36,
+          "protective_exit_rate": 0.3214,
+          "spurious_exits_count": 44,
+          "spurious_exit_rate": 0.3929,
+          "indeterminate_exits_count": 32
+        }
+      },
+      "FREEZE_ATR": {
+        "symbol": "SOLUSDT",
+        "timeframe": "4h",
+        "variant": "FREEZE_ATR",
+        "initial_capital": 10000.0,
+        "final_wallet": 9057.8,
+        "final_equity": 9057.8,
+        "net_pnl": -942.2,
+        "return_pct": -0.0942,
+        "max_drawdown_pct": 0.1223,
+        "sharpe_ratio": -1.0261,
+        "sortino_ratio": -0.7391,
+        "total_maker_fees": 82.64,
+        "total_taker_fees": 31.44,
+        "total_churn_cost": 0.0,
+        "total_realized_grid_profit": 1583.12,
+        "is_bankrupt": false,
+        "liquidations_count": 0,
+        "churn_metrics": {
+          "variant": "FREEZE_ATR",
+          "total_regime_exits": 116,
+          "immediate_exits": 0,
+          "atr_trailing_exits": 84,
+          "sl_exits": 0,
+          "recenter_exits": 32,
+          "timeout_exits": 0,
+          "total_taker_fees": 31.39,
+          "total_slippage_cost": 62.78,
+          "total_churn_cost": 94.17,
+          "avg_churn_cost_per_exit": 0.81,
+          "net_pnl_at_exit": -2442.38,
+          "protective_exits_count": 38,
+          "protective_exit_rate": 0.3276,
+          "spurious_exits_count": 40,
+          "spurious_exit_rate": 0.3448,
+          "indeterminate_exits_count": 38
+        }
+      },
+      "HYSTERESIS": {
+        "symbol": "SOLUSDT",
+        "timeframe": "4h",
+        "variant": "HYSTERESIS",
+        "initial_capital": 10000.0,
+        "final_wallet": 9569.18,
+        "final_equity": 9569.18,
+        "net_pnl": -430.82,
+        "return_pct": -0.0431,
+        "max_drawdown_pct": 0.0658,
+        "sharpe_ratio": -0.6607,
+        "sortino_ratio": -0.3685,
+        "total_maker_fees": 86.74,
+        "total_taker_fees": 32.31,
+        "total_churn_cost": 1951.48,
+        "total_realized_grid_profit": 1581.27,
+        "is_bankrupt": false,
+        "liquidations_count": 0,
+        "churn_metrics": {
+          "variant": "HYSTERESIS",
+          "total_regime_exits": 113,
+          "immediate_exits": 113,
+          "atr_trailing_exits": 0,
+          "sl_exits": 0,
+          "recenter_exits": 0,
+          "timeout_exits": 0,
+          "total_taker_fees": 32.26,
+          "total_slippage_cost": 64.51,
+          "total_churn_cost": 96.77,
+          "avg_churn_cost_per_exit": 0.86,
+          "net_pnl_at_exit": -1925.04,
+          "protective_exits_count": 43,
+          "protective_exit_rate": 0.3805,
+          "spurious_exits_count": 42,
+          "spurious_exit_rate": 0.3717,
+          "indeterminate_exits_count": 28
+        }
+      }
+    },
+    "BNBUSDT": {
+      "IMMEDIATE_CLOSE": {
+        "symbol": "BNBUSDT",
+        "timeframe": "4h",
+        "variant": "IMMEDIATE_CLOSE",
+        "initial_capital": 10000.0,
+        "final_wallet": 10083.6,
+        "final_equity": 10083.6,
+        "net_pnl": 83.6,
+        "return_pct": 0.0084,
+        "max_drawdown_pct": 0.0168,
+        "sharpe_ratio": 0.2634,
+        "sortino_ratio": 0.1433,
+        "total_maker_fees": 45.94,
+        "total_taker_fees": 23.55,
+        "total_churn_cost": 815.2,
+        "total_realized_grid_profit": 923.32,
+        "is_bankrupt": false,
+        "liquidations_count": 0,
+        "churn_metrics": {
+          "variant": "IMMEDIATE_CLOSE",
+          "total_regime_exits": 135,
+          "immediate_exits": 135,
+          "atr_trailing_exits": 0,
+          "sl_exits": 0,
+          "recenter_exits": 0,
+          "timeout_exits": 0,
+          "total_taker_fees": 23.55,
+          "total_slippage_cost": 47.1,
+          "total_churn_cost": 70.65,
+          "avg_churn_cost_per_exit": 0.52,
+          "net_pnl_at_exit": -793.78,
+          "protective_exits_count": 27,
+          "protective_exit_rate": 0.2,
+          "spurious_exits_count": 63,
+          "spurious_exit_rate": 0.4667,
+          "indeterminate_exits_count": 45
+        }
+      },
+      "FREEZE": {
+        "symbol": "BNBUSDT",
+        "timeframe": "4h",
+        "variant": "FREEZE",
+        "initial_capital": 10000.0,
+        "final_wallet": 10106.29,
+        "final_equity": 10106.29,
+        "net_pnl": 106.29,
+        "return_pct": 0.0106,
+        "max_drawdown_pct": 0.0464,
+        "sharpe_ratio": 0.1419,
+        "sortino_ratio": 0.1361,
+        "total_maker_fees": 45.94,
+        "total_taker_fees": 23.86,
+        "total_churn_cost": 0.0,
+        "total_realized_grid_profit": 923.32,
+        "is_bankrupt": false,
+        "liquidations_count": 0,
+        "churn_metrics": {
+          "variant": "FREEZE",
+          "total_regime_exits": 133,
+          "immediate_exits": 0,
+          "atr_trailing_exits": 0,
+          "sl_exits": 1,
+          "recenter_exits": 132,
+          "timeout_exits": 0,
+          "total_taker_fees": 23.5,
+          "total_slippage_cost": 47.0,
+          "total_churn_cost": 70.49,
+          "avg_churn_cost_per_exit": 0.53,
+          "net_pnl_at_exit": -816.31,
+          "protective_exits_count": 31,
+          "protective_exit_rate": 0.2331,
+          "spurious_exits_count": 65,
+          "spurious_exit_rate": 0.4887,
+          "indeterminate_exits_count": 37
+        }
+      },
+      "FREEZE_ATR": {
+        "symbol": "BNBUSDT",
+        "timeframe": "4h",
+        "variant": "FREEZE_ATR",
+        "initial_capital": 10000.0,
+        "final_wallet": 10199.58,
+        "final_equity": 10199.58,
+        "net_pnl": 199.58,
+        "return_pct": 0.02,
+        "max_drawdown_pct": 0.0229,
+        "sharpe_ratio": 0.4342,
+        "sortino_ratio": 0.3112,
+        "total_maker_fees": 45.94,
+        "total_taker_fees": 23.57,
+        "total_churn_cost": 0.0,
+        "total_realized_grid_profit": 923.32,
+        "is_bankrupt": false,
+        "liquidations_count": 0,
+        "churn_metrics": {
+          "variant": "FREEZE_ATR",
+          "total_regime_exits": 134,
+          "immediate_exits": 0,
+          "atr_trailing_exits": 84,
+          "sl_exits": 0,
+          "recenter_exits": 50,
+          "timeout_exits": 0,
+          "total_taker_fees": 23.48,
+          "total_slippage_cost": 46.96,
+          "total_churn_cost": 70.44,
+          "avg_churn_cost_per_exit": 0.53,
+          "net_pnl_at_exit": -677.16,
+          "protective_exits_count": 30,
+          "protective_exit_rate": 0.2239,
+          "spurious_exits_count": 60,
+          "spurious_exit_rate": 0.4478,
+          "indeterminate_exits_count": 44
+        }
+      },
+      "HYSTERESIS": {
+        "symbol": "BNBUSDT",
+        "timeframe": "4h",
+        "variant": "HYSTERESIS",
+        "initial_capital": 10000.0,
+        "final_wallet": 10077.83,
+        "final_equity": 10077.83,
+        "net_pnl": 77.83,
+        "return_pct": 0.0078,
+        "max_drawdown_pct": 0.013,
+        "sharpe_ratio": 0.2212,
+        "sortino_ratio": 0.1194,
+        "total_maker_fees": 49.24,
+        "total_taker_fees": 24.06,
+        "total_churn_cost": 838.62,
+        "total_realized_grid_profit": 920.76,
+        "is_bankrupt": false,
+        "liquidations_count": 0,
+        "churn_metrics": {
+          "variant": "HYSTERESIS",
+          "total_regime_exits": 133,
+          "immediate_exits": 133,
+          "atr_trailing_exits": 0,
+          "sl_exits": 0,
+          "recenter_exits": 0,
+          "timeout_exits": 0,
+          "total_taker_fees": 24.06,
+          "total_slippage_cost": 48.12,
+          "total_churn_cost": 72.18,
+          "avg_churn_cost_per_exit": 0.54,
+          "net_pnl_at_exit": -793.68,
+          "protective_exits_count": 20,
+          "protective_exit_rate": 0.1504,
+          "spurious_exits_count": 66,
+          "spurious_exit_rate": 0.4962,
+          "indeterminate_exits_count": 47
+        }
+      }
+    },
+    "XRPUSDT": {
+      "IMMEDIATE_CLOSE": {
+        "symbol": "XRPUSDT",
+        "timeframe": "4h",
+        "variant": "IMMEDIATE_CLOSE",
+        "initial_capital": 10000.0,
+        "final_wallet": 9491.28,
+        "final_equity": 9491.28,
+        "net_pnl": -508.72,
+        "return_pct": -0.0509,
+        "max_drawdown_pct": 0.0676,
+        "sharpe_ratio": -0.8145,
+        "sortino_ratio": -0.3685,
+        "total_maker_fees": 64.88,
+        "total_taker_fees": 31.98,
+        "total_churn_cost": 1603.67,
+        "total_realized_grid_profit": 1133.25,
+        "is_bankrupt": false,
+        "liquidations_count": 0,
+        "churn_metrics": {
+          "variant": "IMMEDIATE_CLOSE",
+          "total_regime_exits": 145,
+          "immediate_exits": 145,
+          "atr_trailing_exits": 0,
+          "sl_exits": 0,
+          "recenter_exits": 0,
+          "timeout_exits": 0,
+          "total_taker_fees": 31.97,
+          "total_slippage_cost": 63.95,
+          "total_churn_cost": 95.92,
+          "avg_churn_cost_per_exit": 0.66,
+          "net_pnl_at_exit": -1577.12,
+          "protective_exits_count": 39,
+          "protective_exit_rate": 0.269,
+          "spurious_exits_count": 68,
+          "spurious_exit_rate": 0.469,
+          "indeterminate_exits_count": 38
+        }
+      },
+      "FREEZE": {
+        "symbol": "XRPUSDT",
+        "timeframe": "4h",
+        "variant": "FREEZE",
+        "initial_capital": 10000.0,
+        "final_wallet": 9105.56,
+        "final_equity": 9105.56,
+        "net_pnl": -894.44,
+        "return_pct": -0.0894,
+        "max_drawdown_pct": 0.1266,
+        "sharpe_ratio": -0.4323,
+        "sortino_ratio": -0.3366,
+        "total_maker_fees": 64.88,
+        "total_taker_fees": 32.4,
+        "total_churn_cost": 0.0,
+        "total_realized_grid_profit": 1133.25,
+        "is_bankrupt": false,
+        "liquidations_count": 0,
+        "churn_metrics": {
+          "variant": "FREEZE",
+          "total_regime_exits": 141,
+          "immediate_exits": 0,
+          "atr_trailing_exits": 0,
+          "sl_exits": 3,
+          "recenter_exits": 138,
+          "timeout_exits": 0,
+          "total_taker_fees": 31.45,
+          "total_slippage_cost": 62.9,
+          "total_churn_cost": 94.35,
+          "avg_churn_cost_per_exit": 0.67,
+          "net_pnl_at_exit": -1897.19,
+          "protective_exits_count": 33,
+          "protective_exit_rate": 0.234,
+          "spurious_exits_count": 73,
+          "spurious_exit_rate": 0.5177,
+          "indeterminate_exits_count": 35
+        }
+      },
+      "FREEZE_ATR": {
+        "symbol": "XRPUSDT",
+        "timeframe": "4h",
+        "variant": "FREEZE_ATR",
+        "initial_capital": 10000.0,
+        "final_wallet": 9566.21,
+        "final_equity": 9566.21,
+        "net_pnl": -433.79,
+        "return_pct": -0.0434,
+        "max_drawdown_pct": 0.0696,
+        "sharpe_ratio": -0.4456,
+        "sortino_ratio": -0.2411,
+        "total_maker_fees": 64.88,
+        "total_taker_fees": 31.71,
+        "total_churn_cost": 0.0,
+        "total_realized_grid_profit": 1133.25,
+        "is_bankrupt": false,
+        "liquidations_count": 0,
+        "churn_metrics": {
+          "variant": "FREEZE_ATR",
+          "total_regime_exits": 145,
+          "immediate_exits": 0,
+          "atr_trailing_exits": 88,
+          "sl_exits": 0,
+          "recenter_exits": 57,
+          "timeout_exits": 0,
+          "total_taker_fees": 31.71,
+          "total_slippage_cost": 63.41,
+          "total_churn_cost": 95.12,
+          "avg_churn_cost_per_exit": 0.66,
+          "net_pnl_at_exit": -1502.2,
+          "protective_exits_count": 40,
+          "protective_exit_rate": 0.2759,
+          "spurious_exits_count": 62,
+          "spurious_exit_rate": 0.4276,
+          "indeterminate_exits_count": 43
+        }
+      },
+      "HYSTERESIS": {
+        "symbol": "XRPUSDT",
+        "timeframe": "4h",
+        "variant": "HYSTERESIS",
+        "initial_capital": 10000.0,
+        "final_wallet": 8745.48,
+        "final_equity": 8745.48,
+        "net_pnl": -1254.52,
+        "return_pct": -0.1255,
+        "max_drawdown_pct": 0.1415,
+        "sharpe_ratio": -0.8562,
+        "sortino_ratio": -0.3486,
+        "total_maker_fees": 69.14,
+        "total_taker_fees": 32.19,
+        "total_churn_cost": 1668.09,
+        "total_realized_grid_profit": 1127.06,
+        "is_bankrupt": false,
+        "liquidations_count": 0,
+        "churn_metrics": {
+          "variant": "HYSTERESIS",
+          "total_regime_exits": 139,
+          "immediate_exits": 138,
+          "atr_trailing_exits": 0,
+          "sl_exits": 1,
+          "recenter_exits": 0,
+          "timeout_exits": 0,
+          "total_taker_fees": 32.19,
+          "total_slippage_cost": 64.38,
+          "total_churn_cost": 96.57,
+          "avg_churn_cost_per_exit": 0.69,
+          "net_pnl_at_exit": -2312.46,
+          "protective_exits_count": 41,
+          "protective_exit_rate": 0.295,
+          "spurious_exits_count": 65,
+          "spurious_exit_rate": 0.4676,
+          "indeterminate_exits_count": 33
+        }
+      }
+    },
+    "ADAUSDT": {
+      "IMMEDIATE_CLOSE": {
+        "symbol": "ADAUSDT",
+        "timeframe": "4h",
+        "variant": "IMMEDIATE_CLOSE",
+        "initial_capital": 10000.0,
+        "final_wallet": 9803.14,
+        "final_equity": 9803.14,
+        "net_pnl": -196.86,
+        "return_pct": -0.0197,
+        "max_drawdown_pct": 0.0432,
+        "sharpe_ratio": -0.2834,
+        "sortino_ratio": -0.1409,
+        "total_maker_fees": 85.12,
+        "total_taker_fees": 32.3,
+        "total_churn_cost": 1779.13,
+        "total_realized_grid_profit": 1630.74,
+        "is_bankrupt": false,
+        "liquidations_count": 0,
+        "churn_metrics": {
+          "variant": "IMMEDIATE_CLOSE",
+          "total_regime_exits": 123,
+          "immediate_exits": 123,
+          "atr_trailing_exits": 0,
+          "sl_exits": 0,
+          "recenter_exits": 0,
+          "timeout_exits": 0,
+          "total_taker_fees": 32.3,
+          "total_slippage_cost": 64.61,
+          "total_churn_cost": 96.91,
+          "avg_churn_cost_per_exit": 0.79,
+          "net_pnl_at_exit": -1742.47,
+          "protective_exits_count": 45,
+          "protective_exit_rate": 0.3659,
+          "spurious_exits_count": 52,
+          "spurious_exit_rate": 0.4228,
+          "indeterminate_exits_count": 26
+        }
+      },
+      "FREEZE": {
+        "symbol": "ADAUSDT",
+        "timeframe": "4h",
+        "variant": "FREEZE",
+        "initial_capital": 10000.0,
+        "final_wallet": 9798.36,
+        "final_equity": 9798.36,
+        "net_pnl": -201.64,
+        "return_pct": -0.0202,
+        "max_drawdown_pct": 0.1165,
+        "sharpe_ratio": -0.061,
+        "sortino_ratio": -0.0759,
+        "total_maker_fees": 85.12,
+        "total_taker_fees": 32.65,
+        "total_churn_cost": 0.0,
+        "total_realized_grid_profit": 1630.74,
+        "is_bankrupt": false,
+        "liquidations_count": 0,
+        "churn_metrics": {
+          "variant": "FREEZE",
+          "total_regime_exits": 121,
+          "immediate_exits": 0,
+          "atr_trailing_exits": 0,
+          "sl_exits": 3,
+          "recenter_exits": 118,
+          "timeout_exits": 0,
+          "total_taker_fees": 32.04,
+          "total_slippage_cost": 64.07,
+          "total_churn_cost": 96.11,
+          "avg_churn_cost_per_exit": 0.79,
+          "net_pnl_at_exit": -1778.62,
+          "protective_exits_count": 37,
+          "protective_exit_rate": 0.3058,
+          "spurious_exits_count": 58,
+          "spurious_exit_rate": 0.4793,
+          "indeterminate_exits_count": 26
+        }
+      },
+      "FREEZE_ATR": {
+        "symbol": "ADAUSDT",
+        "timeframe": "4h",
+        "variant": "FREEZE_ATR",
+        "initial_capital": 10000.0,
+        "final_wallet": 9420.42,
+        "final_equity": 9420.42,
+        "net_pnl": -579.58,
+        "return_pct": -0.058,
+        "max_drawdown_pct": 0.0871,
+        "sharpe_ratio": -0.5771,
+        "sortino_ratio": -0.3653,
+        "total_maker_fees": 85.12,
+        "total_taker_fees": 32.26,
+        "total_churn_cost": 0.0,
+        "total_realized_grid_profit": 1630.74,
+        "is_bankrupt": false,
+        "liquidations_count": 0,
+        "churn_metrics": {
+          "variant": "FREEZE_ATR",
+          "total_regime_exits": 122,
+          "immediate_exits": 0,
+          "atr_trailing_exits": 79,
+          "sl_exits": 0,
+          "recenter_exits": 43,
+          "timeout_exits": 0,
+          "total_taker_fees": 31.96,
+          "total_slippage_cost": 63.92,
+          "total_churn_cost": 95.89,
+          "avg_churn_cost_per_exit": 0.79,
+          "net_pnl_at_exit": -2121.9,
+          "protective_exits_count": 34,
+          "protective_exit_rate": 0.2787,
+          "spurious_exits_count": 53,
+          "spurious_exit_rate": 0.4344,
+          "indeterminate_exits_count": 35
+        }
+      },
+      "HYSTERESIS": {
+        "symbol": "ADAUSDT",
+        "timeframe": "4h",
+        "variant": "HYSTERESIS",
+        "initial_capital": 10000.0,
+        "final_wallet": 9889.1,
+        "final_equity": 9889.1,
+        "net_pnl": -110.9,
+        "return_pct": -0.0111,
+        "max_drawdown_pct": 0.0448,
+        "sharpe_ratio": -0.1481,
+        "sortino_ratio": -0.0723,
+        "total_maker_fees": 88.92,
+        "total_taker_fees": 30.05,
+        "total_churn_cost": 1713.59,
+        "total_realized_grid_profit": 1622.7,
+        "is_bankrupt": false,
+        "liquidations_count": 0,
+        "churn_metrics": {
+          "variant": "HYSTERESIS",
+          "total_regime_exits": 118,
+          "immediate_exits": 118,
+          "atr_trailing_exits": 0,
+          "sl_exits": 0,
+          "recenter_exits": 0,
+          "timeout_exits": 0,
+          "total_taker_fees": 30.05,
+          "total_slippage_cost": 60.1,
+          "total_churn_cost": 90.15,
+          "avg_churn_cost_per_exit": 0.76,
+          "net_pnl_at_exit": -1644.68,
+          "protective_exits_count": 45,
+          "protective_exit_rate": 0.3814,
+          "spurious_exits_count": 48,
+          "spurious_exit_rate": 0.4068,
+          "indeterminate_exits_count": 25
+        }
+      }
+    }
+  },
+  "flicker_stats": {
+    "BTCUSDT": {
+      "1bar_chop_interruption_flickers": 1,
+      "1bar_chop_pulse_flickers": 9,
+      "total_flickers": 10
+    },
+    "ETHUSDT": {
+      "1bar_chop_interruption_flickers": 8,
+      "1bar_chop_pulse_flickers": 10,
+      "total_flickers": 18
+    },
+    "SOLUSDT": {
+      "1bar_chop_interruption_flickers": 3,
+      "1bar_chop_pulse_flickers": 7,
+      "total_flickers": 10
+    },
+    "BNBUSDT": {
+      "1bar_chop_interruption_flickers": 4,
+      "1bar_chop_pulse_flickers": 4,
+      "total_flickers": 8
+    },
+    "XRPUSDT": {
+      "1bar_chop_interruption_flickers": 6,
+      "1bar_chop_pulse_flickers": 10,
+      "total_flickers": 16
+    },
+    "ADAUSDT": {
+      "1bar_chop_interruption_flickers": 5,
+      "1bar_chop_pulse_flickers": 5,
+      "total_flickers": 10
+    }
+  },
+  "portfolio_results": {
+    "IMMEDIATE_CLOSE": {
+      "symbol": "PORTFOLIO_6ASSETS",
+      "timeframe": "4h",
+      "variant": "IMMEDIATE_CLOSE",
+      "initial_capital": 10000.0,
+      "final_wallet": 8185.05,
+      "final_equity": 8185.05,
+      "net_pnl": -1814.95,
+      "return_pct": -0.1815,
+      "max_drawdown_pct": 0.2232,
+      "sharpe_ratio": -0.803,
+      "sortino_ratio": -0.5645,
+      "total_maker_fees": 547.41,
+      "total_taker_fees": 255.86,
+      "total_churn_cost": 11760.88,
+      "total_realized_grid_profit": 10282.36,
+      "is_bankrupt": false,
+      "liquidations_count": 0,
+      "churn_metrics": {
+        "variant": "IMMEDIATE_CLOSE",
+        "total_regime_exits": 790,
+        "immediate_exits": 790,
+        "atr_trailing_exits": 0,
+        "sl_exits": 0,
+        "recenter_exits": 0,
+        "timeout_exits": 0,
+        "total_taker_fees": 255.76,
+        "total_slippage_cost": 511.53,
+        "total_churn_cost": 767.29,
+        "avg_churn_cost_per_exit": 0.97,
+        "net_pnl_at_exit": -11549.55,
+        "protective_exits_count": 219,
+        "protective_exit_rate": 0.2772,
+        "spurious_exits_count": 336,
+        "spurious_exit_rate": 0.4253,
+        "indeterminate_exits_count": 235
+      }
+    },
+    "FREEZE": {
+      "symbol": "PORTFOLIO_6ASSETS",
+      "timeframe": "4h",
+      "variant": "FREEZE",
+      "initial_capital": 10000.0,
+      "final_wallet": 6099.05,
+      "final_equity": 6099.05,
+      "net_pnl": -3900.95,
+      "return_pct": -0.3901,
+      "max_drawdown_pct": 0.5204,
+      "sharpe_ratio": -0.4482,
+      "sortino_ratio": -0.4941,
+      "total_maker_fees": 485.96,
+      "total_taker_fees": 229.07,
+      "total_churn_cost": 0.0,
+      "total_realized_grid_profit": 9181.55,
+      "is_bankrupt": false,
+      "liquidations_count": 0,
+      "churn_metrics": {
+        "variant": "FREEZE",
+        "total_regime_exits": 752,
+        "immediate_exits": 0,
+        "atr_trailing_exits": 0,
+        "sl_exits": 12,
+        "recenter_exits": 740,
+        "timeout_exits": 0,
+        "total_taker_fees": 224.93,
+        "total_slippage_cost": 449.87,
+        "total_churn_cost": 674.8,
+        "avg_churn_cost_per_exit": 0.9,
+        "net_pnl_at_exit": -13218.95,
+        "protective_exits_count": 194,
+        "protective_exit_rate": 0.258,
+        "spurious_exits_count": 352,
+        "spurious_exit_rate": 0.4681,
+        "indeterminate_exits_count": 206
+      }
+    },
+    "FREEZE_ATR": {
+      "symbol": "PORTFOLIO_6ASSETS",
+      "timeframe": "4h",
+      "variant": "FREEZE_ATR",
+      "initial_capital": 10000.0,
+      "final_wallet": 5907.8,
+      "final_equity": 5907.8,
+      "net_pnl": -4092.2,
+      "return_pct": -0.4092,
+      "max_drawdown_pct": 0.4552,
+      "sharpe_ratio": -1.2165,
+      "sortino_ratio": -1.0578,
+      "total_maker_fees": 520.63,
+      "total_taker_fees": 239.6,
+      "total_churn_cost": 0.0,
+      "total_realized_grid_profit": 9776.23,
+      "is_bankrupt": false,
+      "liquidations_count": 0,
+      "churn_metrics": {
+        "variant": "FREEZE_ATR",
+        "total_regime_exits": 756,
+        "immediate_exits": 0,
+        "atr_trailing_exits": 506,
+        "sl_exits": 0,
+        "recenter_exits": 250,
+        "timeout_exits": 0,
+        "total_taker_fees": 239.0,
+        "total_slippage_cost": 478.0,
+        "total_churn_cost": 717.01,
+        "avg_churn_cost_per_exit": 0.95,
+        "net_pnl_at_exit": -13341.94,
+        "protective_exits_count": 204,
+        "protective_exit_rate": 0.2698,
+        "spurious_exits_count": 302,
+        "spurious_exit_rate": 0.3995,
+        "indeterminate_exits_count": 250
+      }
+    },
+    "HYSTERESIS": {
+      "symbol": "PORTFOLIO_6ASSETS",
+      "timeframe": "4h",
+      "variant": "HYSTERESIS",
+      "initial_capital": 10000.0,
+      "final_wallet": 7220.31,
+      "final_equity": 7220.31,
+      "net_pnl": -2779.69,
+      "return_pct": -0.278,
+      "max_drawdown_pct": 0.3197,
+      "sharpe_ratio": -0.8316,
+      "sortino_ratio": -0.5166,
+      "total_maker_fees": 574.73,
+      "total_taker_fees": 251.39,
+      "total_churn_cost": 11726.12,
+      "total_realized_grid_profit": 10196.07,
+      "is_bankrupt": false,
+      "liquidations_count": 0,
+      "churn_metrics": {
+        "variant": "HYSTERESIS",
+        "total_regime_exits": 762,
+        "immediate_exits": 761,
+        "atr_trailing_exits": 0,
+        "sl_exits": 1,
+        "recenter_exits": 0,
+        "timeout_exits": 0,
+        "total_taker_fees": 251.31,
+        "total_slippage_cost": 502.62,
+        "total_churn_cost": 753.94,
+        "avg_churn_cost_per_exit": 0.99,
+        "net_pnl_at_exit": -12400.77,
+        "protective_exits_count": 219,
+        "protective_exit_rate": 0.2874,
+        "spurious_exits_count": 330,
+        "spurious_exit_rate": 0.4331,
+        "indeterminate_exits_count": 213
+      }
+    }
+  },
+  "bootstrap_results": {
+    "FREEZE": {
+      "candidate_variant": "FREEZE",
+      "reference_variant": "IMMEDIATE_CLOSE",
+      "iterations": 2000,
+      "block_days": 30,
+      "delta_pnl": {
+        "mean": -1684.4135,
+        "median": -2075.1151,
+        "std": 2347.6012,
+        "ci_lower_95": -5190.3754,
+        "ci_upper_95": 3767.7658
+      },
+      "delta_return": {
+        "mean": -0.1684,
+        "median": -0.2075,
+        "std": 0.2348,
+        "ci_lower_95": -0.519,
+        "ci_upper_95": 0.3768
+      },
+      "delta_sharpe": {
+        "mean": 0.3338,
+        "median": 0.3354,
+        "std": 0.5277,
+        "ci_lower_95": -0.7107,
+        "ci_upper_95": 1.3576
+      },
+      "p_superiority": 0.2005,
+      "p_value": 0.7995,
+      "is_significant": false
+    },
+    "FREEZE_ATR": {
+      "candidate_variant": "FREEZE_ATR",
+      "reference_variant": "IMMEDIATE_CLOSE",
+      "iterations": 2000,
+      "block_days": 30,
+      "delta_pnl": {
+        "mean": -2200.9856,
+        "median": -2262.4559,
+        "std": 796.6009,
+        "ci_lower_95": -3552.5192,
+        "ci_upper_95": -400.0195
+      },
+      "delta_return": {
+        "mean": -0.2201,
+        "median": -0.2262,
+        "std": 0.0797,
+        "ci_lower_95": -0.3553,
+        "ci_upper_95": -0.04
+      },
+      "delta_sharpe": {
+        "mean": -0.4198,
+        "median": -0.4263,
+        "std": 0.3441,
+        "ci_lower_95": -1.0824,
+        "ci_upper_95": 0.2873
+      },
+      "p_superiority": 0.014,
+      "p_value": 0.986,
+      "is_significant": false
+    },
+    "HYSTERESIS": {
+      "candidate_variant": "HYSTERESIS",
+      "reference_variant": "IMMEDIATE_CLOSE",
+      "iterations": 2000,
+      "block_days": 30,
+      "delta_pnl": {
+        "mean": -902.6894,
+        "median": -886.9692,
+        "std": 708.388,
+        "ci_lower_95": -2270.1892,
+        "ci_upper_95": 429.0127
+      },
+      "delta_return": {
+        "mean": -0.0903,
+        "median": -0.0887,
+        "std": 0.0708,
+        "ci_lower_95": -0.227,
+        "ci_upper_95": 0.0429
+      },
+      "delta_sharpe": {
+        "mean": -0.0328,
+        "median": -0.0263,
+        "std": 0.2003,
+        "ci_lower_95": -0.4242,
+        "ci_upper_95": 0.3504
+      },
+      "p_superiority": 0.1065,
+      "p_value": 0.8935,
+      "is_significant": false
+    }
+  },
+  "wfa_reports": {
+    "BTCUSDT": {
+      "symbol": "BTCUSDT",
+      "timeframe": "4h",
+      "total_cycles": 18,
+      "aggregate_oos_pnl": {
+        "IMMEDIATE_CLOSE": -75.59,
+        "FREEZE": -648.18,
+        "FREEZE_ATR": -264.9,
+        "HYSTERESIS": -56.38
+      },
+      "aggregate_oos_return": {
+        "IMMEDIATE_CLOSE": -0.0076,
+        "FREEZE": -0.0648,
+        "FREEZE_ATR": -0.0265,
+        "HYSTERESIS": -0.0056
+      },
+      "aggregate_oos_max_dd": {
+        "IMMEDIATE_CLOSE": 0.0061,
+        "FREEZE": 0.0397,
+        "FREEZE_ATR": 0.0141,
+        "HYSTERESIS": 0.0059
+      },
+      "aggregate_oos_sharpe": {
+        "IMMEDIATE_CLOSE": 0.1226,
+        "FREEZE": -0.8496,
+        "FREEZE_ATR": -0.5416,
+        "HYSTERESIS": 0.3345
+      },
+      "aggregate_oos_churn_cost": {
+        "IMMEDIATE_CLOSE": 497.79,
+        "FREEZE": 0.0,
+        "FREEZE_ATR": 0.0,
+        "HYSTERESIS": 462.81
+      },
+      "cycle_summaries": [
+        {
+          "cycle": 0,
+          "pnl": {
+            "IMMEDIATE_CLOSE": 27.27,
+            "FREEZE": 4.81,
+            "FREEZE_ATR": 26.49,
+            "HYSTERESIS": 28.49
+          },
+          "max_dd": {
+            "IMMEDIATE_CLOSE": 0.0003,
+            "FREEZE": 0.0032,
+            "FREEZE_ATR": 0.0007,
+            "HYSTERESIS": 0.0003
+          }
+        },
+        {
+          "cycle": 1,
+          "pnl": {
+            "IMMEDIATE_CLOSE": -0.44,
+            "FREEZE": -27.8,
+            "FREEZE_ATR": -1.79,
+            "HYSTERESIS": -2.26
+          },
+          "max_dd": {
+            "IMMEDIATE_CLOSE": 0.0004,
+            "FREEZE": 0.0062,
+            "FREEZE_ATR": 0.0005,
+            "HYSTERESIS": 0.0005
+          }
+        },
+        {
+          "cycle": 2,
+          "pnl": {
+            "IMMEDIATE_CLOSE": 11.71,
+            "FREEZE": 0.26,
+            "FREEZE_ATR": 11.79,
+            "HYSTERESIS": 16.62
+          },
+          "max_dd": {
+            "IMMEDIATE_CLOSE": 0.001,
+            "FREEZE": 0.0034,
+            "FREEZE_ATR": 0.0027,
+            "HYSTERESIS": 0.0011
+          }
+        },
+        {
+          "cycle": 3,
+          "pnl": {
+            "IMMEDIATE_CLOSE": -43.8,
+            "FREEZE": -86.98,
+            "FREEZE_ATR": -52.59,
+            "HYSTERESIS": -38.33
+          },
+          "max_dd": {
+            "IMMEDIATE_CLOSE": 0.0053,
+            "FREEZE": 0.0128,
+            "FREEZE_ATR": 0.0067,
+            "HYSTERESIS": 0.0047
+          }
+        },
+        {
+          "cycle": 4,
+          "pnl": {
+            "IMMEDIATE_CLOSE": -59.01,
+            "FREEZE": -350.44,
+            "FREEZE_ATR": -138.53,
+            "HYSTERESIS": -50.78
+          },
+          "max_dd": {
+            "IMMEDIATE_CLOSE": 0.0061,
+            "FREEZE": 0.0397,
+            "FREEZE_ATR": 0.0141,
+            "HYSTERESIS": 0.0059
+          }
+        },
+        {
+          "cycle": 5,
+          "pnl": {
+            "IMMEDIATE_CLOSE": -1.92,
+            "FREEZE": -53.2,
+            "FREEZE_ATR": -15.55,
+            "HYSTERESIS": -1.93
+          },
+          "max_dd": {
+            "IMMEDIATE_CLOSE": 0.0031,
+            "FREEZE": 0.0095,
+            "FREEZE_ATR": 0.0041,
+            "HYSTERESIS": 0.0029
+          }
+        },
+        {
+          "cycle": 6,
+          "pnl": {
+            "IMMEDIATE_CLOSE": 16.19,
+            "FREEZE": 22.66,
+            "FREEZE_ATR": 57.65,
+            "HYSTERESIS": 22.2
+          },
+          "max_dd": {
+            "IMMEDIATE_CLOSE": 0.0013,
+            "FREEZE": 0.0095,
+            "FREEZE_ATR": 0.0013,
+            "HYSTERESIS": 0.0013
+          }
+        },
+        {
+          "cycle": 7,
+          "pnl": {
+            "IMMEDIATE_CLOSE": -4.92,
+            "FREEZE": 6.95,
+            "FREEZE_ATR": -2.41,
+            "HYSTERESIS": -3.89
+          },
+          "max_dd": {
+            "IMMEDIATE_CLOSE": 0.0006,
+            "FREEZE": 0.0018,
+            "FREEZE_ATR": 0.0011,
+            "HYSTERESIS": 0.0005
+          }
+        },
+        {
+          "cycle": 8,
+          "pnl": {
+            "IMMEDIATE_CLOSE": 13.43,
+            "FREEZE": -61.99,
+            "FREEZE_ATR": 38.26,
+            "HYSTERESIS": 19.18
+          },
+          "max_dd": {
+            "IMMEDIATE_CLOSE": 0.0016,
+            "FREEZE": 0.0146,
+            "FREEZE_ATR": 0.0022,
+            "HYSTERESIS": 0.0016
+          }
+        },
+        {
+          "cycle": 9,
+          "pnl": {
+            "IMMEDIATE_CLOSE": 35.04,
+            "FREEZE": 10.95,
+            "FREEZE_ATR": 10.81,
+            "HYSTERESIS": 29.76
+          },
+          "max_dd": {
+            "IMMEDIATE_CLOSE": 0.0019,
+            "FREEZE": 0.0048,
+            "FREEZE_ATR": 0.0035,
+            "HYSTERESIS": 0.002
+          }
+        },
+        {
+          "cycle": 10,
+          "pnl": {
+            "IMMEDIATE_CLOSE": -30.56,
+            "FREEZE": 7.29,
+            "FREEZE_ATR": -91.94,
+            "HYSTERESIS": -41.33
+          },
+          "max_dd": {
+            "IMMEDIATE_CLOSE": 0.004,
+            "FREEZE": 0.0071,
+            "FREEZE_ATR": 0.0098,
+            "HYSTERESIS": 0.005
+          }
+        },
+        {
+          "cycle": 11,
+          "pnl": {
+            "IMMEDIATE_CLOSE": 1.35,
+            "FREEZE": 5.1,
+            "FREEZE_ATR": 14.39,
+            "HYSTERESIS": 6.12
+          },
+          "max_dd": {
+            "IMMEDIATE_CLOSE": 0.0014,
+            "FREEZE": 0.0025,
+            "FREEZE_ATR": 0.0015,
+            "HYSTERESIS": 0.0013
+          }
+        },
+        {
+          "cycle": 12,
+          "pnl": {
+            "IMMEDIATE_CLOSE": 6.51,
+            "FREEZE": -17.9,
+            "FREEZE_ATR": -2.32,
+            "HYSTERESIS": 10.22
+          },
+          "max_dd": {
+            "IMMEDIATE_CLOSE": 0.0011,
+            "FREEZE": 0.0049,
+            "FREEZE_ATR": 0.0016,
+            "HYSTERESIS": 0.0009
+          }
+        },
+        {
+          "cycle": 13,
+          "pnl": {
+            "IMMEDIATE_CLOSE": -2.86,
+            "FREEZE": -12.69,
+            "FREEZE_ATR": -24.01,
+            "HYSTERESIS": -22.04
+          },
+          "max_dd": {
+            "IMMEDIATE_CLOSE": 0.0008,
+            "FREEZE": 0.0041,
+            "FREEZE_ATR": 0.0026,
+            "HYSTERESIS": 0.0025
+          }
+        },
+        {
+          "cycle": 14,
+          "pnl": {
+            "IMMEDIATE_CLOSE": -30.02,
+            "FREEZE": -14.74,
+            "FREEZE_ATR": -77.37,
+            "HYSTERESIS": -34.46
+          },
+          "max_dd": {
+            "IMMEDIATE_CLOSE": 0.0031,
+            "FREEZE": 0.0114,
+            "FREEZE_ATR": 0.0079,
+            "HYSTERESIS": 0.0036
+          }
+        },
+        {
+          "cycle": 15,
+          "pnl": {
+            "IMMEDIATE_CLOSE": -11.04,
+            "FREEZE": -79.58,
+            "FREEZE_ATR": -39.44,
+            "HYSTERESIS": -1.77
+          },
+          "max_dd": {
+            "IMMEDIATE_CLOSE": 0.0022,
+            "FREEZE": 0.0107,
+            "FREEZE_ATR": 0.0048,
+            "HYSTERESIS": 0.0025
+          }
+        },
+        {
+          "cycle": 16,
+          "pnl": {
+            "IMMEDIATE_CLOSE": -5.99,
+            "FREEZE": 65.52,
+            "FREEZE_ATR": 28.64,
+            "HYSTERESIS": -0.01
+          },
+          "max_dd": {
+            "IMMEDIATE_CLOSE": 0.0048,
+            "FREEZE": 0.0051,
+            "FREEZE_ATR": 0.0054,
+            "HYSTERESIS": 0.0048
+          }
+        },
+        {
+          "cycle": 17,
+          "pnl": {
+            "IMMEDIATE_CLOSE": 3.47,
+            "FREEZE": -66.4,
+            "FREEZE_ATR": -7.01,
+            "HYSTERESIS": 7.82
+          },
+          "max_dd": {
+            "IMMEDIATE_CLOSE": 0.0012,
+            "FREEZE": 0.0103,
+            "FREEZE_ATR": 0.0025,
+            "HYSTERESIS": 0.001
+          }
+        }
+      ]
+    },
+    "SOLUSDT": {
+      "symbol": "SOLUSDT",
+      "timeframe": "4h",
+      "total_cycles": 18,
+      "aggregate_oos_pnl": {
+        "IMMEDIATE_CLOSE": -338.4,
+        "FREEZE": -1079.73,
+        "FREEZE_ATR": -1022.38,
+        "HYSTERESIS": -515.96
+      },
+      "aggregate_oos_return": {
+        "IMMEDIATE_CLOSE": -0.0338,
+        "FREEZE": -0.108,
+        "FREEZE_ATR": -0.1022,
+        "HYSTERESIS": -0.0516
+      },
+      "aggregate_oos_max_dd": {
+        "IMMEDIATE_CLOSE": 0.0236,
+        "FREEZE": 0.0471,
+        "FREEZE_ATR": 0.0333,
+        "HYSTERESIS": 0.0305
+      },
+      "aggregate_oos_sharpe": {
+        "IMMEDIATE_CLOSE": 0.1929,
+        "FREEZE": -0.5221,
+        "FREEZE_ATR": -1.1915,
+        "HYSTERESIS": -0.3125
+      },
+      "aggregate_oos_churn_cost": {
+        "IMMEDIATE_CLOSE": 1581.99,
+        "FREEZE": 0.0,
+        "FREEZE_ATR": 0.0,
+        "HYSTERESIS": 1757.83
+      },
+      "cycle_summaries": [
+        {
+          "cycle": 0,
+          "pnl": {
+            "IMMEDIATE_CLOSE": -81.8,
+            "FREEZE": -263.69,
+            "FREEZE_ATR": -142.43,
+            "HYSTERESIS": -85.5
+          },
+          "max_dd": {
+            "IMMEDIATE_CLOSE": 0.0117,
+            "FREEZE": 0.0425,
+            "FREEZE_ATR": 0.0172,
+            "HYSTERESIS": 0.0114
+          }
+        },
+        {
+          "cycle": 1,
+          "pnl": {
+            "IMMEDIATE_CLOSE": -22.68,
+            "FREEZE": 190.36,
+            "FREEZE_ATR": -65.53,
+            "HYSTERESIS": -20.61
+          },
+          "max_dd": {
+            "IMMEDIATE_CLOSE": 0.0025,
+            "FREEZE": 0.0049,
+            "FREEZE_ATR": 0.0068,
+            "HYSTERESIS": 0.0026
+          }
+        },
+        {
+          "cycle": 2,
+          "pnl": {
+            "IMMEDIATE_CLOSE": 23.75,
+            "FREEZE": -247.82,
+            "FREEZE_ATR": -15.44,
+            "HYSTERESIS": 22.05
+          },
+          "max_dd": {
+            "IMMEDIATE_CLOSE": 0.009,
+            "FREEZE": 0.034,
+            "FREEZE_ATR": 0.0158,
+            "HYSTERESIS": 0.0093
+          }
+        },
+        {
+          "cycle": 3,
+          "pnl": {
+            "IMMEDIATE_CLOSE": 108.9,
+            "FREEZE": 204.71,
+            "FREEZE_ATR": -21.85,
+            "HYSTERESIS": 112.97
+          },
+          "max_dd": {
+            "IMMEDIATE_CLOSE": 0.0037,
+            "FREEZE": 0.0114,
+            "FREEZE_ATR": 0.0113,
+            "HYSTERESIS": 0.0037
+          }
+        },
+        {
+          "cycle": 4,
+          "pnl": {
+            "IMMEDIATE_CLOSE": -175.83,
+            "FREEZE": -202.42,
+            "FREEZE_ATR": -214.08,
+            "HYSTERESIS": -140.27
+          },
+          "max_dd": {
+            "IMMEDIATE_CLOSE": 0.0236,
+            "FREEZE": 0.0466,
+            "FREEZE_ATR": 0.0307,
+            "HYSTERESIS": 0.02
+          }
+        },
+        {
+          "cycle": 5,
+          "pnl": {
+            "IMMEDIATE_CLOSE": 48.0,
+            "FREEZE": 91.26,
+            "FREEZE_ATR": 34.98,
+            "HYSTERESIS": 20.71
+          },
+          "max_dd": {
+            "IMMEDIATE_CLOSE": 0.0039,
+            "FREEZE": 0.0203,
+            "FREEZE_ATR": 0.0087,
+            "HYSTERESIS": 0.007
+          }
+        },
+        {
+          "cycle": 6,
+          "pnl": {
+            "IMMEDIATE_CLOSE": -1.98,
+            "FREEZE": -145.49,
+            "FREEZE_ATR": 23.85,
+            "HYSTERESIS": -3.67
+          },
+          "max_dd": {
+            "IMMEDIATE_CLOSE": 0.0071,
+            "FREEZE": 0.0471,
+            "FREEZE_ATR": 0.0121,
+            "HYSTERESIS": 0.0072
+          }
+        },
+        {
+          "cycle": 7,
+          "pnl": {
+            "IMMEDIATE_CLOSE": 11.54,
+            "FREEZE": -21.66,
+            "FREEZE_ATR": -46.46,
+            "HYSTERESIS": -30.58
+          },
+          "max_dd": {
+            "IMMEDIATE_CLOSE": 0.0036,
+            "FREEZE": 0.0137,
+            "FREEZE_ATR": 0.01,
+            "HYSTERESIS": 0.0073
+          }
+        },
+        {
+          "cycle": 8,
+          "pnl": {
+            "IMMEDIATE_CLOSE": -11.57,
+            "FREEZE": 43.83,
+            "FREEZE_ATR": -51.99,
+            "HYSTERESIS": -42.15
+          },
+          "max_dd": {
+            "IMMEDIATE_CLOSE": 0.0079,
+            "FREEZE": 0.0141,
+            "FREEZE_ATR": 0.0129,
+            "HYSTERESIS": 0.0092
+          }
+        },
+        {
+          "cycle": 9,
+          "pnl": {
+            "IMMEDIATE_CLOSE": -34.66,
+            "FREEZE": -217.03,
+            "FREEZE_ATR": -87.87,
+            "HYSTERESIS": -72.69
+          },
+          "max_dd": {
+            "IMMEDIATE_CLOSE": 0.0071,
+            "FREEZE": 0.0334,
+            "FREEZE_ATR": 0.0126,
+            "HYSTERESIS": 0.0132
+          }
+        },
+        {
+          "cycle": 10,
+          "pnl": {
+            "IMMEDIATE_CLOSE": -203.08,
+            "FREEZE": -71.48,
+            "FREEZE_ATR": -327.39,
+            "HYSTERESIS": -272.64
+          },
+          "max_dd": {
+            "IMMEDIATE_CLOSE": 0.0234,
+            "FREEZE": 0.0211,
+            "FREEZE_ATR": 0.0333,
+            "HYSTERESIS": 0.0305
+          }
+        },
+        {
+          "cycle": 11,
+          "pnl": {
+            "IMMEDIATE_CLOSE": 5.7,
+            "FREEZE": 0.89,
+            "FREEZE_ATR": -56.69,
+            "HYSTERESIS": 1.44
+          },
+          "max_dd": {
+            "IMMEDIATE_CLOSE": 0.0045,
+            "FREEZE": 0.0142,
+            "FREEZE_ATR": 0.0107,
+            "HYSTERESIS": 0.0061
+          }
+        },
+        {
+          "cycle": 12,
+          "pnl": {
+            "IMMEDIATE_CLOSE": 18.9,
+            "FREEZE": -11.28,
+            "FREEZE_ATR": -31.9,
+            "HYSTERESIS": 11.58
+          },
+          "max_dd": {
+            "IMMEDIATE_CLOSE": 0.0017,
+            "FREEZE": 0.0103,
+            "FREEZE_ATR": 0.0042,
+            "HYSTERESIS": 0.0014
+          }
+        },
+        {
+          "cycle": 13,
+          "pnl": {
+            "IMMEDIATE_CLOSE": -45.76,
+            "FREEZE": -216.75,
+            "FREEZE_ATR": -76.42,
+            "HYSTERESIS": -66.28
+          },
+          "max_dd": {
+            "IMMEDIATE_CLOSE": 0.0089,
+            "FREEZE": 0.0274,
+            "FREEZE_ATR": 0.0114,
+            "HYSTERESIS": 0.0089
+          }
+        },
+        {
+          "cycle": 14,
+          "pnl": {
+            "IMMEDIATE_CLOSE": -57.82,
+            "FREEZE": 5.36,
+            "FREEZE_ATR": -13.86,
+            "HYSTERESIS": -42.08
+          },
+          "max_dd": {
+            "IMMEDIATE_CLOSE": 0.0107,
+            "FREEZE": 0.0263,
+            "FREEZE_ATR": 0.0182,
+            "HYSTERESIS": 0.0098
+          }
+        },
+        {
+          "cycle": 15,
+          "pnl": {
+            "IMMEDIATE_CLOSE": 51.68,
+            "FREEZE": -255.05,
+            "FREEZE_ATR": 27.75,
+            "HYSTERESIS": 54.81
+          },
+          "max_dd": {
+            "IMMEDIATE_CLOSE": 0.0024,
+            "FREEZE": 0.0312,
+            "FREEZE_ATR": 0.004,
+            "HYSTERESIS": 0.003
+          }
+        },
+        {
+          "cycle": 16,
+          "pnl": {
+            "IMMEDIATE_CLOSE": 1.11,
+            "FREEZE": 95.35,
+            "FREEZE_ATR": 25.04,
+            "HYSTERESIS": 13.12
+          },
+          "max_dd": {
+            "IMMEDIATE_CLOSE": 0.0056,
+            "FREEZE": 0.008,
+            "FREEZE_ATR": 0.0064,
+            "HYSTERESIS": 0.0054
+          }
+        },
+        {
+          "cycle": 17,
+          "pnl": {
+            "IMMEDIATE_CLOSE": 27.17,
+            "FREEZE": -58.84,
+            "FREEZE_ATR": 17.92,
+            "HYSTERESIS": 23.82
+          },
+          "max_dd": {
+            "IMMEDIATE_CLOSE": 0.001,
+            "FREEZE": 0.0132,
+            "FREEZE_ATR": 0.0019,
+            "HYSTERESIS": 0.001
+          }
+        }
+      ]
+    },
+    "ETHUSDT": {
+      "symbol": "ETHUSDT",
+      "timeframe": "4h",
+      "total_cycles": 18,
+      "aggregate_oos_pnl": {
+        "IMMEDIATE_CLOSE": -213.84,
+        "FREEZE": -1102.7,
+        "FREEZE_ATR": -698.09,
+        "HYSTERESIS": -39.13
+      },
+      "aggregate_oos_return": {
+        "IMMEDIATE_CLOSE": -0.0214,
+        "FREEZE": -0.1103,
+        "FREEZE_ATR": -0.0698,
+        "HYSTERESIS": -0.0039
+      },
+      "aggregate_oos_max_dd": {
+        "IMMEDIATE_CLOSE": 0.0132,
+        "FREEZE": 0.0431,
+        "FREEZE_ATR": 0.0196,
+        "HYSTERESIS": 0.0148
+      },
+      "aggregate_oos_sharpe": {
+        "IMMEDIATE_CLOSE": 0.1066,
+        "FREEZE": -1.3554,
+        "FREEZE_ATR": -1.0466,
+        "HYSTERESIS": 0.6044
+      },
+      "aggregate_oos_churn_cost": {
+        "IMMEDIATE_CLOSE": 1043.83,
+        "FREEZE": 0.0,
+        "FREEZE_ATR": 0.0,
+        "HYSTERESIS": 927.57
+      },
+      "cycle_summaries": [
+        {
+          "cycle": 0,
+          "pnl": {
+            "IMMEDIATE_CLOSE": 10.09,
+            "FREEZE": -2.83,
+            "FREEZE_ATR": 1.14,
+            "HYSTERESIS": -3.49
+          },
+          "max_dd": {
+            "IMMEDIATE_CLOSE": 0.001,
+            "FREEZE": 0.0026,
+            "FREEZE_ATR": 0.0017,
+            "HYSTERESIS": 0.0023
+          }
+        },
+        {
+          "cycle": 1,
+          "pnl": {
+            "IMMEDIATE_CLOSE": -3.5,
+            "FREEZE": -59.65,
+            "FREEZE_ATR": -9.91,
+            "HYSTERESIS": 5.13
+          },
+          "max_dd": {
+            "IMMEDIATE_CLOSE": 0.0011,
+            "FREEZE": 0.0113,
+            "FREEZE_ATR": 0.0016,
+            "HYSTERESIS": 0.0007
+          }
+        },
+        {
+          "cycle": 2,
+          "pnl": {
+            "IMMEDIATE_CLOSE": -2.32,
+            "FREEZE": -1.04,
+            "FREEZE_ATR": -0.01,
+            "HYSTERESIS": 17.86
+          },
+          "max_dd": {
+            "IMMEDIATE_CLOSE": 0.0047,
+            "FREEZE": 0.0072,
+            "FREEZE_ATR": 0.0053,
+            "HYSTERESIS": 0.0036
+          }
+        },
+        {
+          "cycle": 3,
+          "pnl": {
+            "IMMEDIATE_CLOSE": 13.91,
+            "FREEZE": -71.83,
+            "FREEZE_ATR": 14.74,
+            "HYSTERESIS": 20.74
+          },
+          "max_dd": {
+            "IMMEDIATE_CLOSE": 0.0019,
+            "FREEZE": 0.0187,
+            "FREEZE_ATR": 0.0034,
+            "HYSTERESIS": 0.0018
+          }
+        },
+        {
+          "cycle": 4,
+          "pnl": {
+            "IMMEDIATE_CLOSE": 15.84,
+            "FREEZE": 41.83,
+            "FREEZE_ATR": -54.17,
+            "HYSTERESIS": 37.36
+          },
+          "max_dd": {
+            "IMMEDIATE_CLOSE": 0.0048,
+            "FREEZE": 0.0138,
+            "FREEZE_ATR": 0.0101,
+            "HYSTERESIS": 0.0046
+          }
+        },
+        {
+          "cycle": 5,
+          "pnl": {
+            "IMMEDIATE_CLOSE": -16.51,
+            "FREEZE": -82.27,
+            "FREEZE_ATR": -46.5,
+            "HYSTERESIS": 6.93
+          },
+          "max_dd": {
+            "IMMEDIATE_CLOSE": 0.0053,
+            "FREEZE": 0.0151,
+            "FREEZE_ATR": 0.0093,
+            "HYSTERESIS": 0.0031
+          }
+        },
+        {
+          "cycle": 6,
+          "pnl": {
+            "IMMEDIATE_CLOSE": 40.53,
+            "FREEZE": -75.12,
+            "FREEZE_ATR": 19.81,
+            "HYSTERESIS": 40.8
+          },
+          "max_dd": {
+            "IMMEDIATE_CLOSE": 0.0015,
+            "FREEZE": 0.0181,
+            "FREEZE_ATR": 0.0043,
+            "HYSTERESIS": 0.0018
+          }
+        },
+        {
+          "cycle": 7,
+          "pnl": {
+            "IMMEDIATE_CLOSE": -37.93,
+            "FREEZE": -146.02,
+            "FREEZE_ATR": -89.26,
+            "HYSTERESIS": -40.16
+          },
+          "max_dd": {
+            "IMMEDIATE_CLOSE": 0.0041,
+            "FREEZE": 0.0175,
+            "FREEZE_ATR": 0.0095,
+            "HYSTERESIS": 0.005
+          }
+        },
+        {
+          "cycle": 8,
+          "pnl": {
+            "IMMEDIATE_CLOSE": -4.49,
+            "FREEZE": -5.1,
+            "FREEZE_ATR": -84.47,
+            "HYSTERESIS": -6.14
+          },
+          "max_dd": {
+            "IMMEDIATE_CLOSE": 0.0053,
+            "FREEZE": 0.015,
+            "FREEZE_ATR": 0.0111,
+            "HYSTERESIS": 0.0059
+          }
+        },
+        {
+          "cycle": 9,
+          "pnl": {
+            "IMMEDIATE_CLOSE": 74.27,
+            "FREEZE": 115.34,
+            "FREEZE_ATR": 26.28,
+            "HYSTERESIS": 73.64
+          },
+          "max_dd": {
+            "IMMEDIATE_CLOSE": 0.0035,
+            "FREEZE": 0.0119,
+            "FREEZE_ATR": 0.0055,
+            "HYSTERESIS": 0.0043
+          }
+        },
+        {
+          "cycle": 10,
+          "pnl": {
+            "IMMEDIATE_CLOSE": -32.16,
+            "FREEZE": -186.27,
+            "FREEZE_ATR": -42.59,
+            "HYSTERESIS": -42.75
+          },
+          "max_dd": {
+            "IMMEDIATE_CLOSE": 0.0095,
+            "FREEZE": 0.0289,
+            "FREEZE_ATR": 0.0138,
+            "HYSTERESIS": 0.0128
+          }
+        },
+        {
+          "cycle": 11,
+          "pnl": {
+            "IMMEDIATE_CLOSE": -122.63,
+            "FREEZE": -293.07,
+            "FREEZE_ATR": -180.66,
+            "HYSTERESIS": -113.86
+          },
+          "max_dd": {
+            "IMMEDIATE_CLOSE": 0.0132,
+            "FREEZE": 0.0431,
+            "FREEZE_ATR": 0.0196,
+            "HYSTERESIS": 0.0148
+          }
+        },
+        {
+          "cycle": 12,
+          "pnl": {
+            "IMMEDIATE_CLOSE": 20.98,
+            "FREEZE": -117.81,
+            "FREEZE_ATR": 4.63,
+            "HYSTERESIS": 15.44
+          },
+          "max_dd": {
+            "IMMEDIATE_CLOSE": 0.0018,
+            "FREEZE": 0.0189,
+            "FREEZE_ATR": 0.0039,
+            "HYSTERESIS": 0.0018
+          }
+        },
+        {
+          "cycle": 13,
+          "pnl": {
+            "IMMEDIATE_CLOSE": -58.74,
+            "FREEZE": -46.03,
+            "FREEZE_ATR": -84.19,
+            "HYSTERESIS": -37.61
+          },
+          "max_dd": {
+            "IMMEDIATE_CLOSE": 0.0086,
+            "FREEZE": 0.008,
+            "FREEZE_ATR": 0.0113,
+            "HYSTERESIS": 0.0086
+          }
+        },
+        {
+          "cycle": 14,
+          "pnl": {
+            "IMMEDIATE_CLOSE": -74.58,
+            "FREEZE": 7.5,
+            "FREEZE_ATR": -139.26,
+            "HYSTERESIS": -76.51
+          },
+          "max_dd": {
+            "IMMEDIATE_CLOSE": 0.01,
+            "FREEZE": 0.0188,
+            "FREEZE_ATR": 0.0177,
+            "HYSTERESIS": 0.009
+          }
+        },
+        {
+          "cycle": 15,
+          "pnl": {
+            "IMMEDIATE_CLOSE": -26.88,
+            "FREEZE": -160.24,
+            "FREEZE_ATR": -34.55,
+            "HYSTERESIS": -32.49
+          },
+          "max_dd": {
+            "IMMEDIATE_CLOSE": 0.0057,
+            "FREEZE": 0.019,
+            "FREEZE_ATR": 0.0063,
+            "HYSTERESIS": 0.0062
+          }
+        },
+        {
+          "cycle": 16,
+          "pnl": {
+            "IMMEDIATE_CLOSE": -57.19,
+            "FREEZE": -30.42,
+            "FREEZE_ATR": -43.39,
+            "HYSTERESIS": 45.91
+          },
+          "max_dd": {
+            "IMMEDIATE_CLOSE": 0.0106,
+            "FREEZE": 0.0132,
+            "FREEZE_ATR": 0.009,
+            "HYSTERESIS": 0.0061
+          }
+        },
+        {
+          "cycle": 17,
+          "pnl": {
+            "IMMEDIATE_CLOSE": 47.46,
+            "FREEZE": 10.34,
+            "FREEZE_ATR": 44.28,
+            "HYSTERESIS": 50.07
+          },
+          "max_dd": {
+            "IMMEDIATE_CLOSE": 0.0007,
+            "FREEZE": 0.0065,
+            "FREEZE_ATR": 0.0012,
+            "HYSTERESIS": 0.0013
+          }
+        }
+      ]
+    }
+  },
+  "stress_results": [
+    {
+      "scenario_name": "FLASH_CRASH",
+      "variant": "IMMEDIATE_CLOSE",
+      "final_equity": 9992.76,
+      "net_pnl": -7.24,
+      "max_drawdown_pct": 0.0011,
+      "is_bankrupt": false,
+      "liquidations_count": 0,
+      "total_churn_cost": 11.04,
+      "exits_count": 1
+    },
+    {
+      "scenario_name": "FLASH_CRASH",
+      "variant": "FREEZE",
+      "final_equity": 9811.88,
+      "net_pnl": -188.12,
+      "max_drawdown_pct": 0.0192,
+      "is_bankrupt": false,
+      "liquidations_count": 0,
+      "total_churn_cost": 0.0,
+      "exits_count": 0
+    },
+    {
+      "scenario_name": "FLASH_CRASH",
+      "variant": "FREEZE_ATR",
+      "final_equity": 9958.99,
+      "net_pnl": -41.01,
+      "max_drawdown_pct": 0.0045,
+      "is_bankrupt": false,
+      "liquidations_count": 0,
+      "total_churn_cost": 0.0,
+      "exits_count": 1
+    },
+    {
+      "scenario_name": "FLASH_CRASH",
+      "variant": "HYSTERESIS",
+      "final_equity": 9955.33,
+      "net_pnl": -44.67,
+      "max_drawdown_pct": 0.0049,
+      "is_bankrupt": false,
+      "liquidations_count": 0,
+      "total_churn_cost": 48.37,
+      "exits_count": 1
+    },
+    {
+      "scenario_name": "PARABOLIC_BULL",
+      "variant": "IMMEDIATE_CLOSE",
+      "final_equity": 9979.97,
+      "net_pnl": -20.03,
+      "max_drawdown_pct": 0.0024,
+      "is_bankrupt": false,
+      "liquidations_count": 0,
+      "total_churn_cost": 24.78,
+      "exits_count": 1
+    },
+    {
+      "scenario_name": "PARABOLIC_BULL",
+      "variant": "FREEZE",
+      "final_equity": 9677.42,
+      "net_pnl": -322.58,
+      "max_drawdown_pct": 0.0326,
+      "is_bankrupt": false,
+      "liquidations_count": 0,
+      "total_churn_cost": 0.0,
+      "exits_count": 1
+    },
+    {
+      "scenario_name": "PARABOLIC_BULL",
+      "variant": "FREEZE_ATR",
+      "final_equity": 9927.38,
+      "net_pnl": -72.62,
+      "max_drawdown_pct": 0.0076,
+      "is_bankrupt": false,
+      "liquidations_count": 0,
+      "total_churn_cost": 0.0,
+      "exits_count": 1
+    },
+    {
+      "scenario_name": "PARABOLIC_BULL",
+      "variant": "HYSTERESIS",
+      "final_equity": 9912.48,
+      "net_pnl": -87.52,
+      "max_drawdown_pct": 0.0091,
+      "is_bankrupt": false,
+      "liquidations_count": 0,
+      "total_churn_cost": 92.21,
+      "exits_count": 1
+    },
+    {
+      "scenario_name": "V_REVERSAL",
+      "variant": "IMMEDIATE_CLOSE",
+      "final_equity": 9996.36,
+      "net_pnl": -3.64,
+      "max_drawdown_pct": 0.0008,
+      "is_bankrupt": false,
+      "liquidations_count": 0,
+      "total_churn_cost": 7.46,
+      "exits_count": 1
+    },
+    {
+      "scenario_name": "V_REVERSAL",
+      "variant": "FREEZE",
+      "final_equity": 10013.51,
+      "net_pnl": 13.51,
+      "max_drawdown_pct": 0.0093,
+      "is_bankrupt": false,
+      "liquidations_count": 0,
+      "total_churn_cost": 0.0,
+      "exits_count": 0
+    },
+    {
+      "scenario_name": "V_REVERSAL",
+      "variant": "FREEZE_ATR",
+      "final_equity": 9971.26,
+      "net_pnl": -28.74,
+      "max_drawdown_pct": 0.0033,
+      "is_bankrupt": false,
+      "liquidations_count": 0,
+      "total_churn_cost": 0.0,
+      "exits_count": 1
+    },
+    {
+      "scenario_name": "V_REVERSAL",
+      "variant": "HYSTERESIS",
+      "final_equity": 9970.75,
+      "net_pnl": -29.25,
+      "max_drawdown_pct": 0.0033,
+      "is_bankrupt": false,
+      "liquidations_count": 0,
+      "total_churn_cost": 32.99,
+      "exits_count": 1
+    },
+    {
+      "scenario_name": "PROLONGED_TREND",
+      "variant": "IMMEDIATE_CLOSE",
+      "final_equity": 10003.91,
+      "net_pnl": 3.91,
+      "max_drawdown_pct": 0.0,
+      "is_bankrupt": false,
+      "liquidations_count": 0,
+      "total_churn_cost": 0.0,
+      "exits_count": 1
+    },
+    {
+      "scenario_name": "PROLONGED_TREND",
+      "variant": "FREEZE",
+      "final_equity": 10004.6,
+      "net_pnl": 4.6,
+      "max_drawdown_pct": 0.0,
+      "is_bankrupt": false,
+      "liquidations_count": 0,
+      "total_churn_cost": 0.0,
+      "exits_count": 0
+    },
+    {
+      "scenario_name": "PROLONGED_TREND",
+      "variant": "FREEZE_ATR",
+      "final_equity": 10004.6,
+      "net_pnl": 4.6,
+      "max_drawdown_pct": 0.0,
+      "is_bankrupt": false,
+      "liquidations_count": 0,
+      "total_churn_cost": 0.0,
+      "exits_count": 0
+    },
+    {
+      "scenario_name": "PROLONGED_TREND",
+      "variant": "HYSTERESIS",
+      "final_equity": 10003.99,
+      "net_pnl": 3.99,
+      "max_drawdown_pct": 0.0,
+      "is_bankrupt": false,
+      "liquidations_count": 0,
+      "total_churn_cost": 0.88,
+      "exits_count": 1
+    },
+    {
+      "scenario_name": "REGIME_FLICKER",
+      "variant": "IMMEDIATE_CLOSE",
+      "final_equity": 10018.71,
+      "net_pnl": 18.71,
+      "max_drawdown_pct": 0.0003,
+      "is_bankrupt": false,
+      "liquidations_count": 0,
+      "total_churn_cost": 13.71,
+      "exits_count": 6
+    },
+    {
+      "scenario_name": "REGIME_FLICKER",
+      "variant": "FREEZE",
+      "final_equity": 10053.97,
+      "net_pnl": 53.97,
+      "max_drawdown_pct": 0.0003,
+      "is_bankrupt": false,
+      "liquidations_count": 0,
+      "total_churn_cost": 0.0,
+      "exits_count": 6
+    },
+    {
+      "scenario_name": "REGIME_FLICKER",
+      "variant": "FREEZE_ATR",
+      "final_equity": 10053.97,
+      "net_pnl": 53.97,
+      "max_drawdown_pct": 0.0003,
+      "is_bankrupt": false,
+      "liquidations_count": 0,
+      "total_churn_cost": 0.0,
+      "exits_count": 6
+    },
+    {
+      "scenario_name": "REGIME_FLICKER",
+      "variant": "HYSTERESIS",
+      "final_equity": 10127.72,
+      "net_pnl": 127.72,
+      "max_drawdown_pct": 0.0002,
+      "is_bankrupt": false,
+      "liquidations_count": 0,
+      "total_churn_cost": 1.15,
+      "exits_count": 6
+    }
+  ]
+}
