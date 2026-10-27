@@ -135,6 +135,32 @@ class TestEMATrendRule:
 # ---------------------------------------------------------------------------
 
 
+def _state_with_rsi(rsi: float, period: int = 14) -> MarketState:
+    from neon_radar.config.models import TimeFrame
+    from neon_radar.domain.indicators.base import (
+        IndicatorKind,
+        IndicatorSeries,
+        IndicatorSnapshot,
+        IndicatorValue,
+    )
+    from neon_radar.domain.models import KlineSeries, Symbol
+
+    series = KlineSeries(symbol=Symbol("BTCUSDT"), timeframe=TimeFrame.D1, candles=())
+    indicators = (
+        IndicatorSeries(
+            name=f"rsi_{period}",
+            kind=IndicatorKind.OSCILLATOR,
+            snapshots=(IndicatorSnapshot(timestamp=0, values=(IndicatorValue("rsi", rsi),)),),
+        ),
+    )
+    return MarketState(
+        symbol=Symbol("BTCUSDT"),
+        timestamp=1000,
+        primary_series=series,
+        indicator_series=indicators,
+    )
+
+
 class TestRSIMomentumRule:
     def test_registered(self) -> None:
         assert RuleRegistry.is_registered("rsi_momentum")
@@ -168,19 +194,116 @@ class TestRSIMomentumRule:
         assert sig.value < 0 or sig.confidence <= 0.5
 
     def test_overbought_neutral(self) -> None:
-        # Strict uptrend → RSI=100 → overbought → value=1, low confidence.
+        # Strict uptrend → RSI=100 → overbought → value=0, low confidence.
         closes = [100.0 + i for i in range(60)]
         sig = RSIMomentumRule().evaluate(_state(closes))
         assert sig is not None
-        assert sig.value == pytest.approx(1.0, abs=1e-9)
+        assert sig.value == pytest.approx(0.0, abs=1e-9)
         assert sig.confidence == pytest.approx(0.4)
 
     def test_oversold_neutral(self) -> None:
+        # Strict downtrend → RSI=0 → oversold → value=0, low confidence.
         closes = [200.0 - i for i in range(60)]
         sig = RSIMomentumRule().evaluate(_state(closes))
         assert sig is not None
-        assert sig.value == pytest.approx(-1.0, abs=1e-9)
+        assert sig.value == pytest.approx(0.0, abs=1e-9)
         assert sig.confidence == pytest.approx(0.4)
+
+    @pytest.mark.parametrize("rsi", [70.01, 75.0, 85.0, 100.0])
+    def test_overbought_extremes_return_neutral(self, rsi: float) -> None:
+        rule = RSIMomentumRule()
+        sig = rule.evaluate(_state_with_rsi(rsi))
+        assert sig is not None
+        assert sig.value == 0.0
+        assert sig.confidence == pytest.approx(0.4)
+        assert "overbought" in sig.description
+
+    @pytest.mark.parametrize("rsi", [0.0, 15.0, 29.99, 30.0])
+    def test_oversold_extremes_return_neutral(self, rsi: float) -> None:
+        rule = RSIMomentumRule()
+        sig = rule.evaluate(_state_with_rsi(rsi))
+        assert sig is not None
+        assert sig.value == 0.0
+        assert sig.confidence == pytest.approx(0.4)
+        assert "oversold" in sig.description
+
+    def test_boundaries_and_zones_specification(self) -> None:
+        rule = RSIMomentumRule()
+        # bull_high boundary (70.0): in bull momentum zone -> value=1.0, confidence=0.7
+        sig_70 = rule.evaluate(_state_with_rsi(70.0))
+        assert sig_70 is not None
+        assert sig_70.value == pytest.approx(1.0)
+        assert sig_70.confidence == pytest.approx(0.7)
+
+        # bull_low boundary (51.0): start of bull momentum zone -> value=0.0, confidence=0.7
+        sig_51 = rule.evaluate(_state_with_rsi(51.0))
+        assert sig_51 is not None
+        assert sig_51.value == pytest.approx(0.0)
+        assert sig_51.confidence == pytest.approx(0.7)
+
+        # mid bull momentum zone (60.5): value=0.5, confidence=0.7
+        sig_60_5 = rule.evaluate(_state_with_rsi(60.5))
+        assert sig_60_5 is not None
+        assert sig_60_5.value == pytest.approx(0.5)
+        assert sig_60_5.confidence == pytest.approx(0.7)
+
+        # gap zone (50.0): bear_high < rsi < bull_low -> value=0.0, confidence=0.3
+        sig_50 = rule.evaluate(_state_with_rsi(50.0))
+        assert sig_50 is not None
+        assert sig_50.value == pytest.approx(0.0)
+        assert sig_50.confidence == pytest.approx(0.3)
+
+        # bear_high boundary (49.0): start of bear momentum zone -> value=0.0, confidence=0.7
+        sig_49 = rule.evaluate(_state_with_rsi(49.0))
+        assert sig_49 is not None
+        assert sig_49.value == pytest.approx(0.0)
+        assert sig_49.confidence == pytest.approx(0.7)
+
+        # mid bear momentum zone (39.5): value=-0.5, confidence=0.7
+        sig_39_5 = rule.evaluate(_state_with_rsi(39.5))
+        assert sig_39_5 is not None
+        assert sig_39_5.value == pytest.approx(-0.5)
+        assert sig_39_5.confidence == pytest.approx(0.7)
+
+        # just above bear_low (30.01): in bear momentum zone -> value < -0.99, confidence=0.7
+        sig_30_01 = rule.evaluate(_state_with_rsi(30.01))
+        assert sig_30_01 is not None
+        assert sig_30_01.value < -0.99
+        assert sig_30_01.confidence == pytest.approx(0.7)
+
+    def test_extreme_neutral_signal_creates_no_directional_bias_in_score(self) -> None:
+        from neon_radar.domain.enums import Bias
+        from neon_radar.domain.scoring.aggregator import aggregate
+        from neon_radar.domain.scoring.value_objects import Signal
+
+        rule = RSIMomentumRule(weight=0.20)
+        overbought_sig = rule.evaluate(_state_with_rsi(80.0))
+        oversold_sig = rule.evaluate(_state_with_rsi(20.0))
+        assert overbought_sig is not None and overbought_sig.value == 0.0
+        assert oversold_sig is not None and oversold_sig.value == 0.0
+
+        # Standalone neutral signal produces zero directional score
+        score_ob = aggregate((overbought_sig,))
+        assert score_ob.value == 0.0
+        assert score_ob.long_score == 0.0
+        assert score_ob.short_score == 0.0
+        assert score_ob.bias == Bias.NEUTRAL
+
+        score_os = aggregate((oversold_sig,))
+        assert score_os.value == 0.0
+        assert score_os.long_score == 0.0
+        assert score_os.short_score == 0.0
+        assert score_os.bias == Bias.NEUTRAL
+
+        # Combined with directional signal: directional value and long/short scores are unaltered
+        bull_sig = Signal(name="ema_trend", weight=0.25, value=0.8, confidence=0.85, description="Bull trend")
+        score_trend_only = aggregate((bull_sig,))
+        score_combined = aggregate((bull_sig, overbought_sig))
+
+        assert score_combined.long_score == pytest.approx(score_trend_only.long_score)
+        assert score_combined.short_score == pytest.approx(score_trend_only.short_score)
+        assert score_combined.value == pytest.approx(score_trend_only.value)
+        assert score_combined.bias == score_trend_only.bias
 
 
 # ---------------------------------------------------------------------------
