@@ -6,7 +6,7 @@ and persistent state snapshots for forward paper execution.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -68,3 +68,4 @@ class PaperTradingState:
     last_processed_candles: dict[str, int]
     completed_trades: tuple[ClosedPosition, ...]
     updated_at: int
+    pending_setup_timestamps: dict[str, int] = field(default_factory=dict)

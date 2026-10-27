@@ -255,6 +255,7 @@ class JsonPaperStateStore:
             },
             "open_positions": [_serialize_open_position(p) for p in state.open_positions],
             "pending_setups": {sym: _serialize_setup(s) for sym, s in state.pending_setups.items()},
+            "pending_setup_timestamps": dict(state.pending_setup_timestamps),
             "last_processed_candles": dict(state.last_processed_candles),
             "completed_trades": [_serialize_closed_position(p) for p in state.completed_trades],
         }
@@ -304,6 +305,12 @@ class JsonPaperStateStore:
                 last_processed_candles=last_processed,
                 completed_trades=completed,
                 updated_at=int(data.get("updated_at", 0)),
+                pending_setup_timestamps={
+                    sym: int(data.get("pending_setup_timestamps", {}).get(
+                        sym, last_processed.get(sym, data.get("updated_at", 0))
+                    ))
+                    for sym in pending_setups
+                },
             )
         except Exception as exc:
             logger.error(f"Failed to load paper trading state from {self.file_path}: {exc}")

@@ -68,6 +68,20 @@ class RiskManager:
     ) -> RiskDecision:
         """Evaluates a potential trade signal against portfolio constraints."""
 
+        symbol = None
+        if analysis.market_state and analysis.market_state.primary_series:
+            symbol = analysis.market_state.primary_series.symbol
+        direction = analysis.score.bias if analysis.score is not None else Bias.NEUTRAL
+        return self.evaluate_trade(symbol, direction, portfolio, drawdown)
+
+    def evaluate_trade(
+        self,
+        symbol: str | None,
+        direction: Bias,
+        portfolio: PortfolioState | None,
+        drawdown: DrawdownState | None = None,
+    ) -> RiskDecision:
+        """Evaluate the same policy for an already sized order before execution."""
         # 1. Portfolio State Validity Check
         if portfolio is None:
             return RiskDecision(
@@ -88,10 +102,6 @@ class RiskManager:
             )
 
         # 2. Prevent identical symbol positions
-        symbol = None
-        if analysis.market_state and analysis.market_state.primary_series:
-            symbol = analysis.market_state.primary_series.symbol
-
         if symbol:
             for pos in portfolio.positions:
                 if pos.symbol == symbol:
@@ -108,9 +118,7 @@ class RiskManager:
             )
 
         # 4. Optional Short Constraints
-        is_short = False
-        if analysis.score is not None:
-            is_short = (analysis.score.bias == Bias.BEARISH)
+        is_short = direction == Bias.BEARISH
 
         short_cfg = self.policy.short_constraints
         if is_short and short_cfg.enabled:

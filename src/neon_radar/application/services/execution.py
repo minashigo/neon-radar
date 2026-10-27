@@ -4,10 +4,13 @@ Responsible for taking a FinalTradeSetup and executing it (Paper or Live).
 It manages the lifecycle of a trade by processing market ticks.
 """
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
+from dataclasses import replace
+from math import isfinite
 from typing import TYPE_CHECKING
 
-from neon_radar.application.services.portfolio_engine import PortfolioEngine
 from neon_radar.domain.enums import Bias
 from neon_radar.domain.execution_costs import (
     BinanceFundingModel,
@@ -18,13 +21,23 @@ from neon_radar.domain.execution_costs import (
     FundingModel,
     SlippageModel,
 )
-from neon_radar.domain.models import OHLCV, Symbol
 from neon_radar.domain.portfolio import OpenPosition
 from neon_radar.domain.trading.execution import ExecutionType
-from neon_radar.domain.trading.setup import FinalTradeSetup
+from neon_radar.utils.logging import get_logger
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from neon_radar.application.services.portfolio_engine import PortfolioEngine
+    from neon_radar.application.services.risk.manager import RiskManager
     from neon_radar.application.services.trade_backtester import HistoricalFundingProvider
+    from neon_radar.domain.models import OHLCV, Symbol
+    from neon_radar.domain.portfolio import PortfolioState
+    from neon_radar.domain.risk import DrawdownState
+    from neon_radar.domain.trading.setup import FinalTradeSetup
+
+
+logger = get_logger(__name__)
 
 
 class ExecutionEngine(ABC):
@@ -50,16 +63,87 @@ class PaperExecutionEngine(ExecutionEngine):
         fee_model: FeeModel | None = None,
         slippage_model: SlippageModel | None = None,
         funding_model: FundingModel | None = None,
-        funding_provider: "HistoricalFundingProvider | None" = None,
+        funding_provider: HistoricalFundingProvider | None = None,
+        risk_manager: RiskManager | None = None,
+        drawdown_provider: Callable[[], DrawdownState] | None = None,
     ) -> None:
         self.portfolio_engine = portfolio_engine
         self.fee_model = fee_model or BinanceFuturesFeeModel()
         self.slippage_model = slippage_model or FixedSlippageModel()
         self.funding_model = funding_model or BinanceFundingModel()
         self.funding_provider = funding_provider
+        self.risk_manager = risk_manager
+        self.drawdown_provider = drawdown_provider
         # Dictionary of pending setups that are waiting for an entry trigger
         self.pending_setups: dict[str, FinalTradeSetup] = {}
         self.pending_setup_timestamps: dict[str, int] = {}
+
+    @staticmethod
+    def _order_position(setup: FinalTradeSetup) -> OpenPosition:
+        """Represent committed order size for risk accounting, without booking a fill."""
+        quote = setup.quote_size if setup.quote_size > 0 else setup.position_size
+        quantity = setup.position_size if setup.quote_size > 0 else quote / setup.entry
+        return OpenPosition(
+            symbol=setup.symbol,
+            direction=setup.direction,
+            entry_price=setup.entry,
+            quantity=quantity,
+            position_size=quote,
+            stop_loss=setup.stop_loss,
+            take_profit=setup.take_profit,
+            opened_at=0,
+        )
+
+    def portfolio_for_risk(self, exclude_symbol: str | None = None) -> PortfolioState:
+        """Risk-only view: active positions plus pending reservations; equity is unchanged.
+
+        Reservations are derived from the pending dictionary so recovery and cancellation
+        cannot leave a separate reservation ledger out of sync. Never persist this view
+        as the actual portfolio or publish its placeholder positions as fills.
+        """
+        state = self.portfolio_engine.state
+        reserved = tuple(
+            self._order_position(setup)
+            for symbol, setup in self.pending_setups.items()
+            if symbol != exclude_symbol
+        )
+        return replace(state, positions=state.positions + reserved)
+
+    def _risk_allows(self, setup: FinalTradeSetup, exclude_symbol: str | None = None) -> bool:
+        if not setup.risk_decision.is_allowed:
+            return False
+        position = self._order_position(setup)
+        if not all(
+            isfinite(v)
+            for v in (
+                position.position_size,
+                position.quantity,
+                position.entry_price,
+                position.stop_loss,
+                position.max_risk,
+            )
+        ):
+            return False
+        view = self.portfolio_for_risk(exclude_symbol)
+        if any(p.symbol == setup.symbol for p in view.positions):
+            return False
+        reserved_quote = view.total_exposure - self.portfolio_engine.state.total_exposure
+        if position.position_size > view.account.free_capital - reserved_quote + 1e-8:
+            return False
+        if self.risk_manager is None:
+            return True  # Legacy standalone/backtest callers retain their policy ownership.
+        drawdown = self.drawdown_provider() if self.drawdown_provider else None
+        decision = self.risk_manager.evaluate_trade(setup.symbol, setup.direction, view, drawdown)
+        return (
+            decision.is_allowed
+            and position.position_size <= decision.max_position_size + 1e-8
+            and position.max_risk <= decision.max_risk_budget + 1e-8
+        )
+
+    def cancel_setup(self, symbol: str) -> None:
+        """Release an order and its metadata together."""
+        self.pending_setups.pop(symbol, None)
+        self.pending_setup_timestamps.pop(symbol, None)
 
     def execute_setup(self, setup: FinalTradeSetup, timestamp: int) -> bool:
         """Register a setup to be triggered when the price hits the entry level.
@@ -69,10 +153,10 @@ class PaperExecutionEngine(ExecutionEngine):
         For Neon Radar, setups are usually hit on the *next* candle. We will just
         store it as pending.
         """
-        if not setup.risk_decision.is_allowed:
-            return False
-
         symbol_str = str(setup.symbol)
+        if symbol_str in self.pending_setups or not self._risk_allows(setup):
+            logger.info("[PAPER ORDER REJECTED] %s: risk budget or duplicate order", symbol_str)
+            return False
         self.pending_setups[symbol_str] = setup
         self.pending_setup_timestamps[symbol_str] = timestamp
         return True
@@ -86,8 +170,17 @@ class PaperExecutionEngine(ExecutionEngine):
 
         # 2. Check Pending Setups for entry
         setup = self.pending_setups.get(symbol_str)
+        # Recheck current policy before converting a reservation into a fill.
+        # Other pending orders still consume budget; this order is counted once.
+        if (
+            setup is not None
+            and candle.low <= setup.entry <= candle.high
+            and not self._risk_allows(setup, exclude_symbol=symbol_str)
+        ):
+            logger.info("[PAPER ORDER CANCELLED] %s: risk changed before fill", symbol_str)
+            self.cancel_setup(symbol_str)
+            setup = None
         if setup is not None and candle.low <= setup.entry <= candle.high:
-            # Trigger entry
             try:
                 entry_exec_type = ExecutionType.MAKER
                 if getattr(setup, "quote_size", 0.0) > 0:
@@ -131,11 +224,10 @@ class PaperExecutionEngine(ExecutionEngine):
                     htf_regime=htf_regime_val,
                 )
                 self.portfolio_engine.open_position(pos)
-                del self.pending_setups[symbol_str]
+                self.cancel_setup(symbol_str)
             except ValueError:
                 # E.g. insufficient funds
-                del self.pending_setups[symbol_str]
-                self.pending_setup_timestamps.pop(symbol_str, None)
+                self.cancel_setup(symbol_str)
 
         # 3. Check Open Positions for exit (SL/TP)
         # Note: we fetch the latest state from PortfolioEngine

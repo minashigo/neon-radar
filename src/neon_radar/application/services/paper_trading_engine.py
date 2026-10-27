@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Any
 from neon_radar.application.services.execution import PaperExecutionEngine
 from neon_radar.application.services.portfolio_engine import PortfolioEngine
 from neon_radar.application.services.risk.drawdown import DrawdownMonitor
+from neon_radar.application.services.risk.manager import RiskManager
 from neon_radar.config.models import TimeFrame
 from neon_radar.domain.enums import Bias
 from neon_radar.domain.models import OHLCV, KlineSeries, Symbol
@@ -96,6 +97,13 @@ class ForwardPaperTradingEngine:
             portfolio_engine=self.portfolio_engine
         )
 
+        # Use the pipeline's policy at registration AND fill, including live ticks.
+        risk_manager = self.pipeline.risk_manager
+        self.execution_engine.risk_manager = (
+            risk_manager if isinstance(risk_manager, RiskManager) else RiskManager()
+        )
+        self.execution_engine.drawdown_provider = self._current_drawdown
+
         # Idempotency tracking: last processed candle open_time per symbol
         self.last_processed_candles: dict[str, int] = {}
 
@@ -115,6 +123,14 @@ class ForwardPaperTradingEngine:
     # ------------------------------------------------------------------
     # Closed-candle & Stale Data Logic (Requirements 2, 7, 8)
     # ------------------------------------------------------------------
+
+    def _current_drawdown(self) -> DrawdownState:
+        equity = self.portfolio_engine.state.account.total_capital
+        return DrawdownState(
+            current_equity=equity,
+            ath_equity=max(equity, self.drawdown_monitor.ath_equity),
+            max_drawdown_pct=self.drawdown_monitor.max_drawdown_pct,
+        )
 
     def is_candle_closed(self, candle: OHLCV, server_time: int) -> bool:
         """Determines if a candle is completely closed using exchange server time."""
@@ -234,7 +250,7 @@ class ForwardPaperTradingEngine:
                 # 11. Run Trading Pipeline
                 setup = self.pipeline.evaluate(
                     series=closed_history,
-                    portfolio=self.portfolio_engine.state,
+                    portfolio=self.execution_engine.portfolio_for_risk(),
                     drawdown=drawdown_state,
                     timestamp=latest_closed_candle.open_time,
                     higher_tf_series=htf_series,
@@ -383,6 +399,7 @@ class ForwardPaperTradingEngine:
             last_processed_candles=dict(self.last_processed_candles),
             completed_trades=self.portfolio_engine.history,
             updated_at=ts,
+            pending_setup_timestamps=dict(self.execution_engine.pending_setup_timestamps),
         )
         self.state_store.save(state)
 
@@ -411,6 +428,7 @@ class ForwardPaperTradingEngine:
 
         # Restore Pending Setups
         self.execution_engine.pending_setups = dict(saved.pending_setups)
+        self.execution_engine.pending_setup_timestamps = dict(saved.pending_setup_timestamps)
 
         # Restore Processed Candle Timestamps
         self.last_processed_candles = dict(saved.last_processed_candles)
