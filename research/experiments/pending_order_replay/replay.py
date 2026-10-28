@@ -25,6 +25,7 @@ parser.add_argument("--timeframe", choices=("1h", "4h"), required=True)
 parser.add_argument("--start", default="2025-01-01")
 parser.add_argument("--end", default="2025-04-01", help="Exclusive UTC boundary")
 parser.add_argument("--output", type=Path, required=True)
+parser.add_argument("--symbols-order", choices=("canonical", "reverse"), default="canonical")
 args = parser.parse_args()
 sys.path.insert(0, str(args.source_root.resolve() / "src"))
 
@@ -50,9 +51,10 @@ from neon_radar.infrastructure.exchanges.base import ExchangeClient, ExchangeInf
 
 logging.disable(logging.CRITICAL)
 DATA = Path(__file__).resolve().parent / "data"
-SYMBOLS = tuple(
+CANONICAL_ORDER = tuple(
     Symbol(s) for s in ("BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "ADAUSDT")
 )
+SYMBOLS = CANONICAL_ORDER if args.symbols_order == "canonical" else tuple(reversed(CANONICAL_ORDER))
 HOUR = 3600000
 
 
@@ -294,6 +296,16 @@ async def main():
         "commit": subprocess.check_output(
             ["git", "-C", str(args.source_root), "rev-parse", "HEAD"], text=True
         ).strip(),
+        "requested_symbol_order": list(SYMBOLS),
+        "working_source_sha256": {
+            path: hashlib.sha256((args.source_root / path).read_bytes()).hexdigest()
+            for path in (
+                "src/neon_radar/application/services/execution.py",
+                "src/neon_radar/application/services/paper_trading_engine.py",
+                "src/neon_radar/domain/execution_costs.py",
+                "src/neon_radar/infrastructure/providers/binance_funding.py",
+            )
+        },
         "timeframe": args.timeframe,
         "start": args.start,
         "end_exclusive": args.end,
@@ -304,7 +316,7 @@ async def main():
         "settings": {
             "risk": 0.01,
             "initial_capital": 10000,
-            "symbols": list(SYMBOLS),
+            "symbols": list(CANONICAL_ORDER),
             "funding_costs": True,
             "funding_signal": "last published settlement",
             "intrabar": "engine OHLC; no live ticks",

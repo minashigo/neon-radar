@@ -1,0 +1,19 @@
+{
+  "all_trade_and_curve_fields_identical": true,
+  "previous_sequential": {
+    "closed_trades": 113,
+    "net_closed": 1604.1590039782527,
+    "net_profit_factor": 1.2653697183076182,
+    "max_drawdown_pct": 10.949184896476009,
+    "max_open_positions": 3,
+    "open_limit_events": 0
+  },
+  "synchronized": {
+    "closed_trades": 107,
+    "net_closed": 1301.50037631863,
+    "net_profit_factor": 1.218725192501044,
+    "max_drawdown_pct": 11.459190579436447,
+    "max_open_positions": 3,
+    "open_limit_events": 0
+  }
+}

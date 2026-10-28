@@ -11,10 +11,14 @@ Manages real-time paper trading against live Binance Futures market data:
 from __future__ import annotations
 
 import contextlib
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any
 
-from neon_radar.application.services.execution import PaperExecutionEngine
+from neon_radar.application.services.execution import (
+    PAPER_SYMBOL_PRIORITY,
+    PaperExecutionEngine,
+    ordered_symbols,
+)
 from neon_radar.application.services.portfolio_engine import PortfolioEngine
 from neon_radar.application.services.risk.drawdown import DrawdownMonitor
 from neon_radar.application.services.risk.manager import RiskManager
@@ -29,6 +33,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from neon_radar.application.services.trading_pipeline import TradingPipeline
+    from neon_radar.domain.funding import FundingRate
     from neon_radar.domain.portfolio import ClosedPosition, OpenPosition
     from neon_radar.domain.trading.setup import FinalTradeSetup
     from neon_radar.infrastructure.exchanges.base import ExchangeClient
@@ -36,14 +41,7 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
-CANONICAL_SYMBOLS = (
-    Symbol("BTCUSDT"),
-    Symbol("ETHUSDT"),
-    Symbol("SOLUSDT"),
-    Symbol("BNBUSDT"),
-    Symbol("XRPUSDT"),
-    Symbol("ADAUSDT"),
-)
+CANONICAL_SYMBOLS = tuple(Symbol(symbol) for symbol in PAPER_SYMBOL_PRIORITY)
 
 
 @dataclass(slots=True, frozen=True)
@@ -164,124 +162,130 @@ class ForwardPaperTradingEngine:
 
             server_time = int(time.time() * 1000)
 
-        initial_open_count = len(self.portfolio_engine.state.positions)
         initial_closed_count = len(self.portfolio_engine.history)
+        new_fills: tuple[OpenPosition, ...] = ()
+        histories: dict[Symbol, KlineSeries] = {}
 
-        for symbol in self.symbols:
-            symbol_str = str(symbol)
+        # Fetch and validate the whole universe before any execution mutation.
+        for symbol in ordered_symbols(self.symbols):
             try:
-                # 2. Fetch base series
                 series = await self.exchange.get_klines(symbol, self.timeframe, limit=200)
-                if not series or len(series.candles) == 0:
-                    warnings.append(f"{symbol_str}: Empty klines returned")
+                if not series or not series.candles:
+                    warnings.append(f"{symbol}: Empty klines returned")
                     continue
-
-                # 3. Filter only strictly closed candles
-                closed_candles = [c for c in series.candles if self.is_candle_closed(c, server_time)]
-                if not closed_candles:
-                    # All candles in batch are forming / unclosed
+                closed = tuple(c for c in series.candles if self.is_candle_closed(c, server_time))
+                if not closed:
                     continue
-
-                latest_closed_candle = closed_candles[-1]
-
-                # 4. Check for stale data (Requirement 7)
-                if self.is_candle_stale(latest_closed_candle, server_time):
-                    msg = f"{symbol_str}: Stale market data (candle closed at {latest_closed_candle.close_time}, server time {server_time})"
-                    logger.warning(msg)
-                    warnings.append(msg)
+                if self.is_candle_stale(closed[-1], server_time):
+                    warnings.append(f"{symbol}: Stale market data")
                     continue
-
-                # 5. Check idempotency: avoid reprocessing the same closed candle
-                last_processed = self.last_processed_candles.get(symbol_str, 0)
-                is_new_candle = latest_closed_candle.open_time > last_processed
-
-                if not is_new_candle:
-                    # Already processed this candle for signals and ticks
-                    continue
-
-                evaluated_symbols.append(symbol)
-
-                # 6. Process tick on execution engine with the newly closed candle:
-                #    Checks pending setups for entry fills & open positions for SL/TP exits.
-                self.execution_engine.process_market_tick(symbol, latest_closed_candle)
-
-                # 7. Update Drawdown Monitor with updated equity
-                current_equity = self.portfolio_engine.state.account.total_capital
-                drawdown_state = self.drawdown_monitor.update(current_equity, latest_closed_candle.open_time)
-
-                # 8. Point-in-Time History for Signal Pipeline:
-                #    Slice strictly up to the latest closed candle.
-                closed_history = KlineSeries(
-                    symbol=symbol,
-                    timeframe=self.timeframe,
-                    candles=tuple(closed_candles),
+                histories[symbol] = KlineSeries(
+                    symbol=symbol, timeframe=self.timeframe, candles=closed
                 )
+            except Exception as exc:
+                warnings.append(f"{symbol}: Cycle error: {exc}")
+                logger.error("%s: Failed to fetch synchronized market data", symbol, exc_info=True)
 
-                # 9. Higher-Timeframe Data (if configured)
-                htf_series: KlineSeries | None = None
+        complete = bool(histories) and len(histories) == len(self.symbols)
+        bar_times = {history.candles[-1].open_time for history in histories.values()}
+        watermark = max(self.last_processed_candles.values(), default=0)
+        ready = complete and len(bar_times) == 1
+        if not ready:
+            if histories or warnings:
+                warnings.append("Synchronized cycle deferred: incomplete or misaligned candles")
+        elif next(iter(bar_times)) > watermark:
+            symbols = ordered_symbols(histories)
+            candles = {
+                symbol: (
+                    histories[symbol].candles[-1]
+                    if histories[symbol].candles[-1].close_time is not None
+                    else replace(
+                        histories[symbol].candles[-1],
+                        close_time=histories[symbol].candles[-1].open_time
+                        + self.timeframe.seconds * 1000
+                        - 1,
+                    )
+                )
+                for symbol in symbols
+            }
+            market_inputs: dict[Symbol, tuple[KlineSeries | None, FundingRate | None]] = {}
+            # Complete all optional I/O before the synchronous execution/signal phases.
+            # A new order from an early symbol cannot fill during another API await.
+            for symbol in symbols:
+                htf_series = None
                 if self.higher_timeframe is not None:
                     try:
-                        raw_htf = await self.exchange.get_klines(symbol, self.higher_timeframe, limit=100)
-                        if raw_htf and len(raw_htf.candles) > 0:
-                            candle_close_time = latest_closed_candle.close_time or (
-                                latest_closed_candle.open_time + self.timeframe.seconds * 1000
-                            )
-                            # Slice HTF strictly to point-in-time
-                            htf_closed = [
+                        raw_htf = await self.exchange.get_klines(
+                            symbol, self.higher_timeframe, limit=100
+                        )
+                        if raw_htf and raw_htf.candles:
+                            cutoff = candles[symbol].close_time
+                            htf_closed = tuple(
                                 c
                                 for c in raw_htf.candles
-                                if (c.close_time or (c.open_time + self.higher_timeframe.seconds * 1000))
-                                <= candle_close_time
-                            ]
+                                if (
+                                    c.close_time
+                                    if c.close_time is not None
+                                    else c.open_time + self.higher_timeframe.seconds * 1000 - 1
+                                )
+                                <= cutoff
+                            )
                             if htf_closed:
                                 htf_series = KlineSeries(
                                     symbol=symbol,
                                     timeframe=self.higher_timeframe,
-                                    candles=tuple(htf_closed),
+                                    candles=htf_closed,
                                 )
-                    except Exception as htf_exc:
-                        logger.warning(f"{symbol_str}: Failed to fetch HTF klines: {htf_exc}")
-
-                # 10. Optional Funding Rate
+                    except Exception as exc:
+                        logger.warning("%s: Failed to fetch HTF klines: %s", symbol, exc)
                 funding_rate = None
                 with contextlib.suppress(Exception):
                     funding_rate = await self.exchange.get_funding_rate(symbol)
+                market_inputs[symbol] = htf_series, funding_rate
 
-                # 11. Run Trading Pipeline
-                setup = self.pipeline.evaluate(
-                    series=closed_history,
-                    portfolio=self.execution_engine.portfolio_for_risk(),
-                    drawdown=drawdown_state,
-                    timestamp=latest_closed_candle.open_time,
-                    higher_tf_series=htf_series,
-                    funding_rate=funding_rate,
-                )
-
-                if setup is not None:
-                    # Register pending paper setup for next candle execution
-                    registered = self.execution_engine.execute_setup(
-                        setup, timestamp=latest_closed_candle.open_time
+            new_fills = self.execution_engine.process_market_batch(
+                candles,
+                on_equity_update=self.drawdown_monitor.update,
+            )
+            # Commit the shared watermark before analysis. A failed signal evaluation
+            # must not replay fills or exits on the same candle after a restart.
+            for symbol in symbols:
+                self.last_processed_candles[str(symbol)] = candles[symbol].open_time
+            drawdown_state = self.drawdown_monitor.update(
+                self.portfolio_engine.state.account.total_capital,
+                candles[symbols[0]].close_time,
+            )
+            for symbol in symbols:
+                evaluated_symbols.append(symbol)
+                try:
+                    htf_series, funding_rate = market_inputs[symbol]
+                    setup = self.pipeline.evaluate(
+                        series=histories[symbol],
+                        portfolio=self.execution_engine.portfolio_for_risk(),
+                        drawdown=drawdown_state,
+                        timestamp=candles[symbol].open_time,
+                        higher_tf_series=htf_series,
+                        funding_rate=funding_rate,
                     )
-                    if registered:
+                    if setup is not None and self.execution_engine.execute_setup(
+                        setup,
+                        timestamp=candles[symbol].open_time,
+                    ):
                         new_setups.append(setup)
                         logger.info(
-                            f"[PAPER ORDER REGISTERED] {setup.symbol} {setup.direction.value} "
-                            f"Entry: {setup.entry} SL: {setup.stop_loss} TP: {setup.take_profit} "
-                            f"Size: {setup.position_size:.4f} (${setup.quote_size:.2f})"
+                            "[PAPER ORDER REGISTERED] %s %s Entry: %s SL: %s TP: %s",
+                            setup.symbol,
+                            setup.direction.value,
+                            setup.entry,
+                            setup.stop_loss,
+                            setup.take_profit,
                         )
                         if self.on_signal:
                             self.on_signal(setup)
+                except Exception as exc:
+                    warnings.append(f"{symbol}: Cycle error: {exc}")
+                    logger.error("%s: Signal evaluation failed", symbol, exc_info=True)
 
-                # 12. Mark candle processed (idempotency key)
-                self.last_processed_candles[symbol_str] = latest_closed_candle.open_time
-
-            except Exception as sym_exc:
-                msg = f"{symbol_str}: Cycle error: {sym_exc}"
-                logger.error(msg, exc_info=True)
-                warnings.append(msg)
-
-        # 13. Detect newly filled or exited positions during this cycle
-        new_fills = tuple(self.portfolio_engine.state.positions[initial_open_count:])
         new_exits = tuple(self.portfolio_engine.history[initial_closed_count:])
 
         # 14. Atomic Persistence
@@ -327,7 +331,9 @@ class ForwardPaperTradingEngine:
         setup = self.execution_engine.pending_setups.get(symbol_str)
         if setup is not None:
             should_fill = False
-            if (setup.direction == Bias.BULLISH and price <= setup.entry) or (setup.direction == Bias.BEARISH and price >= setup.entry):
+            if (setup.direction == Bias.BULLISH and price <= setup.entry) or (
+                setup.direction == Bias.BEARISH and price >= setup.entry
+            ):
                 should_fill = True
 
             if should_fill:
