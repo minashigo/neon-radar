@@ -106,8 +106,4 @@ class BinanceHistoricalFundingProvider:
         if idx > 0:
             return rates[idx - 1]
 
-        # If timestamp is within 8h before the first recorded rate, return that first rate
-        if rates and abs(rates[0].timestamp - timestamp) <= 8 * 3600 * 1000:
-            return rates[0]
-
         return None

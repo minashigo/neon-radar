@@ -435,8 +435,8 @@ async def test_multi_asset_shared_portfolio(mock_pipeline):
     base_time = 1_700_000_000_000
     tf_ms = 86400 * 1000
 
-    btc_c1 = make_candle(base_time, close=50000.0)
-    eth_c1 = make_candle(base_time, close=3000.0)
+    btc_c1 = make_candle(base_time, open_price=50000.0, high=51000.0, low=49000.0, close=50000.0)
+    eth_c1 = make_candle(base_time, open_price=3000.0, high=3100.0, low=2900.0, close=3000.0)
 
     exchange = MockExchangeClient(server_time=btc_c1.close_time + 1000)
     exchange.klines_db[("BTCUSDT", "1d")] = [btc_c1]
@@ -470,8 +470,8 @@ async def test_multi_asset_shared_portfolio(mock_pipeline):
     assert "ETHUSDT" in engine.execution_engine.pending_setups
 
     # Next cycle fills both
-    btc_c2 = make_candle(base_time + tf_ms, low=49000.0, high=51000.0, close=50000.0)
-    eth_c2 = make_candle(base_time + tf_ms, low=2900.0, high=3100.0, close=3000.0)
+    btc_c2 = make_candle(base_time + tf_ms, open_price=50000.0, low=49000.0, high=51000.0, close=50000.0)
+    eth_c2 = make_candle(base_time + tf_ms, open_price=3000.0, low=2900.0, high=3100.0, close=3000.0)
     exchange.server_time = btc_c2.close_time + 1000
     exchange.klines_db[("BTCUSDT", "1d")] = [btc_c1, btc_c2]
     exchange.klines_db[("ETHUSDT", "1d")] = [eth_c1, eth_c2]

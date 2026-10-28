@@ -1,0 +1,10 @@
+{
+  "btc_then_eth": {
+    "equity": 9900.0,
+    "eth_filled": false
+  },
+  "eth_then_btc": {
+    "equity": 9900.0,
+    "eth_filled": true
+  }
+}

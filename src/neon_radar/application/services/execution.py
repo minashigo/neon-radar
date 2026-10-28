@@ -165,22 +165,38 @@ class PaperExecutionEngine(ExecutionEngine):
         """Update portfolio state based on market movement and process exits."""
         symbol_str = str(symbol)
 
-        # 1. Update Portfolio with latest market price (using close price)
-        self.portfolio_engine.update_market_prices({symbol_str: candle.close})
+        # Opening prices precede fills; do not mark this symbol at its future close yet.
+        self.portfolio_engine.update_market_prices({symbol_str: candle.open})
 
-        # 2. Check Pending Setups for entry
+        # Resting buy limits may fill below their limit, sells above it, even if
+        # the candle never trades at the original limit after a gap.
         setup = self.pending_setups.get(symbol_str)
-        # Recheck current policy before converting a reservation into a fill.
-        # Other pending orders still consume budget; this order is counted once.
-        if (
-            setup is not None
-            and candle.low <= setup.entry <= candle.high
-            and not self._risk_allows(setup, exclude_symbol=symbol_str)
-        ):
-            logger.info("[PAPER ORDER CANCELLED] %s: risk changed before fill", symbol_str)
-            self.cancel_setup(symbol_str)
-            setup = None
-        if setup is not None and candle.low <= setup.entry <= candle.high:
+        intrabar_entry = False
+        fill_price = None
+        if setup is not None:
+            if setup.direction == Bias.BULLISH and candle.low <= setup.entry:
+                fill_price = min(setup.entry, candle.open)
+                intrabar_entry = candle.open > setup.entry
+            elif setup.direction == Bias.BEARISH and candle.high >= setup.entry:
+                fill_price = max(setup.entry, candle.open)
+                intrabar_entry = candle.open < setup.entry
+
+        if setup is not None and fill_price is not None:
+            reserved = self._order_position(setup)
+            setup = replace(
+                setup,
+                entry=fill_price,
+                position_size=reserved.quantity,
+                quote_size=reserved.quantity * fill_price,
+                risk_amount=abs(fill_price - setup.stop_loss) * reserved.quantity,
+                expected_reward=abs(setup.take_profit - fill_price) * reserved.quantity,
+            )
+            # Check actual fill notional/risk, not just the original reservation.
+            if not self._risk_allows(setup, exclude_symbol=symbol_str):
+                logger.info("[PAPER ORDER CANCELLED] %s: risk changed before fill", symbol_str)
+                self.cancel_setup(symbol_str)
+                setup = None
+        if setup is not None and fill_price is not None:
             try:
                 entry_exec_type = ExecutionType.MAKER
                 if getattr(setup, "quote_size", 0.0) > 0:
@@ -239,20 +255,32 @@ class PaperExecutionEngine(ExecutionEngine):
             exit_price = None
             reason = None
 
+            # An order that entered inside this candle did not exist at its open.
+            # For it, the pre-entry extreme cannot prove TP after entry. A close
+            # beyond TP does prove a post-entry crossing. SL remains conservative.
+            entered_intrabar = setup is not None and fill_price is not None and intrabar_entry
             if pos.direction == Bias.BULLISH:
-                if candle.low <= pos.stop_loss:
-                    exit_price = min(pos.stop_loss, candle.open)
-                    reason = "STOP_LOSS"
-                elif candle.high >= pos.take_profit:
-                    exit_price = max(pos.take_profit, candle.open)
-                    reason = "TAKE_PROFIT"
+                if not entered_intrabar and candle.open <= pos.stop_loss:
+                    exit_price, reason = candle.open, "STOP_LOSS"
+                elif not entered_intrabar and candle.open >= pos.take_profit:
+                    exit_price, reason = candle.open, "TAKE_PROFIT"
+                elif candle.low <= pos.stop_loss:
+                    exit_price, reason = pos.stop_loss, "STOP_LOSS"
+                elif candle.high >= pos.take_profit and (
+                    not entered_intrabar or candle.close >= pos.take_profit
+                ):
+                    exit_price, reason = pos.take_profit, "TAKE_PROFIT"
             else:
-                if candle.high >= pos.stop_loss:
-                    exit_price = max(pos.stop_loss, candle.open)
-                    reason = "STOP_LOSS"
-                elif candle.low <= pos.take_profit:
-                    exit_price = min(pos.take_profit, candle.open)
-                    reason = "TAKE_PROFIT"
+                if not entered_intrabar and candle.open >= pos.stop_loss:
+                    exit_price, reason = candle.open, "STOP_LOSS"
+                elif not entered_intrabar and candle.open <= pos.take_profit:
+                    exit_price, reason = candle.open, "TAKE_PROFIT"
+                elif candle.high >= pos.stop_loss:
+                    exit_price, reason = pos.stop_loss, "STOP_LOSS"
+                elif candle.low <= pos.take_profit and (
+                    not entered_intrabar or candle.close <= pos.take_profit
+                ):
+                    exit_price, reason = pos.take_profit, "TAKE_PROFIT"
 
             if exit_price is not None:
                 exit_exec_type = (
@@ -296,3 +324,6 @@ class PaperExecutionEngine(ExecutionEngine):
                     execution_summary=summary,
                     reason=reason,
                 )
+
+        # Include unrealized PnL of new fills, after all execution decisions.
+        self.portfolio_engine.update_market_prices({symbol_str: candle.close})

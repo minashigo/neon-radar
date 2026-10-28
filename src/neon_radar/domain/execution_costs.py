@@ -5,7 +5,6 @@ Provides independent components (FeeModel, SlippageModel, FundingModel) and a un
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol
 
@@ -114,9 +113,16 @@ class BinanceFundingModel:
         exit_time: int,
         provider: HistoricalFundingProvider,
     ) -> float:
-        """Accumulates fractional funding rates over 8h boundaries between entry and exit."""
+        """Accumulate scheduled 8h settlements in (entry_time, exit_time].
+
+        Deterministic simulation convention: settlement precedes new entries at
+        an identical timestamp. Actual exchange processing has timing uncertainty;
+        this convention is not a claim about fills at the settlement instant.
+        """
+        if exit_time <= entry_time:
+            return 0.0
         eight_hours_ms = 8 * 60 * 60 * 1000
-        next_boundary = math.ceil(entry_time / eight_hours_ms) * eight_hours_ms
+        next_boundary = (entry_time // eight_hours_ms + 1) * eight_hours_ms
 
         cost_pct = 0.0
         current_time = next_boundary

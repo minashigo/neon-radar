@@ -1,0 +1,24 @@
+{
+  "previous": {
+    "closed_trades": 114,
+    "net_closed": 1521.0346712140715,
+    "net_profit_factor": 1.2691375415906865,
+    "max_drawdown_pct": 12.352751661926389,
+    "max_open_positions": 3,
+    "open_limit_events": 0,
+    "fees": 155.5105949211089,
+    "slippage": 71.6145594817081,
+    "funding": 26.861110444656216
+  },
+  "audited": {
+    "closed_trades": 113,
+    "net_closed": 1604.1590039782527,
+    "net_profit_factor": 1.2653697183076182,
+    "max_drawdown_pct": 10.949184896476009,
+    "max_open_positions": 3,
+    "open_limit_events": 0,
+    "fees": 167.25037465018772,
+    "slippage": 76.73159010748826,
+    "funding": 24.447304276333576
+  }
+}
