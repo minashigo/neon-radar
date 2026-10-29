@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import StrEnum
+from math import isfinite
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -71,7 +72,20 @@ class OpenPosition:
     signal_time: int | None = None
     htf_regime: str | None = None
 
+    funding_paid: float = 0.0
+    funding_processed_until: int | None = None
+
     def __post_init__(self) -> None:
+        if not isfinite(self.funding_paid):
+            raise ValueError("funding_paid must be finite")
+        if self.funding_processed_until is not None and (
+            not isinstance(self.funding_processed_until, int)
+            or isinstance(self.funding_processed_until, bool)
+            or self.funding_processed_until <= self.opened_at
+        ):
+            raise ValueError("Funding cursor must be an integer after entry")
+        if self.funding_paid != 0 and self.funding_processed_until is None:
+            raise ValueError("Paid funding requires a settlement cursor")
         if self.entry_price <= 0:
             raise ValueError("entry_price must be > 0")
         if self.quantity <= 0:

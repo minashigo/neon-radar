@@ -6,10 +6,12 @@ It handles opening/closing positions, updating market prices, and applying domai
 
 from collections.abc import Callable
 from dataclasses import replace
+from math import isfinite
 
 from neon_radar.domain.enums import Bias
-from neon_radar.domain.events import PositionClosed, PositionOpened
+from neon_radar.domain.events import FundingSettled, PositionClosed, PositionOpened
 from neon_radar.domain.execution_costs import ExecutionCostSummary
+from neon_radar.domain.funding import FundingSettlement
 from neon_radar.domain.portfolio import (
     AccountState,
     ClosedPosition,
@@ -52,10 +54,93 @@ class PortfolioEngine:
         self._state = PortfolioState(
             account=account,
             positions=positions,
-            statistics=statistics or self._state.statistics,
+            statistics=statistics or self._restored_statistics(positions, history),
             timestamp=timestamp,
         )
         self._history = list(history)
+
+    @staticmethod
+    def _restored_statistics(
+        positions: tuple[OpenPosition, ...], history: tuple[ClosedPosition, ...]
+    ) -> PortfolioStatistics:
+        """Reconstruct legacy snapshots; funding on still-open positions is already cash."""
+        return PortfolioStatistics(
+            total_trades=len(history),
+            winning_trades=sum(p.net_pnl > 0 for p in history),
+            losing_trades=sum(p.net_pnl <= 0 for p in history),
+            gross_profit=sum(max(0, p.gross_pnl) for p in history),
+            gross_loss=sum(max(0, -p.gross_pnl) for p in history),
+            total_fees=sum(
+                p.execution_summary.entry_fee + p.execution_summary.exit_fee for p in history
+            ),
+            total_slippage=sum(p.execution_summary.slippage_cost for p in history),
+            total_funding=sum(p.execution_summary.funding_cost for p in history)
+            + sum(p.funding_paid for p in positions),
+        )
+
+    def apply_funding_settlements(self, events: tuple[FundingSettlement, ...]) -> float:
+        """Atomically debit/credit one timestamp, netting simultaneous assets.
+
+        No margin borrowing/liquidation is invented: an unrepresentable negative
+        free balance or equity raises before mutation. Same-event retries are no-ops.
+        """
+        if not events:
+            return 0.0
+        timestamp = events[0].timestamp
+        if any(e.timestamp != timestamp for e in events) or len({e.symbol for e in events}) != len(
+            events
+        ):
+            raise ValueError("Funding group requires one timestamp and unique symbols")
+        positions = {p.symbol: p for p in self._state.positions}
+        updates = {}
+        applied = []
+        total = 0.0
+        for event in events:
+            pos = positions.get(event.symbol)
+            if pos is None:
+                raise ValueError("Cannot settle funding for a missing position")
+            if event.timestamp <= pos.opened_at:
+                raise ValueError("Settlement must follow position entry")
+            if (
+                pos.funding_processed_until is not None
+                and event.timestamp <= pos.funding_processed_until
+            ):
+                continue
+            if pos.direction not in (Bias.BULLISH, Bias.BEARISH):
+                raise ValueError("Funding requires a directional position")
+            cost = (
+                pos.quantity
+                * event.mark_price
+                * event.rate
+                * (1 if pos.direction == Bias.BULLISH else -1)
+            )
+            if not isfinite(cost):
+                raise ValueError("Funding cash flow must be finite")
+            total += cost
+            updates[pos.symbol] = replace(
+                pos, funding_paid=pos.funding_paid + cost, funding_processed_until=timestamp
+            )
+            applied.append(event)
+        if not applied:
+            return 0.0
+        free = self._state.account.free_capital - total
+        equity = self._state.account.total_capital - total
+        if not isfinite(total) or free < 0 or equity < 0:
+            raise ValueError(
+                "Funding exceeds representable cash/equity; margin insolvency is not modeled"
+            )
+        account = replace(self._state.account, total_capital=equity, free_capital=free)
+        self._state = replace(
+            self._state,
+            account=account,
+            positions=tuple(updates.get(p.symbol, p) for p in self._state.positions),
+            statistics=replace(
+                self._state.statistics, total_funding=self._state.statistics.total_funding + total
+            ),
+            timestamp=timestamp,
+        )
+        self._publish(FundingSettled(timestamp, tuple(applied), total))
+        return total
 
     def _publish(self, event) -> None:
         for cb in self._subscribers:
@@ -139,6 +224,12 @@ class PortfolioEngine:
         if not target_pos:
             return None
 
+        if (
+            target_pos.funding_processed_until is not None
+            and closed_at < target_pos.funding_processed_until
+        ):
+            raise ValueError("Cannot close before already booked funding")
+
         closed = ClosedPosition(
             symbol=target_pos.symbol,
             direction=target_pos.direction,
@@ -174,11 +265,16 @@ class PortfolioEngine:
 
         total_fees = stats.total_fees + execution_summary.entry_fee + execution_summary.exit_fee
         total_slippage = stats.total_slippage + execution_summary.slippage_cost
-        total_funding = stats.total_funding + execution_summary.funding_cost
+        total_funding = (
+            stats.total_funding + execution_summary.funding_cost - target_pos.funding_paid
+        )
 
-        # Balance = old free capital + position margin + net PnL
+        # Net PnL includes all funding; add back the amount already booked in cash.
         new_free = (
-            self._state.account.free_capital + target_pos.position_size + execution_summary.net_pnl
+            self._state.account.free_capital
+            + target_pos.position_size
+            + execution_summary.net_pnl
+            + target_pos.funding_paid
         )
         # Recompute total capital based on remaining positions
         total_unrealized = sum(p.unrealized_pnl for p in remaining_positions)

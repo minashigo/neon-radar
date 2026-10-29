@@ -12,7 +12,12 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from neon_radar.domain.enums import Bias
     from neon_radar.domain.models import Symbol
-    from neon_radar.domain.portfolio import AccountState, ClosedPosition, OpenPosition
+    from neon_radar.domain.portfolio import (
+        AccountState,
+        ClosedPosition,
+        OpenPosition,
+        PortfolioStatistics,
+    )
     from neon_radar.domain.risk import DrawdownState, RiskDecision
     from neon_radar.domain.trading.backtest import TradeDiagnostics
     from neon_radar.domain.trading.setup import FinalTradeSetup
@@ -69,3 +74,6 @@ class PaperTradingState:
     completed_trades: tuple[ClosedPosition, ...]
     updated_at: int
     pending_setup_timestamps: dict[str, int] = field(default_factory=dict)
+    funding_mode: str = "legacy"
+    funding_halt_reason: str | None = None
+    statistics: PortfolioStatistics | None = None

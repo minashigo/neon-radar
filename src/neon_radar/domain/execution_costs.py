@@ -171,8 +171,9 @@ class SettlementFundingModel:
 
     The (entry, exit] convention is shared with the legacy simulator. It is a
     deterministic boundary policy, not a claim about exchange event ordering.
-    Funding is booked when the position closes; this does not model settlement-time
-    cash flows, maintenance margin, liquidation or changing position quantities.
+    This method computes a total cost; the execution/portfolio services control
+    when cash is booked. It does not model maintenance margin, liquidation or
+    changing position quantities.
     """
 
     def calculate_funding_cost(

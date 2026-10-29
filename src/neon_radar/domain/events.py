@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from neon_radar.domain.funding import FundingSettlement
     from neon_radar.domain.portfolio import ClosedPosition, OpenPosition
 
 
@@ -54,3 +55,11 @@ class DrawdownPenaltyActivated(DomainEvent):
 
     current_drawdown: float
     max_allowed: float
+
+
+@dataclass(slots=True, frozen=True)
+class FundingSettled(DomainEvent):
+    """One atomic group of simultaneous funding cash flows; positive cost is a debit."""
+
+    settlements: tuple[FundingSettlement, ...]
+    cost: float

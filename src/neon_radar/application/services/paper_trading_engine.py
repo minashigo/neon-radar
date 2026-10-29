@@ -322,6 +322,23 @@ class ForwardPaperTradingEngine:
 
     def process_live_tick(self, symbol: Symbol, price: float, timestamp: int) -> None:
         """Processes real-time market ticks for mark-to-market updates and immediate SL/TP exits."""
+        if self.execution_engine.funding_mode == "settlements":
+            # Every point tick processes cash flows, including positions that
+            # neither fill nor exit. Shared funding settles before any new entry.
+            self.execution_engine.process_market_batch(
+                {
+                    symbol: OHLCV(
+                        open_time=timestamp,
+                        open=price,
+                        high=price,
+                        low=price,
+                        close=price,
+                        volume=0,
+                    )
+                },
+                on_equity_update=self.drawdown_monitor.update,
+            )
+            return
         symbol_str = str(symbol)
 
         # Update mark-to-market price
@@ -406,6 +423,9 @@ class ForwardPaperTradingEngine:
             completed_trades=self.portfolio_engine.history,
             updated_at=ts,
             pending_setup_timestamps=dict(self.execution_engine.pending_setup_timestamps),
+            funding_mode=self.execution_engine.funding_mode,
+            funding_halt_reason=self.execution_engine.funding_halt_reason,
+            statistics=self.portfolio_engine.state.statistics,
         )
         self.state_store.save(state)
 
@@ -418,11 +438,21 @@ class ForwardPaperTradingEngine:
         if saved is None:
             return False
 
+        if saved.funding_mode != self.execution_engine.funding_mode:
+            raise ValueError(
+                "Saved funding mode differs from execution model; explicit migration is required"
+            )
+        if saved.funding_mode == "legacy" and any(
+            p.funding_processed_until is not None for p in saved.open_positions
+        ):
+            raise ValueError("Legacy snapshot contains settlement cash flows")
+        self.execution_engine.funding_halt_reason = saved.funding_halt_reason
         # Restore PortfolioEngine
         self.portfolio_engine.restore_state(
             account=saved.account,
             positions=saved.open_positions,
             history=saved.completed_trades,
+            statistics=saved.statistics,
             timestamp=saved.updated_at,
         )
 
@@ -450,7 +480,7 @@ class ForwardPaperTradingEngine:
     # ------------------------------------------------------------------
 
     def _on_portfolio_event(self, event: Any) -> None:
-        from neon_radar.domain.events import PositionClosed, PositionOpened
+        from neon_radar.domain.events import FundingSettled, PositionClosed, PositionOpened
 
         if isinstance(event, PositionOpened):
             logger.info(
@@ -471,3 +501,10 @@ class ForwardPaperTradingEngine:
             )
             if self.on_trade_close:
                 self.on_trade_close(p)
+        elif isinstance(event, FundingSettled):
+            logger.info(
+                "[PAPER FUNDING] timestamp=%s cost=%s equity=%s",
+                event.timestamp,
+                event.cost,
+                self.portfolio_engine.state.account.total_capital,
+            )

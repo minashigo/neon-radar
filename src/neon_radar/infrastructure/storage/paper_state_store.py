@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +19,7 @@ from neon_radar.domain.portfolio import (
     AccountState,
     ClosedPosition,
     OpenPosition,
+    PortfolioStatistics,
     PositionCloseReason,
 )
 from neon_radar.domain.risk import DrawdownState, RiskDecision
@@ -41,7 +43,9 @@ def _serialize_diagnostics(d: TradeDiagnostics | None) -> dict[str, Any] | None:
         "confidence": d.confidence,
         "final_score": d.final_score,
         "triggered_rules": d.triggered_rules,
-        "entry_reason": str(d.entry_reason.value if hasattr(d.entry_reason, "value") else d.entry_reason),
+        "entry_reason": str(
+            d.entry_reason.value if hasattr(d.entry_reason, "value") else d.entry_reason
+        ),
         "regime": d.regime,
         "regime_reason": d.regime_reason,
     }
@@ -135,6 +139,8 @@ def _serialize_open_position(pos: OpenPosition) -> dict[str, Any]:
         "stop_loss": pos.stop_loss,
         "take_profit": pos.take_profit,
         "opened_at": pos.opened_at,
+        "funding_paid": pos.funding_paid,
+        "funding_processed_until": pos.funding_processed_until,
         "capital_at_entry": pos.capital_at_entry,
         "unrealized_pnl": pos.unrealized_pnl,
         "entry_fee": pos.entry_fee,
@@ -157,6 +163,8 @@ def _deserialize_open_position(d: dict[str, Any]) -> OpenPosition:
         stop_loss=float(d["stop_loss"]),
         take_profit=float(d["take_profit"]),
         opened_at=int(d["opened_at"]),
+        funding_paid=float(d.get("funding_paid", 0.0)),
+        funding_processed_until=d.get("funding_processed_until"),
         capital_at_entry=float(d.get("capital_at_entry", 0.0)),
         unrealized_pnl=float(d.get("unrealized_pnl", 0.0)),
         entry_fee=float(d.get("entry_fee", 0.0)),
@@ -179,7 +187,9 @@ def _serialize_closed_position(pos: ClosedPosition) -> dict[str, Any]:
         "quantity": pos.quantity,
         "entry_time": pos.entry_time,
         "exit_time": pos.exit_time,
-        "close_reason": str(pos.close_reason.value if hasattr(pos.close_reason, "value") else pos.close_reason),
+        "close_reason": str(
+            pos.close_reason.value if hasattr(pos.close_reason, "value") else pos.close_reason
+        ),
         "stop_loss": pos.stop_loss,
         "take_profit": pos.take_profit,
         "initial_risk": pos.initial_risk,
@@ -240,7 +250,10 @@ class JsonPaperStateStore:
         tmp_path = self.file_path.with_suffix(".tmp")
 
         payload: dict[str, Any] = {
-            "version": 1,
+            "version": 2,
+            "funding_mode": state.funding_mode,
+            "funding_halt_reason": state.funding_halt_reason,
+            "statistics": asdict(state.statistics) if state.statistics is not None else None,
             "updated_at": state.updated_at,
             "account": {
                 "total_capital": state.account.total_capital,
@@ -290,12 +303,18 @@ class JsonPaperStateStore:
                 timestamp=int(dd_data.get("timestamp", 0)),
             )
 
-            open_positions = tuple(_deserialize_open_position(p) for p in data.get("open_positions", []))
+            open_positions = tuple(
+                _deserialize_open_position(p) for p in data.get("open_positions", [])
+            )
             pending_setups = {
                 sym: _deserialize_setup(s) for sym, s in data.get("pending_setups", {}).items()
             }
-            last_processed = {str(k): int(v) for k, v in data.get("last_processed_candles", {}).items()}
-            completed = tuple(_deserialize_closed_position(p) for p in data.get("completed_trades", []))
+            last_processed = {
+                str(k): int(v) for k, v in data.get("last_processed_candles", {}).items()
+            }
+            completed = tuple(
+                _deserialize_closed_position(p) for p in data.get("completed_trades", [])
+            )
 
             return PaperTradingState(
                 account=account,
@@ -305,10 +324,17 @@ class JsonPaperStateStore:
                 last_processed_candles=last_processed,
                 completed_trades=completed,
                 updated_at=int(data.get("updated_at", 0)),
+                funding_mode=str(data.get("funding_mode", "legacy")),
+                funding_halt_reason=data.get("funding_halt_reason"),
+                statistics=PortfolioStatistics(**data["statistics"])
+                if data.get("statistics") is not None
+                else None,
                 pending_setup_timestamps={
-                    sym: int(data.get("pending_setup_timestamps", {}).get(
-                        sym, last_processed.get(sym, data.get("updated_at", 0))
-                    ))
+                    sym: int(
+                        data.get("pending_setup_timestamps", {}).get(
+                            sym, last_processed.get(sym, data.get("updated_at", 0))
+                        )
+                    )
                     for sym in pending_setups
                 },
             )

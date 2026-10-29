@@ -19,6 +19,7 @@ from neon_radar.domain.execution_costs import (
     FeeModel,
     FixedSlippageModel,
     FundingModel,
+    SettlementFundingModel,
     SlippageModel,
 )
 from neon_radar.domain.portfolio import OpenPosition
@@ -31,6 +32,7 @@ if TYPE_CHECKING:
     from neon_radar.application.services.portfolio_engine import PortfolioEngine
     from neon_radar.application.services.risk.manager import RiskManager
     from neon_radar.application.services.trade_backtester import HistoricalFundingProvider
+    from neon_radar.domain.funding import FundingSettlement
     from neon_radar.domain.models import OHLCV, Symbol
     from neon_radar.domain.portfolio import PortfolioState
     from neon_radar.domain.risk import DrawdownState
@@ -83,6 +85,7 @@ class PaperExecutionEngine(ExecutionEngine):
         self.slippage_model = slippage_model or FixedSlippageModel()
         self.funding_model = funding_model or BinanceFundingModel()
         self.funding_provider = funding_provider
+        self.funding_halt_reason: str | None = None
         self.risk_manager = risk_manager
         self.drawdown_provider = drawdown_provider
         # Dictionary of pending setups that are waiting for an entry trigger
@@ -164,6 +167,7 @@ class PaperExecutionEngine(ExecutionEngine):
         For Neon Radar, setups are usually hit on the *next* candle. We will just
         store it as pending.
         """
+        self._ensure_funding_active()
         symbol_str = str(setup.symbol)
         if symbol_str in self.pending_setups or not self._risk_allows(setup):
             logger.info("[PAPER ORDER REJECTED] %s: risk budget or duplicate order", symbol_str)
@@ -279,11 +283,89 @@ class PaperExecutionEngine(ExecutionEngine):
                 return position.take_profit, "TAKE_PROFIT"
         return None
 
+    def _ensure_funding_active(self) -> None:
+        if self.funding_halt_reason is not None:
+            raise ValueError(f"Funding accounting halted: {self.funding_halt_reason}")
+
+    @property
+    def funding_mode(self) -> str:
+        return "settlements" if isinstance(self.funding_model, SettlementFundingModel) else "legacy"
+
+    def _funding_schedule(
+        self, timestamp: int, *, positions: tuple[OpenPosition, ...] | None = None
+    ) -> tuple[FundingSettlement, ...]:
+        if self.funding_mode != "settlements":
+            if any(
+                p.funding_processed_until is not None for p in self.portfolio_engine.state.positions
+            ):
+                raise ValueError("Cannot switch funded positions to legacy accounting")
+            return ()
+        if self.funding_provider is None:
+            raise ValueError("Settlement cash flows require a funding event provider")
+        events = []
+        for position in self.portfolio_engine.state.positions if positions is None else positions:
+            start = (
+                position.funding_processed_until
+                if position.funding_processed_until is not None
+                else position.opened_at
+            )
+            if timestamp <= start:
+                continue
+            series = self.funding_provider.get_funding_events(position.symbol, start, timestamp)
+            previous = start
+            for event in series:
+                if event.symbol != position.symbol or not previous < event.timestamp <= timestamp:
+                    raise ValueError(
+                        "Funding events must match symbol and be strictly ordered in range"
+                    )
+                previous = event.timestamp
+            events.extend(series)
+        return tuple(sorted(events, key=lambda e: (e.timestamp, str(e.symbol))))
+
+    def settle_funding(
+        self, timestamp: int, *, on_equity_update: Callable[[float, int], object] | None = None
+    ) -> float:
+        """Apply complete funding history up to timestamp before later trade decisions.
+
+        All histories are validated before the first mutation. Event groups use
+        last observed trading prices for equity; settlement marks price the cash
+        flow only. No future candle close is used to value earlier funding.
+        """
+        from itertools import groupby
+
+        self._ensure_funding_active()
+        schedule = self._funding_schedule(timestamp)
+        total = 0.0
+        for event_time, events in groupby(schedule, key=lambda event: event.timestamp):
+            try:
+                total += self.portfolio_engine.apply_funding_settlements(tuple(events))
+            except ValueError as exc:
+                # A later group can fail after earlier cash/trade events. Freeze
+                # this session rather than replaying past decisions on partial state.
+                self.funding_halt_reason = str(exc)
+                raise
+            if on_equity_update is not None:
+                on_equity_update(self.portfolio_engine.state.account.total_capital, event_time)
+        return total
+
     def _close_at(self, position: OpenPosition, price: float, reason: str, timestamp: int) -> None:
         exit_type = ExecutionType.TAKER if reason == "STOP_LOSS" else ExecutionType.MAKER
         notional = position.quantity * price
         funding = 0.0
-        if self.funding_provider is not None:
+        if self.funding_mode == "settlements":
+            if (
+                position.funding_processed_until is not None
+                and timestamp < position.funding_processed_until
+            ):
+                raise ValueError("Cannot close before already booked funding")
+            self.settle_funding(timestamp)
+            position = next(
+                p for p in self.portfolio_engine.state.positions if p.symbol == position.symbol
+            )
+            funding = position.funding_paid
+        elif position.funding_processed_until is not None:
+            raise ValueError("Cannot close funded positions with legacy accounting")
+        elif self.funding_provider is not None:
             funding = self.funding_model.calculate_funding_cost(
                 notional,
                 position.symbol,
@@ -329,6 +411,7 @@ class PaperExecutionEngine(ExecutionEngine):
         symbol priority is an allocation policy, not a reconstruction of tick order.
         Returns all fills, including positions closed within the same batch.
         """
+        self._ensure_funding_active()
         if not candles:
             return ()
         if len({c.open_time for c in candles.values()}) != 1:
@@ -343,8 +426,43 @@ class PaperExecutionEngine(ExecutionEngine):
             if on_equity_update is not None:
                 on_equity_update(self.portfolio_engine.state.account.total_capital, timestamp)
 
-        # All prices in each snapshot belong to one common point in time.
+        if self.funding_mode == "settlements":
+            if any(
+                p.funding_processed_until is not None
+                and p.funding_processed_until > first.open_time
+                for p in self.portfolio_engine.state.positions
+            ):
+                raise ValueError(
+                    "Candle starts before already booked funding; cannot replay past decisions"
+                )
+            for position in self.portfolio_engine.state.positions:
+                candle = candles.get(position.symbol)
+                exits_at_open = candle is not None and (
+                    self._opening_exit(position, candle) is not None
+                    or self._intrabar_exit(position, candle, False) is not None
+                )
+                self._funding_schedule(
+                    first.open_time if exits_at_open else closing_time, positions=(position,)
+                )
+            if self.funding_provider is None:
+                raise ValueError("Settlement cash flows require a funding event provider")
+            for setup in self.pending_setups.values():
+                # Validate even potential entries before portfolio/order mutation.
+                if setup.symbol in candles:
+                    self.funding_model.calculate_funding_cost(
+                        setup.quote_size,
+                        setup.symbol,
+                        setup.direction,
+                        first.open_time,
+                        closing_time,
+                        self.funding_provider,
+                        quantity=self._order_position(setup).quantity,
+                    )
+        # Catch-up events precede the new O snapshot. Events exactly at O use
+        # O prices, before gap exits/entries; do not emit an artificial pre-debit peak.
+        self.settle_funding(first.open_time - 1, on_equity_update=on_equity_update)
         self.portfolio_engine.update_market_prices({str(s): candles[s].open for s in symbols})
+        self.settle_funding(first.open_time, on_equity_update=on_equity_update)
         observe(first.open_time)
         for symbol in symbols:
             for position in tuple(self.portfolio_engine.state.positions):
@@ -387,6 +505,9 @@ class PaperExecutionEngine(ExecutionEngine):
                     )
                     if exit_info is not None:
                         self._close_at(position, *exit_info, first.open_time)
+        # Existing OHLC exits are timestamped at O. Under that convention only
+        # survivors pay interior settlements; later credits cannot fund O entries.
+        self.settle_funding(closing_time, on_equity_update=on_equity_update)
         self.portfolio_engine.update_market_prices({str(s): candles[s].close for s in symbols})
         observe(closing_time)
         return tuple(fills)
