@@ -291,6 +291,7 @@ class PaperExecutionEngine(ExecutionEngine):
                 position.opened_at,
                 timestamp,
                 self.funding_provider,
+                quantity=position.quantity,
             )
         direction = 1 if position.direction == Bias.BULLISH else -1
         summary = ExecutionCostSummary(

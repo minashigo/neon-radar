@@ -6,12 +6,14 @@ Provides independent components (FeeModel, SlippageModel, FundingModel) and a un
 from __future__ import annotations
 
 from dataclasses import dataclass
+from math import isfinite
 from typing import TYPE_CHECKING, Protocol
 
-from neon_radar.domain.enums import Bias  # noqa: TC001
+from neon_radar.domain.enums import Bias
 
 if TYPE_CHECKING:
     from neon_radar.application.services.trade_backtester import HistoricalFundingProvider
+    from neon_radar.domain.funding import FundingSettlementProvider
     from neon_radar.domain.models import Symbol
     from neon_radar.domain.trading.execution import ExecutionType
 
@@ -99,11 +101,17 @@ class FundingModel(Protocol):
         entry_time: int,
         exit_time: int,
         provider: HistoricalFundingProvider,
+        *,
+        quantity: float | None = None,
     ) -> float: ...
 
 
 class BinanceFundingModel:
-    """Calculates funding costs using the exact 8h funding rate intervals."""
+    """Legacy approximation: regular 8h rates multiplied by a constant notional.
+
+    Retained for reproducibility. Use SettlementFundingModel for event prices
+    and variable intervals; this class does not reconstruct those details.
+    """
 
     def calculate_funding_cost_pct(
         self,
@@ -145,8 +153,10 @@ class BinanceFundingModel:
         entry_time: int,
         exit_time: int,
         provider: HistoricalFundingProvider,
+        *,
+        quantity: float | None = None,
     ) -> float:
-        """Accumulates funding rates as absolute quote value."""
+        """Legacy constant-notional estimate; quantity is accepted for interface compatibility."""
         return notional_value * self.calculate_funding_cost_pct(
             symbol=symbol,
             direction=direction,
@@ -154,3 +164,46 @@ class BinanceFundingModel:
             exit_time=exit_time,
             provider=provider,
         )
+
+
+class SettlementFundingModel:
+    """Sum signed base quantity * event mark price * event rate.
+
+    The (entry, exit] convention is shared with the legacy simulator. It is a
+    deterministic boundary policy, not a claim about exchange event ordering.
+    Funding is booked when the position closes; this does not model settlement-time
+    cash flows, maintenance margin, liquidation or changing position quantities.
+    """
+
+    def calculate_funding_cost(
+        self,
+        notional_value: float,
+        symbol: Symbol,
+        direction: Bias,
+        entry_time: int,
+        exit_time: int,
+        provider: FundingSettlementProvider,
+        *,
+        quantity: float | None = None,
+    ) -> float:
+        # notional_value is retained for the shared cost-model interface. It must
+        # never substitute for mark_price or be used to infer base quantity.
+        if quantity is None or not isfinite(quantity) or quantity <= 0:
+            raise ValueError("Settlement funding requires a finite positive base quantity")
+        if direction not in (Bias.BULLISH, Bias.BEARISH):
+            raise ValueError("Settlement funding requires a long or short direction")
+        if exit_time < entry_time:
+            raise ValueError("Funding exit precedes entry")
+        if exit_time == entry_time:
+            return 0.0
+        events = provider.get_funding_events(symbol, entry_time, exit_time)
+        cost = 0.0
+        previous_time = entry_time
+        for event in events:
+            if event.symbol != symbol or not previous_time < event.timestamp <= exit_time:
+                raise ValueError(
+                    "Funding events must match symbol and be strictly ordered in (entry, exit]"
+                )
+            cost += quantity * event.mark_price * event.rate
+            previous_time = event.timestamp
+        return cost if direction == Bias.BULLISH else -cost

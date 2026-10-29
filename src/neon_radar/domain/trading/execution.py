@@ -105,7 +105,7 @@ class FundingModel(Protocol):
 
 
 class BinanceFundingModel:
-    """Calculates funding costs using the exact 8h funding rate intervals."""
+    """Legacy 8h rate-sum estimate; does not use event-specific mark prices."""
 
     def __init__(self) -> None:
         self._canonical = _CanonicalFundingModel()

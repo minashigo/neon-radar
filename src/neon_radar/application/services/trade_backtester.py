@@ -33,7 +33,7 @@ if TYPE_CHECKING:
         MarketContextHistoryService,
     )
     from neon_radar.config.models import ScoringRulesConfig, TimeFrame
-    from neon_radar.domain.funding import FundingRate
+    from neon_radar.domain.funding import FundingRate, FundingSettlement
     from neon_radar.domain.market_context import HistoricalMarketContext
     from neon_radar.domain.scoring.factor_rule import FactorRule
     from neon_radar.infrastructure.storage.intelligence_store import HistoricalIntelligenceStore
@@ -48,6 +48,12 @@ class HistoricalFundingProvider(Protocol):
 
     def get_funding_rate_at(self, symbol: Symbol, timestamp: int) -> FundingRate | None:
         """Return the effective funding rate for the given timestamp."""
+        ...
+
+    def get_funding_events(
+        self, symbol: Symbol, entry_time: int, exit_time: int
+    ) -> tuple[FundingSettlement, ...]:
+        """Return complete settlement events in (entry, exit], or raise."""
         ...
 
 
@@ -196,8 +202,7 @@ class TradeBacktester:
         )
         fetch_end = int(fetch_end_dt.timestamp() * 1000)
         start_ms = int(
-            datetime.combine(start_date, datetime.min.time(), tzinfo=UTC).timestamp()
-            * 1000
+            datetime.combine(start_date, datetime.min.time(), tzinfo=UTC).timestamp() * 1000
         )
         limit = 1500
 
@@ -269,9 +274,7 @@ class TradeBacktester:
 
                     current_end = earliest_open_time - 1
 
-                sorted_candles = tuple(
-                    sorted(all_candles_map.values(), key=lambda c: c.open_time)
-                )
+                sorted_candles = tuple(sorted(all_candles_map.values(), key=lambda c: c.open_time))
                 self._series_cache[key] = KlineSeries(
                     symbol=symbol, timeframe=current_tf, candles=sorted_candles
                 )
@@ -378,7 +381,9 @@ class TradeBacktester:
                 )
 
                 # Slice to point-in-time
-                sliced_mi = HistoricalIntelligenceContext(timestamp=current_time, series_map=self._raw_mi_map)
+                sliced_mi = HistoricalIntelligenceContext(
+                    timestamp=current_time, series_map=self._raw_mi_map
+                )
 
                 fng_series = sliced_mi.series_map.get("fear_and_greed")
                 dvol_series = sliced_mi.series_map.get("dvol")
@@ -388,22 +393,33 @@ class TradeBacktester:
                     from neon_radar.application.intelligence.normalizer import (
                         IntelligenceNormalizer,
                     )
+
                     features["fng_value"] = IntelligenceNormalizer.extract_raw_value(fng_series)
-                    features["fng_z_score_30d"] = IntelligenceNormalizer.calculate_rolling_z_score(fng_series, 30)
-                    features["fng_percentile_30d"] = IntelligenceNormalizer.calculate_percentile(fng_series, 30)
+                    features["fng_z_score_30d"] = IntelligenceNormalizer.calculate_rolling_z_score(
+                        fng_series, 30
+                    )
+                    features["fng_percentile_30d"] = IntelligenceNormalizer.calculate_percentile(
+                        fng_series, 30
+                    )
 
                 if dvol_series is not None and not dvol_series.is_empty:
                     from neon_radar.application.intelligence.normalizer import (
                         IntelligenceNormalizer,
                     )
+
                     features["dvol_value"] = IntelligenceNormalizer.extract_raw_value(dvol_series)
-                    features["dvol_z_score_30d"] = IntelligenceNormalizer.calculate_rolling_z_score(dvol_series, 30)
-                    features["dvol_percentile_30d"] = IntelligenceNormalizer.calculate_percentile(dvol_series, 30)
+                    features["dvol_z_score_30d"] = IntelligenceNormalizer.calculate_rolling_z_score(
+                        dvol_series, 30
+                    )
+                    features["dvol_percentile_30d"] = IntelligenceNormalizer.calculate_percentile(
+                        dvol_series, 30
+                    )
 
                 if features:
                     from neon_radar.domain.market_intelligence.features import (
                         MarketIntelligenceFeatures,
                     )
+
                     intelligence_features = MarketIntelligenceFeatures(**features)
 
             # 5. Evaluate pipeline

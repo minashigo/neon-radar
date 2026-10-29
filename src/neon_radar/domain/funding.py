@@ -23,6 +23,8 @@ Design notes
 from __future__ import annotations
 
 from dataclasses import dataclass
+from math import isfinite
+from typing import Protocol
 
 from neon_radar.domain.models import Symbol
 
@@ -105,3 +107,37 @@ class OpenInterest:
             raise ValueError(
                 f"OpenInterest.value_quote must be non-negative, got {self.value_quote}"
             )
+
+
+@dataclass(slots=True, frozen=True)
+class FundingSettlement:
+    """One historical settlement, with its actual time and associated mark price."""
+
+    symbol: Symbol
+    timestamp: int
+    rate: float
+    mark_price: float
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.symbol, Symbol):
+            object.__setattr__(self, "symbol", Symbol(self.symbol))
+        if (
+            not isinstance(self.timestamp, int)
+            or isinstance(self.timestamp, bool)
+            or self.timestamp < 0
+        ):
+            raise ValueError("Settlement timestamp must be non-negative integer milliseconds")
+        if not isfinite(self.rate):
+            raise ValueError("Settlement rate must be finite")
+        if not isfinite(self.mark_price) or self.mark_price <= 0:
+            raise ValueError("Settlement mark price must be finite and positive")
+
+
+class FundingSettlementProvider(Protocol):
+    """Complete event history, separate from last-known rates used by signals."""
+
+    def get_funding_events(
+        self, symbol: Symbol, entry_time: int, exit_time: int
+    ) -> tuple[FundingSettlement, ...]:
+        """Return each settlement in (entry_time, exit_time], or raise on unavailable history."""
+        ...
